@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getAccessToken, logoutUser } from './auth.js';
+import { getAccessToken, logoutUser, saveAuth } from './auth.js';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -8,6 +8,7 @@ const api = axios.create({
   },
 });
 
+// Attach access token to every request
 api.interceptors.request.use((config) => {
   const token = getAccessToken();
   if (token) {
@@ -16,15 +17,75 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Handle 401 — attempt token refresh before logging out
+let isRefreshing = false;
+let failedQueue = [];
+
+function processQueue(error, token = null) {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      logoutUser();
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const stored = JSON.parse(localStorage.getItem('telegram_counselling_auth'));
+        if (stored?.refresh) {
+          const response = await axios.post(
+            `${api.defaults.baseURL}/api/token/refresh/`,
+            { refresh: stored.refresh }
+          );
+          const newAccess = response.data.access;
+          const newRefresh = response.data.refresh || stored.refresh;
+
+          saveAuth({
+            ...stored,
+            access: newAccess,
+            refresh: newRefresh,
+          });
+
+          processQueue(null, newAccess);
+          originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        logoutUser();
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
+
     return Promise.reject(error);
-  },
+  }
 );
+
+// ─── API Helpers ───
 
 export async function login(payload) {
   const response = await api.post('/api/login/', payload);
@@ -56,8 +117,19 @@ export async function createCase(payload) {
   return response.data;
 }
 
-export async function fetchMessages() {
-  const response = await api.get('/api/messages/');
+export async function assignCase(caseId, adminId) {
+  const response = await api.post(`/api/cases/${caseId}/assign/`, { admin_id: adminId });
+  return response.data;
+}
+
+export async function closeCase(caseId) {
+  const response = await api.post(`/api/cases/${caseId}/close/`);
+  return response.data;
+}
+
+export async function fetchMessages(caseId) {
+  const url = caseId ? `/api/messages/?case=${caseId}` : '/api/messages/';
+  const response = await api.get(url);
   return response.data;
 }
 
@@ -66,22 +138,17 @@ export async function sendMessage(payload) {
   return response.data;
 }
 
+export async function fetchUsers() {
+  const response = await api.get('/api/users/');
+  return response.data;
+}
+
+export async function fetchAuditLogs() {
+  const response = await api.get('/api/audit-logs/');
+  return response.data;
+}
+
 export async function apiCall(endpoint, method = 'GET', data = null) {
-  try {
-    if (method === 'GET') {
-      const response = await api.get(endpoint);
-      return response.data;
-    } else if (method === 'POST') {
-      const response = await api.post(endpoint, data);
-      return response.data;
-    } else if (method === 'PUT') {
-      const response = await api.put(endpoint, data);
-      return response.data;
-    } else if (method === 'DELETE') {
-      const response = await api.delete(endpoint);
-      return response.data;
-    }
-  } catch (error) {
-    throw error;
-  }
+  const response = await api({ method, url: endpoint, data });
+  return response.data;
 }

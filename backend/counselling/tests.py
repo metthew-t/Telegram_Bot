@@ -94,7 +94,7 @@ class CounsellingAPITestCase(TestCase):
         )
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['content'], 'Hello there.')
-        self.assertEqual(response.data['sender']['id'], self.user.id)
+        self.assertEqual(response.data['sender']['label'], 'You')
 
     def test_telegram_login_registers_user(self):
         response = self.client.post(
@@ -104,7 +104,9 @@ class CounsellingAPITestCase(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('access', response.data)
-        self.assertEqual(response.data['user']['telegram_id'], '1234567890')
+        self.assertEqual(response.data['user']['username'], 'telegram_user')
+        # telegram_id is hidden for non-owner users in the serializer
+        self.assertNotIn('telegram_id', response.data['user'])
 
     def test_profile_endpoint(self):
         self.auth_client(self.user)

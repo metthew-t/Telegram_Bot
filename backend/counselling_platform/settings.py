@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env file if it exists
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,12 +26,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-pqi1((vu9lv+c4=g4s0zt)ksdee^1m0gcdnje#be#i6r^o)lhj"
+SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-pqi1((vu9lv+c4=g4s0zt)ksdee^1m0gcdnje#be#i6r^o)lhj")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+CSRF_TRUSTED_ORIGINS = os.environ.get("CSRF_TRUSTED_ORIGINS", "http://localhost:5173").split(",")
 
 
 # Application definition
@@ -43,6 +48,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "counselling",
 ]
@@ -92,11 +98,11 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'counselling_db',
-            'USER': 'counselling_user',
-            'PASSWORD': 'password',
-            'HOST': 'localhost',
-            'PORT': '5432',
+            'NAME': os.getenv('DATABASE_NAME', 'counselling_db'),
+            'USER': os.getenv('DATABASE_USER', 'counselling_user'),
+            'PASSWORD': os.getenv('DATABASE_PASSWORD', 'password'),
+            'HOST': os.getenv('DATABASE_HOST', 'localhost'),
+            'PORT': os.getenv('DATABASE_PORT', '5432'),
         }
     }
 
@@ -141,9 +147,15 @@ STATIC_URL = "static/"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # React dev server
     "http://127.0.0.1:3000",
-    "http://localhost:4173",  # Vite dev server
+    "http://localhost:4173",  # Vite preview server
     "http://127.0.0.1:4173",
+    "http://localhost:5173",  # Vite dev server
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "https://" + os.environ.get("GITHUB_PAGES_DOMAIN", "localhost"), # Dynamic for GitHub Pages
 ]
+CORS_ALLOW_ALL_ORIGINS = DEBUG # Allow all only in debug
 
 # REST Framework settings
 REST_FRAMEWORK = {

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Case, Message
+from .models import User, Case, Message, AuditLog
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):

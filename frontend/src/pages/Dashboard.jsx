@@ -13,8 +13,14 @@ export default function DashboardPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchCases();
-  }, []);
+    if (user?.role === 'owner') {
+      navigate('/owner');
+    } else if (user?.role === 'admin') {
+      navigate('/admin');
+    } else {
+      fetchCases();
+    }
+  }, [user, navigate]);
 
   const fetchCases = async () => {
     setLoading(true);

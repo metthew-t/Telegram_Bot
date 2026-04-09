@@ -1,4 +1,5 @@
 import os
+import requests
 
 from django.db.models import Q
 from django.contrib.auth import authenticate
@@ -8,29 +9,36 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from telegram import Bot
 
 from .models import User, Case, Message, AuditLog
 from .serializers import UserSerializer, CaseSerializer, MessageSerializer, AuditLogSerializer
 
 
-def get_telegram_bot():
-    token = os.getenv('TELEGRAM_BOT_TOKEN')
-    if not token:
-        return None
-    return Bot(token=token)
-
-
 def notify_case_user(case, text):
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    
+    if not token:
+        print("Backend Error: TELEGRAM_BOT_TOKEN not set in environment.")
+        return
+        
     if not case.user.telegram_id:
+        print(f"Backend Warning: Case #{case.id} user has no telegram_id.")
         return
-    bot = get_telegram_bot()
-    if not bot:
-        return
+    
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": case.user.telegram_id,
+        "text": text,
+    }
+    
     try:
-        bot.send_message(chat_id=case.user.telegram_id, text=text)
-    except Exception:
-        pass
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code != 200:
+            print(f"Telegram API Error: {response.status_code} - {response.text}")
+        else:
+            print(f"Notification sent successfully to telegram_id {case.user.telegram_id}")
+    except Exception as e:
+        print(f"Telegram Notification Exception: {str(e)}")
 
 
 class IsOwner(permissions.BasePermission):
@@ -59,6 +67,8 @@ class UserViewSet(viewsets.ModelViewSet):
             return [IsOwnerOrSelf()]
         if self.action == 'create':
             return [permissions.AllowAny()]
+        if self.action == 'destroy':
+            return [IsOwner()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
@@ -67,15 +77,22 @@ class UserViewSet(viewsets.ModelViewSet):
         return User.objects.filter(id=self.request.user.id)
 
     def perform_create(self, serializer):
+        # Admin self-registration defaults to 'admin'
+        # Owner can create any role (including owner)
         if self.request.user.is_authenticated and self.request.user.role == 'owner':
             serializer.save()
         else:
-            serializer.save(role='user')
+            serializer.save(role='admin')
 
 class CaseViewSet(viewsets.ModelViewSet):
     queryset = Case.objects.all()
     serializer_class = CaseSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in ['destroy', 'delete']:
+            return [IsOwner()]
+        return super().get_permissions()
 
     def get_queryset(self):
         user = self.request.user

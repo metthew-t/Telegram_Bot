@@ -16,7 +16,14 @@ export default function LoginPage({ onLogin }) {
       const data = await login({ username, password });
       saveAuth(data);
       onLogin(data.user);
-      navigate('/');
+
+      if (data.user.role === 'owner') {
+        navigate('/owner');
+      } else if (data.user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Unable to login.');
     }

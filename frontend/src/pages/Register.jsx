@@ -28,8 +28,8 @@ export default function RegisterPage({ onLogin }) {
   return (
     <section className="page-panel">
       <div className="panel-header">
-        <h1>Create an account</h1>
-        <p>Register now and manage your cases from one place.</p>
+        <h1>Support Staff Registration</h1>
+        <p>Create an account to join the support team and manage cases.</p>
       </div>
 
       <form className="form-grid" onSubmit={handleSubmit}>
