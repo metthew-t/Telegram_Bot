@@ -9,6 +9,7 @@ from .views import (
     LoginView,
     ProfileView,
     TelegramLoginView,
+    InternalMessageViewSet,
 )
 
 router = DefaultRouter()
@@ -16,6 +17,7 @@ router.register(r'users', UserViewSet)
 router.register(r'cases', CaseViewSet)
 router.register(r'messages', MessageViewSet)
 router.register(r'audit-logs', AuditLogViewSet)
+router.register(r'internal-messages', InternalMessageViewSet)
 
 urlpatterns = [
     path('api/', include(router.urls)),

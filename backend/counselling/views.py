@@ -10,35 +10,45 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import User, Case, Message, AuditLog
-from .serializers import UserSerializer, CaseSerializer, MessageSerializer, AuditLogSerializer
+from .models import User, Case, Message, AuditLog, InternalMessage
+from .serializers import UserSerializer, CaseSerializer, MessageSerializer, AuditLogSerializer, InternalMessageSerializer
 
 
-def notify_case_user(case, text):
+def send_telegram_notification(telegram_id, text):
     token = os.getenv('TELEGRAM_BOT_TOKEN')
-    
     if not token:
         print("Backend Error: TELEGRAM_BOT_TOKEN not set in environment.")
-        return
-        
-    if not case.user.telegram_id:
-        print(f"Backend Warning: Case #{case.id} user has no telegram_id.")
-        return
+        return False
     
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
-        "chat_id": case.user.telegram_id,
+        "chat_id": telegram_id,
         "text": text,
+        "parse_mode": "Markdown",
     }
     
     try:
         response = requests.post(url, json=payload, timeout=10)
         if response.status_code != 200:
             print(f"Telegram API Error: {response.status_code} - {response.text}")
-        else:
-            print(f"Notification sent successfully to telegram_id {case.user.telegram_id}")
+            return False
+        return True
     except Exception as e:
         print(f"Telegram Notification Exception: {str(e)}")
+        return False
+
+
+def notify_case_user(case, text):
+    if not case.user.telegram_id:
+        print(f"Backend Warning: Case #{case.id} user has no telegram_id.")
+        return
+    send_telegram_notification(case.user.telegram_id, text)
+
+
+def notify_staff(text):
+    staff_users = User.objects.filter(role__in=['admin', 'owner']).exclude(telegram_id__isnull=True).exclude(telegram_id='')
+    for user in staff_users:
+        send_telegram_notification(user.telegram_id, text)
 
 
 class IsOwner(permissions.BasePermission):
@@ -77,10 +87,17 @@ class UserViewSet(viewsets.ModelViewSet):
         return User.objects.filter(id=self.request.user.id)
 
     def perform_create(self, serializer):
-        # Admin self-registration defaults to 'admin'
-        # Owner can create any role (including owner)
-        if self.request.user.is_authenticated and self.request.user.role == 'owner':
+        requested_role = self.request.data.get('role', 'admin')
+        
+        # If anonymous, only allow 'admin' or 'user'
+        if not self.request.user.is_authenticated:
+            # Force 'admin' if they tried something else (only 'admin' is for web registration)
+            role = 'admin' if requested_role in ['admin', 'owner'] else requested_role
+            serializer.save(role=role)
+        # If logged in as owner, respect whatever they sent
+        elif self.request.user.role == 'owner':
             serializer.save()
+        # Fallback for other cases
         else:
             serializer.save(role='admin')
 
@@ -111,7 +128,13 @@ class CaseViewSet(viewsets.ModelViewSet):
         if self.request.user.role in ['owner', 'admin']:
             serializer.save(user=serializer.validated_data.get('user', self.request.user))
         else:
-            serializer.save(user=self.request.user)
+            case = serializer.save(user=self.request.user)
+            notify_staff(
+                f"🆕 *New Case Created*\n\n"
+                f"🆔 ID: #{case.id}\n"
+                f"📝 Title: {case.title}\n"
+                f"👤 User: {self.request.user.username}"
+            )
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrOwner])
     def assign(self, request, pk=None):
@@ -182,8 +205,18 @@ class MessageViewSet(viewsets.ModelViewSet):
         if not allowed:
             raise PermissionDenied('Permission denied')
         message = serializer.save(sender=user)
-        if user.role in ['admin', 'owner'] and case.user.telegram_id:
-            notify_case_user(case, f'New response on case #{case.id}: {message.content}')
+        
+        if user.role in ['admin', 'owner']:
+            if case.user.telegram_id:
+                notify_case_user(case, f'💬 *New support response on case #{case.id}:*\n\n{message.content}')
+        else:
+            # Client replied
+            notify_staff(
+                f"💬 *New message on case #{case.id}*\n"
+                f"👤 From: {user.username}\n\n"
+                f"{message.content}"
+            )
+
         AuditLog.objects.create(
             case=case,
             performer=user,
@@ -247,3 +280,15 @@ class ProfileView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
+class InternalMessageViewSet(viewsets.ModelViewSet):
+    queryset = InternalMessage.objects.all().order_by('-timestamp')
+    serializer_class = InternalMessageSerializer
+    permission_classes = [IsAdminOrOwner]
+
+    def get_queryset(self):
+        # Allow all admins and owners to see all internal messages
+        return InternalMessage.objects.all().order_by('timestamp')
+
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)

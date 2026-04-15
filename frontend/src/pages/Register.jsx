@@ -15,13 +15,24 @@ export default function RegisterPage({ onLogin }) {
     setError('');
 
     try {
-      await register({ username, email, password });
+      await register({ username, email, password, role: 'admin' });
       const data = await login({ username, password });
       saveAuth(data);
       onLogin(data.user);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.username?.[0] || 'Unable to register.');
+      if (err.response?.data) {
+        const data = err.response.data;
+        const msg = data.detail || data.error ||
+          (data.username ? `Username: ${data.username[0]}` : null) ||
+          (data.password ? `Password: ${data.password[0]}` : null) ||
+          (data.email ? `Email: ${data.email[0]}` : null) ||
+          (data.role ? `Role: ${data.role[0]}` : null) ||
+          'Unable to register.';
+        setError(msg);
+      } else {
+        setError('Connection error. Is the backend running?');
+      }
     }
   };
 

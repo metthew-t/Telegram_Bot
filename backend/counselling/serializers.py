@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Case, Message, AuditLog
+from .models import User, Case, Message, AuditLog, InternalMessage
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, min_length=8)
@@ -11,8 +11,10 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate_role(self, value):
         request = self.context.get('request')
-        if value != 'user' and not (request and request.user.is_authenticated and request.user.role == 'owner'):
-            raise serializers.ValidationError('Only the owner can assign roles.')
+        # Allow anyone to register as 'admin' or 'user'
+        # Only existing owners can create/assign the 'owner' role
+        if value == 'owner' and not (request and request.user.is_authenticated and request.user.role == 'owner'):
+            raise serializers.ValidationError('Only an existing owner can assign the owner role.')
         return value
 
     def create(self, validated_data):
@@ -110,7 +112,7 @@ class MessageSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and request.user.is_authenticated and request.user.role == 'owner':
             return UserSerializer(obj.sender, context=self.context).data
-        if obj.sender == request.user:
+        if request and obj.sender == request.user:
             return {'label': 'You'}
         if obj.sender.role in ['admin', 'owner']:
             return {'label': 'Support team'}
@@ -134,3 +136,11 @@ class AuditLogSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated and request.user.role == 'owner':
             return UserSerializer(obj.performer, context=self.context).data
         return {'label': obj.performer.username}
+class InternalMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.ReadOnlyField(source='sender.username')
+    sender_role = serializers.ReadOnlyField(source='sender.role')
+
+    class Meta:
+        model = InternalMessage
+        fields = ['id', 'sender', 'sender_name', 'sender_role', 'content', 'timestamp']
+        read_only_fields = ['id', 'timestamp', 'sender']

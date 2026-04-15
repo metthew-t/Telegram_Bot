@@ -416,27 +416,32 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Seamlessly route plain text messages to the user's active case."""
     if update.effective_user is None or update.message is None or not update.message.text:
+        print("DEBUG: Early return (user/message/text is None)")
         return
 
-    # If the user is currently in a conversation (like /newcase or /reply), let the conversation handler take it.
-    # Check if user has an active conversation state
-    # (Simplified: filter out commands and specifically handled text)
     if update.message.text.startswith('/'):
+        print("DEBUG: Early return (command)")
         return
+
+    print(f"DEBUG: handle_message triggered for user {update.effective_user.id}")
 
     token = get_access_token(update)
     if token is None:
+        print("DEBUG: Failed to get access token")
         return
 
     # Find active cases (open or assigned)
     response = backend_request('/api/cases/', method='get', token=token)
     if not response.ok:
+        print(f"DEBUG: Failed to fetch cases: {response.text}")
         return
 
     cases = [c for c in response.json() if c['status'] in ['open', 'assigned']]
+    print(f"DEBUG: Found {len(cases)} active cases")
     
     if len(cases) == 1:
         case_id = cases[0]['id']
+        print(f"DEBUG: Routing message to case #{case_id}")
         msg_resp = backend_request(
             '/api/messages/',
             token=token,
@@ -445,6 +450,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if msg_resp.ok:
             await update.message.reply_text(f'✅ Sent to case *#{case_id}*.', parse_mode='Markdown')
         else:
+            print(f"DEBUG: Failed to send message to backend: {msg_resp.text}")
             await update.message.reply_text(f'⚠️ Failed to send: {msg_resp.text}')
     elif len(cases) > 1:
         await update.message.reply_text(
@@ -452,6 +458,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
     else:
+        print("DEBUG: No active cases found")
         await update.message.reply_text(
             '👋 Welcome! You don\'t have any active cases right now.\n\n'
             'Use /newcase to start a support request.',

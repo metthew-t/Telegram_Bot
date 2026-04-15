@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/Telegram_Bot/',
+  base: process.env.VITE_BASE_PATH || '/',
   server: {
     port: 4173,
   },

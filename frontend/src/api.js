@@ -148,6 +148,21 @@ export async function fetchAuditLogs() {
   return response.data;
 }
 
+export async function updateProfile(id, payload) {
+  const response = await api.patch(`/api/users/${id}/`, payload);
+  return response.data;
+}
+
+export async function fetchInternalMessages() {
+  const response = await api.get('/api/internal-messages/');
+  return response.data;
+}
+
+export async function sendInternalMessage(payload) {
+  const response = await api.post('/api/internal-messages/', payload);
+  return response.data;
+}
+
 export async function apiCall(endpoint, method = 'GET', data = null) {
   const response = await api({ method, url: endpoint, data });
   return response.data;

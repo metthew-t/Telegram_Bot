@@ -57,3 +57,10 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.action} for case {self.case.id} by {self.performer or 'system'}"
+class InternalMessage(models.Model):
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='internal_messages')
+    content = models.TextField()
+    timestamp = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Internal message from {self.sender} at {self.timestamp}"

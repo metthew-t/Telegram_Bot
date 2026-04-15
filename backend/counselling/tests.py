@@ -42,7 +42,7 @@ class CounsellingAPITestCase(TestCase):
         )
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['username'], 'newuser')
-        self.assertEqual(response.data['role'], 'user')
+        self.assertEqual(response.data['role'], 'admin')
 
     def test_login_returns_jwt(self):
         response = self.client.post(
@@ -113,3 +113,25 @@ class CounsellingAPITestCase(TestCase):
         response = self.client.get('/api/profile/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['username'], 'user')
+
+    def test_staff_notification_on_case_creation(self):
+        from unittest.mock import patch
+        # Set telegram_id for owner to receive notification
+        self.owner.telegram_id = '999999999'
+        self.owner.save()
+        
+        self.auth_client(self.user)
+        with patch('requests.post') as mock_post:
+            mock_post.return_value.status_code = 200
+            response = self.client.post(
+                '/api/cases/',
+                {'title': 'Help me', 'description': 'Need urgent support'},
+                format='json'
+            )
+            self.assertEqual(response.status_code, 201)
+            # Verify that requests.post was called to send Telegram notification
+            self.assertTrue(mock_post.called)
+            # Check if it was called with owner's telegram_id
+            args, kwargs = mock_post.call_args
+            self.assertEqual(kwargs['json']['chat_id'], '999999999')
+            self.assertIn('New Case Created', kwargs['json']['text'])

@@ -525,7 +525,7 @@ select option {
   opacity: 0.03;
 }
 
-.case-card > * {
+.case-card>* {
   position: relative;
   z-index: 1;
 }
@@ -995,6 +995,7 @@ select option {
     opacity: 0;
     transform: translateY(16px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1002,18 +1003,35 @@ select option {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
 }
 
 @keyframes slideInRight {
@@ -1021,6 +1039,7 @@ select option {
     opacity: 0;
     transform: translateX(40px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -1035,8 +1054,15 @@ select option {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* ─── Responsive ─── */
@@ -1100,4 +1126,32 @@ select option {
   .stats-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* ─── Role Selector ─── */
+.role-selector {
+  display: flex;
+  gap: var(--space-lg);
+  margin: var(--space-sm) 0;
+  padding: var(--space-sm);
+  background: var(--bg-glass);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.radio-label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: var(--space-xs) !important;
+  cursor: pointer;
+  color: var(--text-primary) !important;
+  font-size: var(--font-sm);
+  font-weight: 500;
+}
+
+.radio-label input {
+  width: auto !important;
+  margin: 0 !important;
+  cursor: pointer;
 }

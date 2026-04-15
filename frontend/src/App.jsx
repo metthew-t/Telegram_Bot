@@ -8,6 +8,8 @@ import AdminDashboardPage from './pages/AdminDashboard.jsx';
 import OwnerDashboardPage from './pages/OwnerDashboard.jsx';
 import UserManagementPage from './pages/UserManagement.jsx';
 import AuditLogsPage from './pages/AuditLogs.jsx';
+import ProfilePage from './pages/Profile.jsx';
+import SystemChatPage from './pages/SystemChat.jsx';
 import { getUser, isAuthenticated, logoutUser } from './auth.js';
 
 function ProtectedRoute({ children, requiredRole }) {
@@ -21,10 +23,11 @@ function ProtectedRoute({ children, requiredRole }) {
   return children;
 }
 
-function Header({ user, onLogout }) {
+function Header({ user, onLogout, selectedRole }) {
   const location = useLocation();
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner';
   const isOwner = user?.role === 'owner';
+  const isLoginPage = location.pathname === '/login';
 
   return (
     <header className="topbar glass-panel">
@@ -36,6 +39,11 @@ function Header({ user, onLogout }) {
         {user && (
           <Link className={location.pathname === '/' ? 'active' : ''} to="/">
             Dashboard
+          </Link>
+        )}
+        {user && (
+          <Link className={location.pathname === '/profile' ? 'active' : ''} to="/profile">
+            Profile
           </Link>
         )}
         {user?.role === 'admin' && (
@@ -58,6 +66,11 @@ function Header({ user, onLogout }) {
             </Link>
           </>
         )}
+        {isAdminOrOwner && (
+          <Link className={location.pathname === '/system-chat' ? 'active' : ''} to="/system-chat">
+            System Chat
+          </Link>
+        )}
         {user ? (
           <button className="button button-secondary" onClick={onLogout}>
             Logout
@@ -67,9 +80,11 @@ function Header({ user, onLogout }) {
             <Link className={location.pathname === '/login' ? 'active' : ''} to="/login">
               Login
             </Link>
-            <Link className={location.pathname === '/register' ? 'active' : ''} to="/register">
-              Register
-            </Link>
+            {(!isLoginPage || selectedRole !== 'owner') && (
+              <Link className={location.pathname === '/register' ? 'active' : ''} to="/register">
+                Register
+              </Link>
+            )}
           </>
         )}
       </nav>
@@ -79,6 +94,7 @@ function Header({ user, onLogout }) {
 
 export default function App() {
   const [user, setUser] = useState(getUser());
+  const [selectedRole, setSelectedRole] = useState('admin');
 
   useEffect(() => {
     const listener = () => setUser(getUser());
@@ -94,7 +110,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <div className="app-shell">
-        <Header user={user} onLogout={handleLogout} />
+        <Header user={user} onLogout={handleLogout} selectedRole={selectedRole} />
         <main className="page-content">
           <Routes>
             <Route
@@ -154,7 +170,24 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/login" element={!user ? <LoginPage onLogin={setUser} /> : <Navigate to={user?.role === 'owner' ? '/owner' : (user?.role === 'admin' ? '/admin' : '/')} />} />
+            <Route
+              path="/system-chat"
+              element={
+                <ProtectedRoute>
+                  <SystemChatPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/register" element={!user ? <RegisterPage onLogin={setUser} /> : <Navigate to="/" />} />
+            <Route path="/login" element={!user ? <LoginPage onLogin={setUser} selectedRole={selectedRole} setSelectedRole={setSelectedRole} /> : <Navigate to={user?.role === 'owner' ? '/owner' : (user?.role === 'admin' ? '/admin' : '/')} />} />
             <Route path="*" element={<Navigate to={user?.role === 'owner' ? '/owner' : (user?.role === 'admin' ? '/admin' : '/')} />} />
           </Routes>
         </main>
