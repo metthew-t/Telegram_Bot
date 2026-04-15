@@ -9,9 +9,21 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.http import JsonResponse
 
 from .models import User, Case, Message, AuditLog, InternalMessage
 from .serializers import UserSerializer, CaseSerializer, MessageSerializer, AuditLogSerializer, InternalMessageSerializer
+
+def api_root(request):
+    return JsonResponse({
+        "status": "online",
+        "message": "Counselling Platform API is running",
+        "endpoints": {
+            "api": "/api/",
+            "admin": "/admin/",
+        }
+    })
+
 
 
 def send_telegram_notification(telegram_id, text):
