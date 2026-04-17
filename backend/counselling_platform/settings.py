@@ -170,6 +170,11 @@ CORS_ALLOWED_ORIGINS = [
     "https://" + os.environ.get("GITHUB_PAGES_DOMAIN", "localhost"), # Dynamic for GitHub Pages
 ]
 
+FRONTEND_URL = os.environ.get("FRONTEND_URL")
+if FRONTEND_URL:
+    CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
+    CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
+
 if RENDER_EXTERNAL_HOSTNAME:
     CORS_ALLOWED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
 

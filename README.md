@@ -277,28 +277,48 @@ npm run build
 
 ---
 
-## Deployment
+## Deployment Guide (Production)
 
-### Using Docker
+For a robust and free production setup, we recommend a multi-platform strategy:
 
-```bash
-# Build and start all services
-docker-compose up --build
+| Component | Platform | Role |
+| :--- | :--- | :--- |
+| **Backend** | [Render](https://render.com) | Django API & Bot Worker |
+| **Frontend** | [Netlify](https://netlify.com) | React Dashboard (Zero Cold Starts) |
+| **Database** | [Neon](https://neon.tech) | Serverless PostgreSQL (No 30-day limit) |
 
-# Services:
-# - Backend:  http://localhost:8000
-# - Frontend: http://localhost:5173
-# - Bot:      runs automatically
-# - Postgres: port 5432
-```
+### 1. Database Setup (Neon)
+1. Sign up at [Neon.tech](https://neon.tech).
+2. Create a new project named `counselling-db`.
+3. Copy the **Connection String** (e.g., `postgresql://user:pass@ep-name.aws.neon.tech/neondb?sslmode=require`).
 
-### Manual Deployment (Heroku/Railway/Render)
+### 2. Backend Deployment (Render)
+1. Push your code to a GitHub repository.
+2. Log in to [Render](https://render.com) and click **New > Blueprint**.
+3. Connect your repository. Render will automatically detect the `render.yaml` file.
+4. **Environment Variables**: Render will ask for values defined in `render.yaml`:
+   - `DATABASE_URL`: Your Neon Connection String.
+   - `TELEGRAM_BOT_TOKEN`: Your token from BotFather.
+   - `FRONTEND_URL`: Leave blank for now, or use `https://your-site.netlify.app` if you already have it.
+5. Click **Apply**. Render will spin up two services:
+   - `telegram-bot-backend` (Web Service)
+   - `telegram-bot-worker` (Background Worker for the Bot)
 
-1. Set all environment variables in your platform's dashboard
-2. Use `requirements.txt` for Python dependencies
-3. Set `USE_SQLITE=0` and configure `DATABASE_URL`
-4. Build the frontend: `cd frontend && npm run build`
-5. Serve the built frontend via a static file server or CDN
+### 3. Frontend Deployment (Netlify)
+1. Sign up at [Netlify](https://netlify.com).
+2. Click **Add new site > Import an existing project**.
+3. Connect your GitHub repository.
+4. **Site Settings**:
+   - **Base directory**: `frontend`
+   - **Build command**: `npm run build`
+   - **Publish directory**: `frontend/dist`
+   - **Environment Variables**: Add `VITE_API_URL` set to your Render backend URL (e.g., `https://telegram-bot-backend.onrender.com`).
+5. Click **Deploy**.
+
+### 4. Final Connection
+1. Once Netlify is live, copy your site URL (e.g., `https://counselling-dashboard.netlify.app`).
+2. Go back to your **Render Web Service > Environment** and set `FRONTEND_URL` to this Netlify URL.
+3. This enables CORS so your dashboard can securely talk to your API.
 
 ---
 
