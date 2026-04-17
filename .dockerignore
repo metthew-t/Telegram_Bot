@@ -1,0 +1,27 @@
+# Local environments
+venv/
+.venv/
+venv_win/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Local database
+db.sqlite3
+
+# Node/Frontend debris
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Git
+.git
+.github
+
+# Other
+.vscode/
+.env
+.DS_Store
+*.md
+api_collection.json
+AZURE_GUIDE.md
