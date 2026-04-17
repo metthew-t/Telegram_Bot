@@ -1,0 +1,47 @@
+services:
+  # 1. Django Backend (Web Service)
+  - type: web
+    name: telegram-bot-backend
+    runtime: python
+    plan: free
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: gunicorn --chdir backend counselling_platform.wsgi:application
+    healthCheckPath: /health/
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Set this to your Neon connection string in Render Dashboard
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: telegram-bot-backend.onrender.com
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false # Set this to your Bot Token in Render Dashboard
+      - key: FRONTEND_URL
+        sync: false # Set this to your Netlify URL (e.g., https://yourapp.netlify.app)
+      - key: DEBUG
+        value: "False"
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+  # 2. Telegram Bot (Background Worker)
+  - type: worker
+    name: telegram-bot-worker
+    runtime: python
+    plan: free
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: python bot/telegram_bot.py
+    envVars:
+      - key: DATABASE_URL
+        fromService:
+          type: web
+          name: telegram-bot-backend
+          property: envVar:DATABASE_URL
+      - key: TELEGRAM_BOT_TOKEN
+        fromService:
+          type: web
+          name: telegram-bot-backend
+          property: envVar:TELEGRAM_BOT_TOKEN
+      - key: BACKEND_URL
+        value: https://telegram-bot-backend.onrender.com
+      - key: PYTHON_VERSION
+        value: 3.11.0

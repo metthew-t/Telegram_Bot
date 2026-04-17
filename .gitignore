@@ -1,0 +1,35 @@
+# ─── Environment ───
+.env
+*.env.local
+
+# ─── Python ───
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+venv/
+.venv/
+venv_win/
+
+# ─── Django ───
+db.sqlite3
+staticfiles/
+media/
+
+# ─── Node / Frontend ───
+node_modules/
+frontend/dist/
+
+# ─── IDE ───
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
