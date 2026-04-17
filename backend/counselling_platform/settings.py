@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
-import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -69,7 +68,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -100,10 +98,9 @@ WSGI_APPLICATION = "counselling_platform.wsgi.application"
 
 
 # Database
-# Use DATABASE_URL from environment for production (Neon), fallback to SQLite for local dev
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-if os.getenv('USE_SQLITE') == '1' or not DATABASE_URL:
+if os.getenv('USE_SQLITE') == '1':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -112,11 +109,14 @@ if os.getenv('USE_SQLITE') == '1' or not DATABASE_URL:
     }
 else:
     DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DATABASE_NAME', 'counselling_db'),
+            'USER': os.getenv('DATABASE_USER', 'counselling_user'),
+            'PASSWORD': os.getenv('DATABASE_PASSWORD', 'password'),
+            'HOST': os.getenv('DATABASE_HOST', 'localhost'),
+            'PORT': os.getenv('DATABASE_PORT', '5432'),
+        }
     }
 
 
@@ -156,16 +156,6 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# WhiteNoise configuration
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [

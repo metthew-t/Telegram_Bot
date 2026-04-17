@@ -4,8 +4,9 @@ services:
     name: telegram-bot-backend
     runtime: python
     plan: free
-    buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: gunicorn --chdir backend counselling_platform.wsgi:application
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    startCommand: gunicorn counselling_platform.wsgi:application
     healthCheckPath: /health/
     envVars:
       - key: DATABASE_URL
@@ -28,7 +29,7 @@ services:
     name: telegram-bot-worker
     runtime: python
     plan: free
-    buildCommand: chmod +x build.sh && ./build.sh
+    buildCommand: pip install -r requirements.txt
     startCommand: python bot/telegram_bot.py
     envVars:
       - key: DATABASE_URL
