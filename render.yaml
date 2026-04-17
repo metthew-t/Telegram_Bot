@@ -1,12 +1,12 @@
 services:
-  # 1. Django Backend (Web Service)
+  # 1. Django Backend and Telegram Bot (Web Service)
   - type: web
     name: telegram-bot-backend
     runtime: python
     plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
-    startCommand: gunicorn counselling_platform.wsgi:application
+    startCommand: ../start.sh
     healthCheckPath: /health/
     envVars:
       - key: DATABASE_URL
@@ -21,22 +21,5 @@ services:
         sync: false # Set this to your Netlify URL (e.g., https://yourapp.netlify.app)
       - key: DEBUG
         value: "False"
-      - key: PYTHON_VERSION
-        value: 3.11.0
-
-  # 2. Telegram Bot (Background Worker)
-  - type: worker
-    name: telegram-bot-worker
-    runtime: python
-    plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot/telegram_bot.py
-    envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: BACKEND_URL
-        value: https://telegram-bot-backend.onrender.com
       - key: PYTHON_VERSION
         value: 3.11.0
