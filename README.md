@@ -292,13 +292,27 @@ docker-compose up --build
 # - Postgres: port 5432
 ```
 
-### Manual Deployment (Heroku/Railway)
+### Manual Deployment (Heroku/Railway/Render)
 
 1. Set all environment variables in your platform's dashboard
 2. Use `requirements.txt` for Python dependencies
 3. Set `USE_SQLITE=0` and configure `DATABASE_URL`
 4. Build the frontend: `cd frontend && npm run build`
 5. Serve the built frontend via a static file server or CDN
+
+---
+
+## Production Monitoring (Render)
+
+If you are using **Render's Free Tier**, the server will spin down after 15 minutes of inactivity, causing delays in Telegram bot responses.
+
+To prevent this:
+1. Use a free monitoring service like [UptimeRobot](https://uptimerobot.com/).
+2. Create a new "HTTP(s)" monitor.
+3. Point it to your service's health endpoint: `https://your-app-name.onrender.com/health/`
+4. Set the monitoring interval to **10 minutes**.
+
+This will keep the service "awake" and ensure the bot responds instantly.
 
 ---
 

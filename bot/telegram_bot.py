@@ -107,7 +107,7 @@ async def newcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def newcase_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
     title = update.message.text.strip()
-    if len(title) < 3:
+    if len(title) < 5:
         await update.message.reply_text(
             '⚠️ Title is too short. Please enter at least 3 characters:'
         )
