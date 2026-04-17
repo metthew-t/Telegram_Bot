@@ -33,15 +33,9 @@ services:
     startCommand: python bot/telegram_bot.py
     envVars:
       - key: DATABASE_URL
-        fromService:
-          type: web
-          name: telegram-bot-backend
-          property: envVar:DATABASE_URL
+        sync: false
       - key: TELEGRAM_BOT_TOKEN
-        fromService:
-          type: web
-          name: telegram-bot-backend
-          property: envVar:TELEGRAM_BOT_TOKEN
+        sync: false
       - key: BACKEND_URL
         value: https://telegram-bot-backend.onrender.com
       - key: PYTHON_VERSION
