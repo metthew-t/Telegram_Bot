@@ -142,5 +142,5 @@ class InternalMessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InternalMessage
-        fields = ['id', 'sender', 'sender_name', 'sender_role', 'content', 'timestamp']
+        fields = ['id', 'sender', 'sender_name', 'sender_role', 'content', 'message_type', 'timestamp', 'file_name', 'file_content']
         read_only_fields = ['id', 'timestamp', 'sender']

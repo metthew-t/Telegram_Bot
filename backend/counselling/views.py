@@ -300,7 +300,11 @@ class InternalMessageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Allow all admins and owners to see all internal messages
-        return InternalMessage.objects.all().order_by('timestamp')
+        queryset = InternalMessage.objects.all().order_by('timestamp')
+        message_type = self.request.query_params.get('message_type')
+        if message_type in ['chat', 'report']:
+            queryset = queryset.filter(message_type=message_type)
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)

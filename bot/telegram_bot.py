@@ -20,6 +20,16 @@ BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 if not BOT_TOKEN:
     raise RuntimeError('TELEGRAM_BOT_TOKEN environment variable is required')
 
+# Persistent main menu keyboard layout
+MAIN_MENU_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ['📝 New Case', '📋 My Cases'],
+        ['👁️ View Case', '💬 Reply'],
+        ['❓ Help']
+    ],
+    resize_keyboard=True
+)
+
 # ConversationHandler states
 TITLE, DESCRIPTION, CONFIRM = range(3)
 REPLY_CASE_ID, REPLY_CONTENT = range(10, 12)
@@ -86,6 +96,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '👁️ /viewcase — View messages on a case\n'
         '❓ /help — Show all commands',
         parse_mode='Markdown',
+        reply_markup=MAIN_MENU_KEYBOARD,
     )
 
 
@@ -101,6 +112,7 @@ async def newcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Send /cancel at any time to abort.\n\n'
         '*Step 1/2:* Please enter a short title for your case:',
         parse_mode='Markdown',
+        reply_markup=ReplyKeyboardRemove(),
     )
     return TITLE
 
@@ -157,7 +169,7 @@ async def newcase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if choice != '✅ Submit':
         await update.message.reply_text(
             '❌ Case creation cancelled.',
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=MAIN_MENU_KEYBOARD,
         )
         context.user_data.pop('case_title', None)
         context.user_data.pop('case_description', None)
@@ -170,7 +182,7 @@ async def newcase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if token is None:
         await update.message.reply_text(
             '⚠️ Unable to authenticate. Please try /start first.',
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=MAIN_MENU_KEYBOARD,
         )
         return ConversationHandler.END
 
@@ -189,12 +201,12 @@ async def newcase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f'📊 Status: {data.get("status")}\n\n'
             f'You\'ll be notified when support responds.',
             parse_mode='Markdown',
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=MAIN_MENU_KEYBOARD,
         )
     else:
         await update.message.reply_text(
             f'⚠️ Failed to create case: {response.text}',
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=MAIN_MENU_KEYBOARD,
         )
     return ConversationHandler.END
 
@@ -204,7 +216,7 @@ async def newcase_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop('case_description', None)
     await update.message.reply_text(
         '❌ Case creation cancelled.',
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=MAIN_MENU_KEYBOARD,
     )
     return ConversationHandler.END
 
@@ -240,7 +252,7 @@ async def list_cases(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines.append(f'\n_Total: {len(cases)} case(s)_')
     lines.append('\nUse /viewcase to view messages on a case.')
-    await update.message.reply_text('\n'.join(lines), parse_mode='Markdown')
+    await update.message.reply_text('\n'.join(lines), parse_mode='Markdown', reply_markup=MAIN_MENU_KEYBOARD)
 
 
 # ─── /reply — Multi-step ───
@@ -254,6 +266,7 @@ async def reply_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Send /cancel to abort.\n\n'
         '*Step 1/2:* Enter the case ID:',
         parse_mode='Markdown',
+        reply_markup=ReplyKeyboardRemove(),
     )
     return REPLY_CASE_ID
 
@@ -296,15 +309,16 @@ async def reply_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f'✅ Message sent to case *#{case_id}*.',
             parse_mode='Markdown',
+            reply_markup=MAIN_MENU_KEYBOARD,
         )
     else:
-        await update.message.reply_text(f'⚠️ Failed to send message: {response.text}')
+        await update.message.reply_text(f'⚠️ Failed to send message: {response.text}', reply_markup=MAIN_MENU_KEYBOARD)
     return ConversationHandler.END
 
 
 async def reply_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop('reply_case_id', None)
-    await update.message.reply_text('❌ Reply cancelled.')
+    await update.message.reply_text('❌ Reply cancelled.', reply_markup=MAIN_MENU_KEYBOARD)
     return ConversationHandler.END
 
 
@@ -326,6 +340,7 @@ async def viewcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Send /cancel to abort.\n\n'
         'Enter the case ID:',
         parse_mode='Markdown',
+        reply_markup=ReplyKeyboardRemove(),
     )
     return VIEW_CASE_ID
 
@@ -384,11 +399,11 @@ async def show_case_messages(update, context, case_id):
             lines.append(f'_... and {len(messages) - 10} earlier message(s)_')
 
     lines.append('\nUse /reply to respond to this case.')
-    await update.message.reply_text('\n'.join(lines), parse_mode='Markdown')
+    await update.message.reply_text('\n'.join(lines), parse_mode='Markdown', reply_markup=MAIN_MENU_KEYBOARD)
 
 
 async def viewcase_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('❌ Cancelled.')
+    await update.message.reply_text('❌ Cancelled.', reply_markup=MAIN_MENU_KEYBOARD)
     return ConversationHandler.END
 
 
@@ -408,6 +423,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '/help — Show this help message\n'
         '/cancel — Cancel current operation',
         parse_mode='Markdown',
+        reply_markup=MAIN_MENU_KEYBOARD,
     )
 
 
@@ -467,7 +483,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('❌ Operation cancelled.', reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text('❌ Operation cancelled.', reply_markup=MAIN_MENU_KEYBOARD)
     return ConversationHandler.END
 
 
@@ -478,7 +494,10 @@ def main():
 
     # Multi-step conversation for /newcase
     newcase_handler = ConversationHandler(
-        entry_points=[CommandHandler('newcase', newcase_start)],
+        entry_points=[
+            CommandHandler('newcase', newcase_start),
+            MessageHandler(filters.Regex('^(📝 New Case|New Case)$'), newcase_start)
+        ],
         states={
             TITLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, newcase_title)],
             DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, newcase_description)],
@@ -489,7 +508,10 @@ def main():
 
     # Multi-step conversation for /reply
     reply_handler = ConversationHandler(
-        entry_points=[CommandHandler('reply', reply_start)],
+        entry_points=[
+            CommandHandler('reply', reply_start),
+            MessageHandler(filters.Regex('^(💬 Reply|Reply)$'), reply_start)
+        ],
         states={
             REPLY_CASE_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, reply_case_id)],
             REPLY_CONTENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, reply_content)],
@@ -499,7 +521,10 @@ def main():
 
     # Multi-step (or inline) conversation for /viewcase
     viewcase_handler = ConversationHandler(
-        entry_points=[CommandHandler('viewcase', viewcase_start)],
+        entry_points=[
+            CommandHandler('viewcase', viewcase_start),
+            MessageHandler(filters.Regex('^(👁️ Viewcase|👁️ View Case|Viewcase|View Case)$'), viewcase_start)
+        ],
         states={
             VIEW_CASE_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, viewcase_id)],
         },
@@ -508,10 +533,15 @@ def main():
 
     application.add_handler(CommandHandler('start', start))
     application.add_handler(newcase_handler)
+    
     application.add_handler(CommandHandler('mycases', list_cases))
+    application.add_handler(MessageHandler(filters.Regex('^(📋 My Cases|My Cases)$'), list_cases))
+    
     application.add_handler(reply_handler)
     application.add_handler(viewcase_handler)
+    
     application.add_handler(CommandHandler('help', help_command))
+    application.add_handler(MessageHandler(filters.Regex('^(❓ Help|Help)$'), help_command))
 
     # General text handler for seamless chat
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))

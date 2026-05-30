@@ -58,9 +58,16 @@ class AuditLog(models.Model):
     def __str__(self):
         return f"{self.action} for case {self.case.id} by {self.performer or 'system'}"
 class InternalMessage(models.Model):
+    TYPE_CHOICES = [
+        ('chat', 'Chat'),
+        ('report', 'Report'),
+    ]
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='internal_messages')
     content = models.TextField()
+    message_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='chat')
     timestamp = models.DateTimeField(default=timezone.now)
+    file_name = models.CharField(max_length=255, null=True, blank=True)
+    file_content = models.TextField(null=True, blank=True)
 
     def __str__(self):
-        return f"Internal message from {self.sender} at {self.timestamp}"
+        return f"Internal {self.message_type} from {self.sender} at {self.timestamp}"

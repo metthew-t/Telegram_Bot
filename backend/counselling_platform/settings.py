@@ -136,6 +136,11 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Password hashers - Use MD5 in development for sub-millisecond authentication checks
+if DEBUG:
+    PASSWORD_HASHERS = [
+        "django.contrib.auth.hashers.MD5PasswordHasher",
+    ]
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
