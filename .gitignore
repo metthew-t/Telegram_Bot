@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+venv_local/
+venv_win/
+backend/venv/
+backend/venv_win/
+.env
+
+# Django
+db.sqlite3
+*.sqlite3
+staticfiles/
+media/
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+frontend/dist/
+*.log

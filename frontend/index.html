@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Telegram Counseling frontend dashboard" />
+    <title>Telegram Counseling</title>
+    <link rel="icon" href="data:,"><style>body{margin:0}</style>
+    <style>
+      :root {
+        --bg-primary: #f8f9fa !important;       /* 60% Off-white Background */
+        --bg-secondary: #ffffff !important; 
+        --bg-card: rgba(255, 255, 255, 0.85) !important;
+        --bg-glass: rgba(255, 255, 255, 0.75) !important;
+        --bg-glass-hover: rgba(255, 255, 255, 0.95) !important;
+        --bg-input: #ffffff !important;
+        
+        --text-primary: #2b3a4a !important;     /* 30% Navy Text */
+        --text-secondary: #4a5568 !important;
+        --text-muted: #718096 !important;
+        
+        --accent-primary: #3b82f6 !important;   /* 10% Blue Accent */
+        --accent-primary-hover: #2563eb !important;
+        --accent-gradient: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+        --accent-glow: 0 0 20px rgba(59, 130, 246, 0.3) !important;
+        
+        --border-subtle: rgba(43, 58, 74, 0.15) !important;
+        --border-focus: rgba(59, 130, 246, 0.5) !important;
+      }
+      body {
+        background-color: var(--bg-primary) !important;
+        color: var(--text-primary) !important;
+      }
+      body.hero-bg {
+        background-image: url('/counseling_hero_bg.png') !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+        background-attachment: fixed !important;
+      }
+      body.hero-bg:before {
+        display: none !important;
+      }
+      /* Ensure panels on the welcoming page have glassmorphism */
+      .hero-bg .glass-panel, .hero-bg .case-card, .hero-bg .topbar {
+        background: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(16px) !important;
+      }
+      
+      /* Premium glassmorphism container for Welcoming / Registration page panel */
+      .hero-bg .page-content .page-panel {
+        background: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(16px) !important;
+        border: 1px solid rgba(43, 58, 74, 0.15) !important;
+        border-radius: 16px !important;
+        padding: 30px !important;
+        max-width: 450px !important;
+        margin: 40px auto !important;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08) !important;
+        animation: fadeSlideUp 0.4s ease-out both !important;
+      }
+      
+      /* Make input fields highly visible and clean */
+      .hero-bg .page-content .page-panel input {
+        padding: 12px 14px !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(43, 58, 74, 0.15) !important;
+        background: #ffffff !important;
+        color: var(--text-primary) !important;
+      }
+      .hero-bg .page-content .page-panel input:focus {
+        border-color: var(--accent-primary) !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+      }
+      .hero-bg .page-content .page-panel label {
+        font-weight: 600 !important;
+        color: var(--text-secondary) !important;
+        margin-bottom: 4px !important;
+      }
+      
+      /* Make the login/register buttons very visible and bold */
+      .hero-bg .page-content .page-panel .button-primary {
+        width: 100% !important;
+        padding: 14px 20px !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+        border-radius: 10px !important;
+        margin-top: 10px !important;
+      }
+      
+      /* High visibility, bold Segmented Role Selector (Admin vs Owner) */
+      .hero-bg .role-selector {
+        background: rgba(43, 58, 74, 0.05) !important;
+        border: 1px solid rgba(43, 58, 74, 0.12) !important;
+        border-radius: 12px !important;
+        padding: 8px !important;
+        display: flex !important;
+        gap: 10px !important;
+        margin: 15px 0 !important;
+      }
+      .hero-bg .role-selector .radio-label {
+        flex: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 12px 16px !important;
+        background: #ffffff !important;
+        border: 2px solid rgba(43, 58, 74, 0.1) !important;
+        border-radius: 10px !important;
+        color: var(--text-primary) !important;
+        font-weight: 700 !important; /* Bold */
+        font-size: 1rem !important; /* Very visible */
+        transition: all 0.25s ease !important;
+        cursor: pointer !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+      }
+      .hero-bg .role-selector .radio-label:hover {
+        border-color: var(--accent-primary) !important;
+        background: rgba(59, 130, 246, 0.05) !important;
+      }
+      .hero-bg .role-selector .radio-label:has(input:checked) {
+        background: var(--accent-gradient) !important;
+        color: #ffffff !important;
+        border-color: var(--accent-primary) !important;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25) !important;
+      }
+      .hero-bg .role-selector .radio-label input {
+        display: none !important; /* Hide the native radio button completely */
+      }
+      
+      /* Global Glassmorphic Loading Overlay */
+      .loading-overlay {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(255, 255, 255, 0.4) !important;
+        backdrop-filter: blur(8px) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 99999 !important;
+        opacity: 0 !important;
+        transition: opacity 0.3s ease !important;
+        pointer-events: none !important;
+      }
+      .loading-overlay.active {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+      }
+      .loading-card {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 1px solid rgba(43, 58, 74, 0.15) !important;
+        border-radius: 16px !important;
+        padding: 30px 40px !important;
+        box-shadow: 0 10px 40px rgba(31, 38, 135, 0.12) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 16px !important;
+        max-width: 320px !important;
+        width: 90% !important;
+        transform: translateY(20px) !important;
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+      }
+      .loading-overlay.active .loading-card {
+        transform: translateY(0) !important;
+      }
+      .loading-spinner {
+        width: 44px !important;
+        height: 44px !important;
+        border: 4px solid rgba(59, 130, 246, 0.1) !important;
+        border-top-color: #3b82f6 !important;
+        border-radius: 50% !important;
+        animation: spin 1s linear infinite !important;
+      }
+      .loading-text {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 700 !important;
+        font-size: 1.1rem !important;
+        color: #2b3a4a !important;
+        text-align: center !important;
+        letter-spacing: -0.01em !important;
+      }
+      .loading-subtext {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
+        font-size: 0.85rem !important;
+        color: #718096 !important;
+        text-align: center !important;
+        margin-top: -6px !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      function updateBackground() {
+        let path = window.location.pathname;
+        // Normalize trailing slashes (e.g., '/login/' -> '/login')
+        if (path.length > 1 && path.endsWith('/')) {
+          path = path.slice(0, -1);
+        }
+        
+        const shouldHaveHero = (path === '/' || path === '/login' || path === '/register');
+        const hasHeroClass = document.body.classList.contains('hero-bg');
+        
+        if (shouldHaveHero && !hasHeroClass) {
+          document.body.classList.add('hero-bg');
+        } else if (!shouldHaveHero && hasHeroClass) {
+          document.body.classList.remove('hero-bg');
+        }
+      }
+      
+      window.addEventListener('popstate', updateBackground);
+      const originalPushState = history.pushState;
+      history.pushState = function() {
+        originalPushState.apply(this, arguments);
+        updateBackground();
+      };
+      const originalReplaceState = history.replaceState;
+      history.replaceState = function() {
+        originalReplaceState.apply(this, arguments);
+        updateBackground();
+      };
+      
+      // Periodically check URL pathname to handle any client-side routing transitions
+      setInterval(updateBackground, 100);
+      
+      updateBackground();
+
+      // --- Global Loader & Fetch Interceptor ---
+      function createLoadingOverlay() {
+        let overlay = document.getElementById('global-loading-overlay');
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.id = 'global-loading-overlay';
+          overlay.className = 'loading-overlay';
+          overlay.innerHTML = `
+            <div class="loading-card">
+              <div class="loading-spinner"></div>
+              <div class="loading-text" id="global-loading-text">Authenticating...</div>
+              <div class="loading-subtext">Please wait a moment</div>
+            </div>
+          `;
+          document.body.appendChild(overlay);
+        }
+        return overlay;
+      }
+
+      function showLoading(message) {
+        const overlay = createLoadingOverlay();
+        document.getElementById('global-loading-text').textContent = message || 'Loading...';
+        overlay.offsetHeight; // Force reflow
+        overlay.classList.add('active');
+      }
+
+      function hideLoading() {
+        const overlay = document.getElementById('global-loading-overlay');
+        if (overlay) {
+          overlay.classList.remove('active');
+        }
+      }
+
+      const originalFetch = window.fetch;
+      window.fetch = async function(resource, init) {
+        const url = typeof resource === 'string' ? resource : (resource.url || '');
+        const method = (init && init.method || 'GET').toUpperCase();
+        
+        let isLoadingRequest = false;
+        if (method === 'POST') {
+          if (url.includes('/api/login/')) {
+            showLoading('Logging in...');
+            isLoadingRequest = true;
+          } else if (url.includes('/api/users/')) {
+            showLoading('Creating account...');
+            isLoadingRequest = true;
+          }
+        }
+        
+        try {
+          return await originalFetch.apply(this, arguments);
+        } finally {
+          if (isLoadingRequest) {
+            setTimeout(hideLoading, 250); // Add small delay for smooth animation transition
+          }
+        }
+      };
+    </script>
+  </body>
+</html>
