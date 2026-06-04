@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getAccessToken, logoutUser, saveAuth } from './auth.js';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://telegram-bot-backend-bwu4.onrender.com' : 'http://localhost:8000'),
   headers: {
     'Content-Type': 'application/json',
   },
