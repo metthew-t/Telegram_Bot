@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiCall } from '../api.js';
+import LoadingButton from '../components/LoadingButton.jsx';
 
 export default function AllCasesPage() {
     const [cases, setCases] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [deletingId, setDeletingId] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -45,18 +47,27 @@ export default function AllCasesPage() {
                                 <h4>{c.title}</h4>
                                 <div className="case-meta">
                                     <span>Admin: {c.assigned_admin?.username || '—'}</span>
-                                    <button
+                                    <LoadingButton
                                         className="button button-danger button-sm"
+                                        loading={deletingId === c.id}
+                                        loadingText="Deleting..."
                                         onClick={async (e) => {
                                             e.stopPropagation();
                                             if (window.confirm('Delete case?')) {
-                                                await apiCall(`/api/cases/${c.id}/`, 'DELETE');
-                                                fetchCases();
+                                                setDeletingId(c.id);
+                                                try {
+                                                    await apiCall(`/api/cases/${c.id}/`, 'DELETE');
+                                                    fetchCases();
+                                                } catch (err) {
+                                                    alert('Failed to delete case.');
+                                                } finally {
+                                                    setDeletingId(null);
+                                                }
                                             }
                                         }}
                                     >
                                         Delete
-                                    </button>
+                                    </LoadingButton>
                                 </div>
                             </div>
                         ))}

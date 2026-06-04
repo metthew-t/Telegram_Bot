@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getUser } from '../auth.js';
 import { updateProfile } from '../api.js';
+import LoadingButton from '../components/LoadingButton.jsx';
 
 export default function ProfilePage() {
     const user = getUser();
@@ -373,14 +374,16 @@ export default function ProfilePage() {
                                 {message && <div style={{ color: 'var(--success)', marginBottom: 'var(--space-md)', fontSize: 'var(--font-sm)', fontWeight: 500 }}>✓ {message}</div>}
                                 {error && <div className="form-error" style={{ marginBottom: 'var(--space-md)' }}>⚠️ {error}</div>}
 
-                                <button 
+                                <LoadingButton 
                                     className="button button-primary" 
                                     type="submit" 
-                                    disabled={loading || !password || (password !== confirmPassword)}
+                                    disabled={!password || (password !== confirmPassword)}
                                     style={{ alignSelf: 'start' }}
+                                    loading={loading}
+                                    loadingText="Updating Credentials..."
                                 >
-                                    {loading ? 'Updating Credentials...' : 'Update Password'}
-                                </button>
+                                    Update Password
+                                </LoadingButton>
                             </form>
                         </div>
                     )}

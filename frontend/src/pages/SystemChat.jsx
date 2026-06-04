@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { getUser } from '../auth.js';
 import { fetchInternalMessages, sendInternalMessage } from '../api.js';
+import LoadingButton from '../components/LoadingButton.jsx';
 
 const POLL_INTERVAL = 10000; // 10 seconds
 
@@ -12,6 +13,7 @@ export default function SystemChatPage() {
     const [error, setError] = useState('');
     const [selectedFile, setSelectedFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [isSending, setIsSending] = useState(false);
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
     const user = getUser();
@@ -84,6 +86,7 @@ export default function SystemChatPage() {
         const submissionContent = contentText || (selectedFile ? `Uploaded report: ${selectedFile.name}` : '');
         if (!submissionContent) return;
 
+        setIsSending(true);
         try {
             await sendInternalMessage({
                 content: submissionContent,
@@ -97,6 +100,8 @@ export default function SystemChatPage() {
             await fetchMessages(false);
         } catch (err) {
             setError(`Failed to post ${activeTab === 'chat' ? 'message' : 'report'}`);
+        } finally {
+            setIsSending(false);
         }
     };
 
@@ -189,9 +194,15 @@ export default function SystemChatPage() {
                                 required
                                 disabled={loading}
                             />
-                            <button className="button button-primary" type="submit" disabled={loading || !messageContent.trim()}>
+                            <LoadingButton 
+                                className="button button-primary" 
+                                type="submit" 
+                                disabled={!messageContent.trim()}
+                                loading={isSending}
+                                loadingText="Sending..."
+                            >
                                 Send
-                            </button>
+                            </LoadingButton>
                         </form>
                     </div>
                 ) : (
@@ -360,7 +371,7 @@ export default function SystemChatPage() {
                                 >
                                     📎 {selectedFile ? 'Change File' : 'Attach File'}
                                 </button>
-                                <button
+                                <LoadingButton
                                     className="button button-success"
                                     type="submit"
                                     style={{
@@ -369,10 +380,12 @@ export default function SystemChatPage() {
                                         border: '1px solid rgba(245, 158, 11, 0.2)',
                                         whiteSpace: 'nowrap'
                                     }}
-                                    disabled={loading || isUploading || (!messageContent.trim() && !selectedFile)}
+                                    disabled={isUploading || (!messageContent.trim() && !selectedFile)}
+                                    loading={isSending}
+                                    loadingText="Reporting..."
                                 >
                                     File Report
-                                </button>
+                                </LoadingButton>
                             </div>
                             
                             {selectedFile && (

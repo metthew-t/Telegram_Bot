@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUser } from '../auth.js';
 import { apiCall } from '../api.js';
+import LoadingButton from '../components/LoadingButton.jsx';
 
 export default function DashboardPage() {
   const [cases, setCases] = useState([]);
@@ -9,6 +10,7 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
   const user = getUser();
   const navigate = useNavigate();
 
@@ -36,6 +38,7 @@ export default function DashboardPage() {
 
   const handleCreateCase = async (e) => {
     e.preventDefault();
+    setIsCreating(true);
     try {
       const newCase = await apiCall('/api/cases/', 'POST', {
         title,
@@ -47,6 +50,8 @@ export default function DashboardPage() {
       setError('');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create case');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -86,12 +91,18 @@ export default function DashboardPage() {
               />
             </label>
             {error && <div className="form-error">{error}</div>}
-            <button className="button button-primary" type="submit">
+            <LoadingButton
+              className="button button-primary"
+              type="submit"
+              loading={isCreating}
+              loadingText="Creating Case..."
+            >
               Create Case
-            </button>
+            </LoadingButton>
           </form>
         </div>
       )}
+
 
       {/* Cases List */}
       <div className="cases-section glass-panel">

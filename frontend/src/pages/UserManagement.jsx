@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getUser } from '../auth.js';
 import { apiCall } from '../api.js';
+import LoadingButton from '../components/LoadingButton.jsx';
 
 export default function UserManagementPage() {
   const [users, setUsers] = useState([]);
@@ -8,6 +9,7 @@ export default function UserManagementPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [deletingId, setDeletingId] = useState(null);
   const user = getUser();
 
   useEffect(() => {
@@ -145,21 +147,26 @@ export default function UserManagementPage() {
                       </td>
                       <td>
                         {u.id !== user?.id && (
-                          <button
+                          <LoadingButton
                             className="button button-danger button-sm"
+                            loading={deletingId === u.id}
+                            loadingText="Deleting..."
                             onClick={async () => {
                               if (window.confirm(`Are you sure you want to delete user ${u.username}?`)) {
+                                setDeletingId(u.id);
                                 try {
                                   await apiCall(`/api/users/${u.id}/`, 'DELETE');
                                   fetchUsers();
                                 } catch (err) {
                                   alert('Failed to delete user.');
+                                } finally {
+                                  setDeletingId(null);
                                 }
                               }
                             }}
                           >
                             Delete
-                          </button>
+                          </LoadingButton>
                         )}
                       </td>
                     </tr>
