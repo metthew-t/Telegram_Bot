@@ -2,17 +2,20 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { register, login } from '../api.js';
 import { saveAuth } from '../auth.js';
+import LoadingButton from '../components/LoadingButton.jsx';
 
 export default function RegisterPage({ onLogin }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+    setLoading(true);
 
     try {
       await register({ username, email, password, role: 'admin' });
@@ -33,6 +36,8 @@ export default function RegisterPage({ onLogin }) {
       } else {
         setError('Connection error. Is the backend running?');
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -61,9 +66,14 @@ export default function RegisterPage({ onLogin }) {
 
         {error && <div className="form-error">{error}</div>}
 
-        <button className="button button-primary" type="submit">
+        <LoadingButton
+          className="button button-primary"
+          type="submit"
+          loading={loading}
+          loadingText="Creating account..."
+        >
           Register
-        </button>
+        </LoadingButton>
       </form>
     </section>
   );

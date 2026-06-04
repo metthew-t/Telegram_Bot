@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getUser } from '../auth.js';
 import { apiCall } from '../api.js';
+import LoadingButton from '../components/LoadingButton.jsx';
 
 const POLL_INTERVAL = 10000; // 10 seconds
 
@@ -15,6 +16,8 @@ export default function CaseDetailPage() {
   const [admins, setAdmins] = useState([]);
   const [selectedAdmin, setSelectedAdmin] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const messagesEndRef = useRef(null);
   const pollRef = useRef(null);
   const user = getUser();
@@ -79,6 +82,7 @@ export default function CaseDetailPage() {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!messageContent.trim()) return;
+    setIsSending(true);
     try {
       await apiCall('/api/messages/', 'POST', {
         case: parseInt(id),
@@ -89,6 +93,8 @@ export default function CaseDetailPage() {
       await fetchMessages();
     } catch (err) {
       setError('Failed to send message');
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -114,11 +120,14 @@ export default function CaseDetailPage() {
 
   const handleCloseCase = async () => {
     if (!window.confirm('Are you sure you want to close this case?')) return;
+    setIsClosing(true);
     try {
       await apiCall(`/api/cases/${id}/close/`, 'POST');
       await fetchCaseDetail();
     } catch (err) {
       alert('Failed to close case');
+    } finally {
+      setIsClosing(false);
     }
   };
 
@@ -200,22 +209,25 @@ export default function CaseDetailPage() {
                     </option>
                   ))}
                 </select>
-                <button
+                <LoadingButton
                   className="button button-primary"
                   onClick={() => handleAssignCase()}
-                  disabled={isAssigning || !selectedAdmin}
+                  disabled={!selectedAdmin}
+                  loading={isAssigning}
+                  loadingText="Assigning..."
                 >
-                  {isAssigning ? 'Assigning...' : caseData.status === 'assigned' ? 'Reassign' : 'Assign'}
-                </button>
+                  {caseData.status === 'assigned' ? 'Reassign' : 'Assign'}
+                </LoadingButton>
               </div>
             ) : user?.role === 'admin' ? (
-              <button
+              <LoadingButton
                 className="button button-primary"
                 onClick={() => handleAssignCase(user.id)}
-                disabled={isAssigning}
+                loading={isAssigning}
+                loadingText="Assigning..."
               >
-                {isAssigning ? 'Assigning...' : 'Assign to Myself'}
-              </button>
+                Assign to Myself
+              </LoadingButton>
             ) : (
               <p style={{ color: 'var(--text-muted)' }}>No admins available</p>
             )}
@@ -266,9 +278,14 @@ export default function CaseDetailPage() {
                 placeholder="Type your message..."
                 required
               />
-              <button className="button button-primary" type="submit">
+              <LoadingButton
+                className="button button-primary"
+                type="submit"
+                loading={isSending}
+                loadingText="Sending..."
+              >
                 Send
-              </button>
+              </LoadingButton>
             </form>
           )}
 
@@ -278,9 +295,14 @@ export default function CaseDetailPage() {
         {/* Close Case Button */}
         {caseData.status !== 'closed' && (
           <div className="case-actions">
-            <button className="button button-danger" onClick={handleCloseCase}>
+            <LoadingButton
+              className="button button-danger"
+              onClick={handleCloseCase}
+              loading={isClosing}
+              loadingText="Closing..."
+            >
               Close Case
-            </button>
+            </LoadingButton>
           </div>
         )}
 

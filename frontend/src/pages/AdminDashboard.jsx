@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUser } from '../auth.js';
 import { apiCall } from '../api.js';
+import LoadingButton from '../components/LoadingButton.jsx';
 
 export default function AdminDashboardPage() {
   const [cases, setCases] = useState([]);
@@ -10,6 +11,7 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [assigningId, setAssigningId] = useState(null);
   const user = getUser();
   const navigate = useNavigate();
 
@@ -66,6 +68,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleSelfAssign = async (caseId) => {
+    setAssigningId(caseId);
     try {
       await apiCall(`/api/cases/${caseId}/assign/`, 'POST', {
         admin_id: user?.id,
@@ -73,6 +76,8 @@ export default function AdminDashboardPage() {
       fetchCases();
     } catch (err) {
       alert('Failed to assign case');
+    } finally {
+      setAssigningId(null);
     }
   };
 
@@ -162,16 +167,18 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {caseItem.status === 'open' && (
-                  <button
+                  <LoadingButton
                     className="button button-primary button-sm"
                     style={{ marginTop: '0.75rem' }}
+                    loading={assigningId === caseItem.id}
+                    loadingText="Assigning..."
                     onClick={(e) => {
                       e.stopPropagation();
                       handleSelfAssign(caseItem.id);
                     }}
                   >
                     Assign to Me
-                  </button>
+                  </LoadingButton>
                 )}
               </div>
             ))}

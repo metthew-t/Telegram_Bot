@@ -4,7 +4,7 @@ import django
 
 # Must run from the backend/ directory
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'counselling_platform.settings')
-os.environ.setdefault('USE_SQLITE', '1')
+# Removed USE_SQLITE override so it connects to the real database on Render
 
 django.setup()
 

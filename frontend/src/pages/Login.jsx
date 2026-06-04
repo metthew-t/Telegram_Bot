@@ -2,16 +2,19 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api.js';
 import { saveAuth } from '../auth.js';
+import LoadingButton from '../components/LoadingButton.jsx';
 
 export default function LoginPage({ onLogin, selectedRole, setSelectedRole }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+    setLoading(true);
     try {
       const data = await login({ username, password });
 
@@ -32,6 +35,8 @@ export default function LoginPage({ onLogin, selectedRole, setSelectedRole }) {
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Unable to login.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,9 +71,14 @@ export default function LoginPage({ onLogin, selectedRole, setSelectedRole }) {
 
         {error && <div className="form-error">{error}</div>}
 
-        <button className="button button-primary" type="submit">
+        <LoadingButton
+          className="button button-primary"
+          type="submit"
+          loading={loading}
+          loadingText="Signing in..."
+        >
           Login
-        </button>
+        </LoadingButton>
       </form>
     </section>
   );
