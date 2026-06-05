@@ -43,6 +43,7 @@ VIEW_CASE_ID = 20
 def backend_request(path, method='post', token=None, **kwargs):
     headers = kwargs.pop('headers', {})
     headers['Content-Type'] = 'application/json'
+    headers['X-Forwarded-Proto'] = 'https'
     if token:
         headers['Authorization'] = f'Bearer {token}'
     url = BACKEND_URL.rstrip('/') + path
