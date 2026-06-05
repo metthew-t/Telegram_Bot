@@ -46,7 +46,22 @@ def backend_request(path, method='post', token=None, **kwargs):
     if token:
         headers['Authorization'] = f'Bearer {token}'
     url = BACKEND_URL.rstrip('/') + path
-    return requests.request(method, url, headers=headers, **kwargs)
+    try:
+        response = requests.request(method, url, headers=headers, **kwargs)
+        print(f"DEBUG: Backend request to {url} returned status {response.status_code}")
+        if not response.ok:
+            print(f"DEBUG: Error response body: {response.text}")
+        return response
+    except Exception as e:
+        print(f"DEBUG: Exception during backend request to {url}: {str(e)}")
+        class DummyResponse:
+            ok = False
+            status_code = 500
+            text = str(e)
+            def json(self):
+                return {}
+        return DummyResponse()
+
 
 
 def login_or_register(telegram_id: str, username: str):
