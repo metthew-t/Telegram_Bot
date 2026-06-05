@@ -16,7 +16,7 @@ from telegram.ext import (
 
 # On Render, gunicorn listens on $PORT, not 8000
 _port = os.environ.get('PORT', '8000')
-BACKEND_URL = os.environ.get('BACKEND_URL', f'http://localhost:{_port}')
+BACKEND_URL = os.environ.get('BACKEND_URL', f'http://127.0.0.1:{_port}')
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 
 if not BOT_TOKEN:
