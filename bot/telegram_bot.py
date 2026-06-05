@@ -47,7 +47,7 @@ def backend_request(path, method='post', token=None, **kwargs):
         headers['Authorization'] = f'Bearer {token}'
     url = BACKEND_URL.rstrip('/') + path
     try:
-        response = requests.request(method, url, headers=headers, **kwargs)
+        response = requests.request(method, url, headers=headers, timeout=10, **kwargs)
         print(f"DEBUG: Backend request to {url} returned status {response.status_code}")
         if not response.ok:
             print(f"DEBUG: Error response body: {response.text}")
