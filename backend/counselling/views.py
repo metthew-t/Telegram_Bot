@@ -444,6 +444,9 @@ class LoginView(APIView):
         password = request.data.get('password')
         user = authenticate(username=username, password=password)
         if user:
+            if user.role in ['admin', 'owner'] and not user.email_verified:
+                return Response({'error': 'Please verify your email address before logging in. Check your server terminal for the verification link.'}, status=status.HTTP_403_FORBIDDEN)
+                
             refresh = RefreshToken.for_user(user)
             return Response({
                 'refresh': str(refresh),
