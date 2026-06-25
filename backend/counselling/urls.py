@@ -10,6 +10,7 @@ from .views import (
     ProfileView,
     TelegramLoginView,
     InternalMessageViewSet,
+    EmailVerifyView,
     api_root,
 )
 
@@ -26,4 +27,5 @@ urlpatterns = [
     path('api/telegram-login/', TelegramLoginView.as_view(), name='telegram_login'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/profile/', ProfileView.as_view(), name='profile'),
+    path('api/verify-email/', EmailVerifyView.as_view(), name='verify_email'),
 ]

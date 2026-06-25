@@ -1,8 +1,12 @@
 import os
+import uuid
 import requests
 
+from django.conf import settings
 from django.db.models import Q
 from django.contrib.auth import authenticate
+from django.core.mail import EmailMultiAlternatives
+from django.shortcuts import redirect
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -13,6 +17,16 @@ from django.http import JsonResponse
 
 from .models import User, Case, Message, AuditLog, InternalMessage
 from .serializers import UserSerializer, CaseSerializer, MessageSerializer, AuditLogSerializer, InternalMessageSerializer
+from .email_templates import (
+    render_verification_email,
+    render_new_case_email,
+    render_new_message_email,
+    render_case_assigned_email,
+    render_case_closed_email,
+)
+
+
+# ─── Root ────────────────────────────────────────────────────────────────────
 
 def api_root(request):
     return JsonResponse({
@@ -25,20 +39,21 @@ def api_root(request):
     })
 
 
+# ─── Telegram Notification Helpers ───────────────────────────────────────────
 
 def send_telegram_notification(telegram_id, text):
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
         print("Backend Error: TELEGRAM_BOT_TOKEN not set in environment.")
         return False
-    
+
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
         "chat_id": telegram_id,
         "text": text,
         "parse_mode": "Markdown",
     }
-    
+
     try:
         response = requests.post(url, json=payload, timeout=10)
         if response.status_code != 200:
@@ -63,6 +78,72 @@ def notify_staff(text):
         send_telegram_notification(user.telegram_id, text)
 
 
+# ─── Email Notification Helpers ──────────────────────────────────────────────
+
+def _send_email(subject: str, html_body: str, text_body: str, recipients: list):
+    """Send a multipart (HTML + plain text) email to a list of recipients."""
+    if not recipients:
+        return
+    from_email = settings.DEFAULT_FROM_EMAIL
+    try:
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            from_email=from_email,
+            to=recipients,
+        )
+        msg.attach_alternative(html_body, "text/html")
+        msg.send(fail_silently=False)
+        print(f"[Email] Sent '{subject}' to {len(recipients)} recipient(s).")
+    except Exception as exc:
+        print(f"[Email] Failed to send '{subject}': {exc}")
+
+
+def _staff_email_recipients():
+    """Return list of email addresses for all verified admins + owners."""
+    return list(
+        User.objects.filter(
+            role__in=['admin', 'owner'],
+            email_verified=True,
+        ).exclude(email='').values_list('email', flat=True)
+    )
+
+
+def _owner_email_recipients():
+    """Return list of email addresses for verified owners only."""
+    return list(
+        User.objects.filter(
+            role='owner',
+            email_verified=True,
+        ).exclude(email='').values_list('email', flat=True)
+    )
+
+
+def send_email_to_staff(subject: str, html_body: str, text_body: str):
+    _send_email(subject, html_body, text_body, _staff_email_recipients())
+
+
+def send_email_to_owners(subject: str, html_body: str, text_body: str):
+    _send_email(subject, html_body, text_body, _owner_email_recipients())
+
+
+def send_verification_email(user, request):
+    """Generate a UUID token, save it, and dispatch the formal verification email."""
+    token = uuid.uuid4()
+    user.email_verification_token = token
+    user.email_verified = False
+    user.save(update_fields=['email_verification_token', 'email_verified'])
+
+    backend_url = getattr(settings, 'BACKEND_URL', os.getenv('BACKEND_URL', 'http://localhost:8000'))
+    frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+    verification_link = f"{backend_url}/api/verify-email/?token={token}"
+
+    subject, html_body, text_body = render_verification_email(user, verification_link)
+    _send_email(subject, html_body, text_body, [user.email])
+
+
+# ─── Permissions ─────────────────────────────────────────────────────────────
+
 class IsOwner(permissions.BasePermission):
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated and request.user.role == 'owner')
@@ -77,6 +158,42 @@ class IsOwnerOrSelf(permissions.BasePermission):
 
     def has_object_permission(self, request, view, obj):
         return request.user.role == 'owner' or obj == request.user
+
+
+# ─── Email Verification View ──────────────────────────────────────────────────
+
+class EmailVerifyView(APIView):
+    """
+    GET /api/verify-email/?token=<uuid>
+    Marks the matching user's email as verified and redirects to the frontend
+    success page. Returns a JSON error if the token is invalid or missing.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        token_str = request.query_params.get('token', '').strip()
+        if not token_str:
+            return Response({'error': 'Verification token is missing.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = uuid.UUID(token_str)
+        except ValueError:
+            return Response({'error': 'Invalid token format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email_verification_token=token)
+        except User.DoesNotExist:
+            return Response({'error': 'Token not found or already used.'}, status=status.HTTP_404_NOT_FOUND)
+
+        user.email_verified = True
+        user.email_verification_token = None
+        user.save(update_fields=['email_verified', 'email_verification_token'])
+
+        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+        return redirect(f"{frontend_url}/email-verified")
+
+
+# ─── User ViewSet ─────────────────────────────────────────────────────────────
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -100,18 +217,27 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         requested_role = self.request.data.get('role', 'admin')
-        
+
         # If anonymous, only allow 'admin' or 'user'
         if not self.request.user.is_authenticated:
-            # Force 'admin' if they tried something else (only 'admin' is for web registration)
             role = 'admin' if requested_role in ['admin', 'owner'] else requested_role
-            serializer.save(role=role)
+            user = serializer.save(role=role)
         # If logged in as owner, respect whatever they sent
         elif self.request.user.role == 'owner':
-            serializer.save()
+            user = serializer.save()
         # Fallback for other cases
         else:
-            serializer.save(role='admin')
+            user = serializer.save(role='admin')
+
+        # Send email verification for admins/owners who provided an email
+        if user.role in ['admin', 'owner'] and user.email:
+            try:
+                send_verification_email(user, self.request)
+            except Exception as exc:
+                print(f"[Email] Verification email failed for {user.username}: {exc}")
+
+
+# ─── Case ViewSet ─────────────────────────────────────────────────────────────
 
 class CaseViewSet(viewsets.ModelViewSet):
     queryset = Case.objects.all()
@@ -141,12 +267,22 @@ class CaseViewSet(viewsets.ModelViewSet):
             serializer.save(user=serializer.validated_data.get('user', self.request.user))
         else:
             case = serializer.save(user=self.request.user)
+            frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+
+            # ── Telegram ──
             notify_staff(
                 f"🆕 *New Case Created*\n\n"
                 f"🆔 ID: #{case.id}\n"
                 f"📝 Title: {case.title}\n"
                 f"👤 User: {self.request.user.username}"
             )
+
+            # ── Email ──
+            try:
+                subject, html_body, text_body = render_new_case_email(case, frontend_url)
+                send_email_to_staff(subject, html_body, text_body)
+            except Exception as exc:
+                print(f"[Email] New-case email failed: {exc}")
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrOwner])
     def assign(self, request, pk=None):
@@ -167,6 +303,25 @@ class CaseViewSet(viewsets.ModelViewSet):
             details=f'Assigned case to admin {admin.username}',
         )
         notify_case_user(case, f'Your case #{case.id} has been assigned to support.')
+
+        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+
+        # ── Email: notify the assigned admin + owners ──
+        try:
+            subject, html_body, text_body = render_case_assigned_email(
+                case, admin.username, request.user.username, frontend_url
+            )
+            # Collect verified emails: assigned admin + all owners
+            recipients = []
+            if admin.email and admin.email_verified:
+                recipients.append(admin.email)
+            owner_emails = _owner_email_recipients()
+            recipients.extend(e for e in owner_emails if e not in recipients)
+            if recipients:
+                _send_email(subject, html_body, text_body, recipients)
+        except Exception as exc:
+            print(f"[Email] Case-assigned email failed: {exc}")
+
         return Response({'status': 'assigned'})
 
     @action(detail=True, methods=['post'])
@@ -182,8 +337,21 @@ class CaseViewSet(viewsets.ModelViewSet):
                 details=f'Case closed by {request.user.username}',
             )
             notify_case_user(case, f'Your case #{case.id} has been closed.')
+
+            frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+
+            # ── Email ──
+            try:
+                subject, html_body, text_body = render_case_closed_email(case, request.user.username, frontend_url)
+                send_email_to_staff(subject, html_body, text_body)
+            except Exception as exc:
+                print(f"[Email] Case-closed email failed: {exc}")
+
             return Response({'status': 'closed'})
         raise PermissionDenied('Permission denied')
+
+
+# ─── Message ViewSet ──────────────────────────────────────────────────────────
 
 class MessageViewSet(viewsets.ModelViewSet):
     queryset = Message.objects.all()
@@ -216,18 +384,39 @@ class MessageViewSet(viewsets.ModelViewSet):
         )
         if not allowed:
             raise PermissionDenied('Permission denied')
+
         message = serializer.save(sender=user)
-        
+        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+
         if user.role in ['admin', 'owner']:
+            # Notify case user via Telegram
             if case.user.telegram_id:
                 notify_case_user(case, f'💬 *New support response on case #{case.id}:*\n\n{message.content}')
+
+            # Email owners for oversight (admin replied)
+            try:
+                subject, html_body, text_body = render_new_message_email(
+                    case, message, user.username, frontend_url
+                )
+                send_email_to_owners(subject, html_body, text_body)
+            except Exception as exc:
+                print(f"[Email] Admin-reply email failed: {exc}")
         else:
-            # Client replied
+            # Client replied — notify all staff
             notify_staff(
                 f"💬 *New message on case #{case.id}*\n"
                 f"👤 From: {user.username}\n\n"
                 f"{message.content}"
             )
+
+            # Email all verified staff
+            try:
+                subject, html_body, text_body = render_new_message_email(
+                    case, message, user.username, frontend_url
+                )
+                send_email_to_staff(subject, html_body, text_body)
+            except Exception as exc:
+                print(f"[Email] New-message email failed: {exc}")
 
         AuditLog.objects.create(
             case=case,
@@ -236,10 +425,16 @@ class MessageViewSet(viewsets.ModelViewSet):
             details=f'Message created by {user.username}: {message.content[:120]}',
         )
 
+
+# ─── Audit Log ViewSet ────────────────────────────────────────────────────────
+
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AuditLog.objects.all().order_by('-created_at')
     serializer_class = AuditLogSerializer
     permission_classes = [IsOwner]
+
+
+# ─── Auth Views ───────────────────────────────────────────────────────────────
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -256,6 +451,7 @@ class LoginView(APIView):
                 'user': UserSerializer(user).data,
             })
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
 
 class TelegramLoginView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -286,12 +482,16 @@ class TelegramLoginView(APIView):
             'user': UserSerializer(user).data,
         })
 
+
 class ProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
+
+# ─── Internal Message ViewSet ─────────────────────────────────────────────────
 
 class InternalMessageViewSet(viewsets.ModelViewSet):
     queryset = InternalMessage.objects.all().order_by('-timestamp')

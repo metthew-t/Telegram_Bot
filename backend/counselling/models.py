@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
@@ -10,6 +11,8 @@ class User(AbstractUser):
     ]
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
     telegram_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    email_verified = models.BooleanField(default=False)
+    email_verification_token = models.UUIDField(null=True, blank=True, default=None)
 
     def __str__(self):
         return f"{self.username} ({self.role})"
