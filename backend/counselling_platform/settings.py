@@ -247,22 +247,14 @@ LOGGING = {
     },
 }
 
-# ─── Email (SMTP) Configuration ───────────────────────────────────────────────
-# Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in your .env file.
-# For Gmail: enable 2-Step Verification, then generate an App Password at:
-#   https://myaccount.google.com/apppasswords
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Counselling Platform <noreply@example.com>')
+# ─── Email Configuration ──────────────────────────────────────────────────────
+# Emails are now sent via Brevo HTTP API (not Django SMTP).
+# Set BREVO_API_KEY in your environment variables.
+# DEFAULT_FROM_EMAIL must match a verified sender in Brevo.
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'ASTU Counselling <astucounselplatform@gmail.com>')
 
-# Automatically use the console backend for testing if no real password is provided
-if not EMAIL_HOST_PASSWORD or EMAIL_HOST_PASSWORD == 'your-16-char-app-password':
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-else:
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# Disable Django's built-in SMTP backend since we use Brevo API directly
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Frontend URL used to build links inside notification emails
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
