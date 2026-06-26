@@ -81,20 +81,43 @@ def notify_staff(text):
 # ─── Email Notification Helpers ──────────────────────────────────────────────
 
 def _send_email(subject: str, html_body: str, text_body: str, recipients: list):
-    """Send a multipart (HTML + plain text) email to a list of recipients."""
+    """Send a multipart (HTML + plain text) email to a list of recipients via SendGrid API."""
     if not recipients:
         return
-    from_email = settings.DEFAULT_FROM_EMAIL
+        
+    api_key = os.getenv('BREVO_API_KEY')
+    if not api_key:
+        print(f"\n[Brevo Skipped] BREVO_API_KEY not found. Email to {recipients} not sent.")
+        return
+
+    from_email_str = settings.DEFAULT_FROM_EMAIL
+    if '<' in from_email_str:
+        sender_name = from_email_str.split('<')[0].strip()
+        sender_email = from_email_str.split('<')[1].strip('>')
+        from_dict = {"email": sender_email, "name": sender_name}
+    else:
+        from_dict = {"email": from_email_str}
+
+    headers = {
+        'api-key': api_key,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+    
+    data = {
+        "sender": from_dict,
+        "to": [{"email": email} for email in recipients],
+        "subject": subject,
+        "htmlContent": html_body,
+        "textContent": text_body
+    }
+    
     try:
-        msg = EmailMultiAlternatives(
-            subject=subject,
-            body=text_body,
-            from_email=from_email,
-            to=recipients,
-        )
-        msg.attach_alternative(html_body, "text/html")
-        msg.send(fail_silently=False)
-        print(f"[Email] Sent '{subject}' to {len(recipients)} recipient(s).")
+        response = requests.post('https://api.brevo.com/v3/smtp/email', headers=headers, json=data, timeout=10)
+        if response.ok:
+            print(f"[Email] Sent '{subject}' to {len(recipients)} recipient(s) via Brevo.")
+        else:
+            print(f"[Email] Brevo API Error {response.status_code}: {response.text}")
     except Exception as exc:
         print(f"[Email] Failed to send '{subject}': {exc}")
 
@@ -224,15 +247,17 @@ class UserViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_authenticated:
             role = 'admin' if requested_role in ['admin', 'owner'] else requested_role
             user = serializer.save(role=role)
-        # If logged in as owner, respect whatever they sent
+        # If logged in as owner, respect whatever they sent and auto-verify
         elif self.request.user.role == 'owner':
             user = serializer.save()
+            user.email_verified = True
+            user.save(update_fields=['email_verified'])
         # Fallback for other cases
         else:
             user = serializer.save(role='admin')
 
-        # Send email verification for admins/owners who provided an email
-        if user.role in ['admin', 'owner'] and user.email:
+        # Send email verification for admins/owners who provided an email (if not already verified)
+        if user.role in ['admin', 'owner'] and user.email and not user.email_verified:
             try:
                 send_verification_email(user, self.request)
             except Exception as exc:
