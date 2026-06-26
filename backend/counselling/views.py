@@ -138,6 +138,8 @@ def send_verification_email(user, request):
     frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
     verification_link = f"{backend_url}/api/verify-email/?token={token}"
 
+    print(f"\n\n{'='*60}\n[ACTION REQUIRED] VERIFICATION LINK FOR {user.username}:\n{verification_link}\n{'='*60}\n\n")
+
     subject, html_body, text_body = render_verification_email(user, verification_link)
     _send_email(subject, html_body, text_body, [user.email])
 
