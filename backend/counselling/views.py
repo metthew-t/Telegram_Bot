@@ -77,6 +77,11 @@ def notify_staff(text):
     for user in staff_users:
         send_telegram_notification(user.telegram_id, text)
 
+def notify_specific_users(users, text):
+    for user in users:
+        if getattr(user, 'telegram_id', None):
+            send_telegram_notification(user.telegram_id, text)
+
 
 # ─── Email Notification Helpers ──────────────────────────────────────────────
 
@@ -148,6 +153,14 @@ def send_email_to_staff(subject: str, html_body: str, text_body: str):
 
 def send_email_to_owners(subject: str, html_body: str, text_body: str):
     _send_email(subject, html_body, text_body, _owner_email_recipients())
+
+
+def send_email_to_specific_users(subject: str, html_body: str, text_body: str, users):
+    emails = []
+    for user in users:
+        if getattr(user, 'email_verified', False) and getattr(user, 'email', ''):
+            emails.append(user.email)
+    _send_email(subject, html_body, text_body, emails)
 
 
 def send_verification_email(user, request):
@@ -429,19 +442,28 @@ class MessageViewSet(viewsets.ModelViewSet):
             except Exception as exc:
                 print(f"[Email] Admin-reply email failed: {exc}")
         else:
-            # Client replied — notify all staff
-            notify_staff(
+            # Client replied — determine who to notify
+            if case.status == 'assigned' and case.assigned_admin:
+                # Notify only assigned admin and all owners
+                owners = list(User.objects.filter(role='owner'))
+                notified_users = list(set([case.assigned_admin] + owners))
+            else:
+                # Notify all staff
+                notified_users = list(User.objects.filter(role__in=['admin', 'owner']))
+
+            notify_specific_users(
+                notified_users,
                 f"💬 *New message on case #{case.id}*\n"
                 f"👤 From: {user.username}\n\n"
                 f"{message.content}"
             )
 
-            # Email all verified staff
+            # Email the selected staff members
             try:
                 subject, html_body, text_body = render_new_message_email(
                     case, message, user.username, frontend_url
                 )
-                send_email_to_staff(subject, html_body, text_body)
+                send_email_to_specific_users(subject, html_body, text_body, notified_users)
             except Exception as exc:
                 print(f"[Email] New-message email failed: {exc}")
 
