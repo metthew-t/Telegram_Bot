@@ -157,8 +157,8 @@ def send_verification_email(user, request):
     user.email_verified = False
     user.save(update_fields=['email_verification_token', 'email_verified'])
 
-    backend_url = getattr(settings, 'BACKEND_URL', os.getenv('BACKEND_URL', 'http://localhost:8000'))
-    frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+    frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
+    backend_url = getattr(settings, 'BACKEND_URL', os.getenv('BACKEND_URL', 'http://localhost:8000')).rstrip('/')
     verification_link = f"{backend_url}/api/verify-email/?token={token}"
 
     print(f"\n\n{'='*60}\n[ACTION REQUIRED] VERIFICATION LINK FOR {user.username}:\n{verification_link}\n{'='*60}\n\n")
@@ -214,7 +214,7 @@ class EmailVerifyView(APIView):
         user.email_verification_token = None
         user.save(update_fields=['email_verified', 'email_verification_token'])
 
-        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
         return redirect(f"{frontend_url}/email-verified")
 
 
@@ -294,7 +294,7 @@ class CaseViewSet(viewsets.ModelViewSet):
             serializer.save(user=serializer.validated_data.get('user', self.request.user))
         else:
             case = serializer.save(user=self.request.user)
-            frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+            frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
             # ── Telegram ──
             notify_staff(
@@ -331,7 +331,7 @@ class CaseViewSet(viewsets.ModelViewSet):
         )
         notify_case_user(case, f'Your case #{case.id} has been assigned to support.')
 
-        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
         # ── Email: notify the assigned admin + owners ──
         try:
@@ -365,7 +365,7 @@ class CaseViewSet(viewsets.ModelViewSet):
             )
             notify_case_user(case, f'Your case #{case.id} has been closed.')
 
-            frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+            frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
             # ── Email ──
             try:
@@ -413,7 +413,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('Permission denied')
 
         message = serializer.save(sender=user)
-        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173'))
+        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
         if user.role in ['admin', 'owner']:
             # Notify case user via Telegram
