@@ -87,21 +87,32 @@ def notify_specific_users(users, text):
 
 def _send_email(subject: str, html_body: str, text_body: str, recipients: list):
     """Send a multipart (HTML + plain text) email to a list of recipients via SendGrid API."""
+    print(f"[DEBUG] _send_email called with {len(recipients) if recipients else 0} recipients")
+    
     if not recipients:
+        print("[DEBUG] No recipients provided, skipping email")
         return
+    
+    print(f"[DEBUG] Recipients: {recipients}")
         
     api_key = os.getenv('BREVO_API_KEY')
     if not api_key:
         print(f"\n[Brevo Skipped] BREVO_API_KEY not found. Email to {recipients} not sent.")
         return
+    
+    print(f"[DEBUG] BREVO_API_KEY found: {api_key[:15]}...{api_key[-6:]}")
 
     from_email_str = settings.DEFAULT_FROM_EMAIL
+    print(f"[DEBUG] DEFAULT_FROM_EMAIL: {from_email_str}")
+    
     if '<' in from_email_str:
         sender_name = from_email_str.split('<')[0].strip()
         sender_email = from_email_str.split('<')[1].strip('>')
         from_dict = {"email": sender_email, "name": sender_name}
     else:
         from_dict = {"email": from_email_str}
+    
+    print(f"[DEBUG] Parsed sender: {from_dict}")
 
     headers = {
         'api-key': api_key,
@@ -117,14 +128,18 @@ def _send_email(subject: str, html_body: str, text_body: str, recipients: list):
         "textContent": text_body
     }
     
+    print(f"[DEBUG] Sending request to Brevo API...")
+    
     try:
         response = requests.post('https://api.brevo.com/v3/smtp/email', headers=headers, json=data, timeout=10)
+        print(f"[DEBUG] Brevo API response status: {response.status_code}")
+        
         if response.ok:
-            print(f"[Email] Sent '{subject}' to {len(recipients)} recipient(s) via Brevo.")
+            print(f"[Email] ✅ Sent '{subject}' to {len(recipients)} recipient(s) via Brevo.")
         else:
-            print(f"[Email] Brevo API Error {response.status_code}: {response.text}")
+            print(f"[Email] ❌ Brevo API Error {response.status_code}: {response.text}")
     except Exception as exc:
-        print(f"[Email] Failed to send '{subject}': {exc}")
+        print(f"[Email] ❌ Exception while sending '{subject}': {exc}")
 
 
 def _staff_email_recipients():
@@ -165,10 +180,14 @@ def send_email_to_specific_users(subject: str, html_body: str, text_body: str, u
 
 def send_verification_email(user, request):
     """Generate a UUID token, save it, and dispatch the formal verification email."""
+    print(f"\n[DEBUG] send_verification_email called for user: {user.username}, email: {user.email}")
+    
     token = uuid.uuid4()
     user.email_verification_token = token
     user.email_verified = False
     user.save(update_fields=['email_verification_token', 'email_verified'])
+    
+    print(f"[DEBUG] Token generated and saved: {token}")
 
     frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
     backend_url = getattr(settings, 'BACKEND_URL', os.getenv('BACKEND_URL', 'http://localhost:8000')).rstrip('/')
@@ -177,6 +196,9 @@ def send_verification_email(user, request):
     print(f"\n\n{'='*60}\n[ACTION REQUIRED] VERIFICATION LINK FOR {user.username}:\n{verification_link}\n{'='*60}\n\n")
 
     subject, html_body, text_body = render_verification_email(user, verification_link)
+    print(f"[DEBUG] Email rendered. Subject: {subject}")
+    print(f"[DEBUG] Calling _send_email to: {user.email}")
+    
     _send_email(subject, html_body, text_body, [user.email])
 
 
