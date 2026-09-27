@@ -251,6 +251,7 @@ LOGGING = {
 # Emails are now sent via Brevo HTTP API (not Django SMTP).
 # Set BREVO_API_KEY in your environment variables.
 # DEFAULT_FROM_EMAIL must match a verified sender in Brevo.
+# Note: Using @gmail.com may cause DKIM/DMARC issues. Consider using your own domain.
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'ASTU Counselling <astucounselplatform@gmail.com>')
 
 # Disable Django's built-in SMTP backend since we use Brevo API directly
