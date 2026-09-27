@@ -12,3 +12,7 @@ python backend/manage.py collectstatic --noinput
 # Run migrations
 # Note: DATABASE_URL must be set in Render environment
 python backend/manage.py migrate
+
+# Reset owner account (ensure owner can always login)
+echo "🔧 Resetting owner account..."
+python backend/manage.py resetowner
