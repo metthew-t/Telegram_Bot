@@ -42,9 +42,10 @@ def api_root(request):
 # ─── Telegram Notification Helpers ───────────────────────────────────────────
 
 def send_telegram_notification(telegram_id, text):
+    """Send a Telegram notification to a specific user"""
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
-        print("Backend Error: TELEGRAM_BOT_TOKEN not set in environment.")
+        print("❌ [Telegram] TELEGRAM_BOT_TOKEN not set in environment.")
         return False
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -54,14 +55,21 @@ def send_telegram_notification(telegram_id, text):
         "parse_mode": "Markdown",
     }
 
+    print(f"[Telegram] Sending notification to chat_id: {telegram_id}")
+    print(f"[Telegram] Message preview: {text[:100]}...")
+
     try:
         response = requests.post(url, json=payload, timeout=10)
+        print(f"[Telegram] API response status: {response.status_code}")
+        
         if response.status_code != 200:
-            print(f"Telegram API Error: {response.status_code} - {response.text}")
+            print(f"❌ [Telegram] API Error: {response.status_code} - {response.text}")
             return False
+        
+        print(f"✅ [Telegram] Message sent successfully!")
         return True
     except Exception as e:
-        print(f"Telegram Notification Exception: {str(e)}")
+        print(f"❌ [Telegram] Exception: {str(e)}")
         return False
 
 
@@ -451,9 +459,18 @@ class MessageViewSet(viewsets.ModelViewSet):
         frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
         if user.role in ['admin', 'owner']:
-            # Notify case user via Telegram
+            # Admin/Owner replied - Notify case user via Telegram
+            print(f"[Telegram] Admin/Owner {user.username} replied to case #{case.id}")
             if case.user.telegram_id:
-                notify_case_user(case, f'💬 *New support response on case #{case.id}:*\n\n{message.content}')
+                print(f"[Telegram] Sending notification to user telegram_id: {case.user.telegram_id}")
+                notification_text = f'💬 *New support response on case #{case.id}: {case.title}*\n\n{message.content[:500]}'
+                success = send_telegram_notification(case.user.telegram_id, notification_text)
+                if success:
+                    print(f"[Telegram] ✅ Notification sent successfully to case user")
+                else:
+                    print(f"[Telegram] ❌ Failed to send notification to case user")
+            else:
+                print(f"[Telegram] ⚠️ Case user has no telegram_id")
 
             # Email owners for oversight (admin replied)
             try:

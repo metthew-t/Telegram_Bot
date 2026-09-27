@@ -252,12 +252,13 @@ a:hover {
 .topbar nav a {
   position: relative;
   padding: var(--space-sm) var(--space-md);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-secondary);
   border-radius: var(--radius-md);
   transition: all var(--transition-base);
   overflow: hidden;
+  white-space: nowrap;
 }
 
 .topbar nav a::before {
@@ -374,20 +375,21 @@ a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-sm);
-  padding: 12px 28px;
+  gap: var(--space-xs);
+  padding: 10px 20px;
   font-family: 'Poppins', sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 600;
   border: none;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-base);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
   position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
 }
 
 .button::before {
@@ -482,8 +484,8 @@ a:hover {
 }
 
 .button-sm {
-  padding: 8px 20px;
-  font-size: 0.85rem;
+  padding: 6px 14px;
+  font-size: 0.75rem;
 }
 
 /* ─── 📝 Beautiful Forms ─── */
@@ -1020,8 +1022,9 @@ select {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
   .cases-grid { grid-template-columns: 1fr; }
   .topbar { flex-wrap: wrap; padding: var(--space-md); }
-  .topbar nav { width: 100%; justify-content: center; }
+  .topbar nav { width: 100%; justify-content: center; flex-wrap: wrap; }
   .page-content { padding: var(--space-lg); }
+  .button { padding: 9px 18px; font-size: 0.8125rem; }
 }
 
 /* Mobile */
@@ -1029,11 +1032,38 @@ select {
   h1 { font-size: 1.75rem; }
   .panel-header h1 { font-size: 1.5rem; }
   .stats-row { grid-template-columns: 1fr; }
-  .button { padding: 10px 20px; font-size: 0.85rem; }
+  .button { 
+    padding: 10px 16px; 
+    font-size: 0.8125rem;
+    min-height: 40px;
+    width: 100%;
+  }
+  .button-sm {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    min-height: 36px;
+  }
   .topbar { padding: var(--space-sm); }
+  .topbar nav a {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: 0.8125rem;
+  }
   .page-content { padding: var(--space-md); }
   .stat-card .stat-value { font-size: 2rem; }
   .message-item.own-message { margin-left: var(--space-sm); }
+  .case-actions { 
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+  .case-actions .button {
+    width: 100%;
+  }
+  .form-inline {
+    flex-direction: column;
+  }
+  .form-inline .button {
+    width: 100%;
+  }
 }
 
 /* ─── 🎊 Special Effects ─── */
