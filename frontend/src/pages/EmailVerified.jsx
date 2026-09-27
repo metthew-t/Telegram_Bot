@@ -65,7 +65,7 @@ export default function EmailVerifiedPage() {
         <button
           id="email-verified-login-btn"
           className="button button-primary"
-          onClick={() => navigate('/login')}
+          onClick={() => navigate('/login', { state: { emailVerified: true } })}
           style={{
             padding: '14px 40px',
             fontSize: '15px',

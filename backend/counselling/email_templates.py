@@ -36,7 +36,7 @@ _BASE_STYLES = """
   .status-closed   { background: rgba(16,185,129,0.15); color: #10b981; }
   .cta-block { text-align: center; margin: 28px 0; }
   .cta-btn { display: inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed);
-             color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 8px;
+             color: #ffffff !important; text-decoration: none; padding: 14px 36px; border-radius: 8px;
              font-size: 15px; font-weight: 700; letter-spacing: 0.3px;
              box-shadow: 0 4px 14px rgba(79,70,229,0.4); }
   .cta-btn:hover { opacity: 0.9; }
@@ -46,6 +46,24 @@ _BASE_STYLES = """
   .footer p { font-size: 12px; color: #475569; margin: 4px 0; line-height: 1.6; }
   .footer .brand { font-weight: 700; color: #6366f1; }
   .alert-icon { font-size: 40px; text-align: center; margin-bottom: 16px; }
+  
+  /* Mobile Responsive */
+  @media only screen and (max-width: 600px) {
+    .wrapper { padding: 20px 10px; }
+    .header { padding: 24px 20px; }
+    .header-logo { font-size: 24px; }
+    .header-sub { font-size: 11px; }
+    .body { padding: 24px 20px; }
+    .greeting { font-size: 20px; }
+    .intro { font-size: 14px; }
+    .info-card { padding: 16px 18px; }
+    .info-row { flex-direction: column; margin-bottom: 12px; }
+    .info-label { min-width: 0; margin-bottom: 4px; }
+    .cta-btn { display: block !important; width: 100%; box-sizing: border-box; padding: 16px 24px; }
+    .cta-block { margin: 20px 0; }
+    .footer { padding: 20px 16px; }
+    .note { font-size: 12px; }
+  }
 """
 
 def _html_wrap(badge_label: str, badge_color: str, body_html: str) -> str:
@@ -132,10 +150,10 @@ def _case_info_card(case) -> str:
 def _cta_button(label: str, url: str) -> str:
     return f"""
     <div class="cta-block">
-      <a href="{url}" class="cta-btn">{label}</a>
+      <a href="{url}" class="cta-btn" style="display:inline-block;background:linear-gradient(135deg, #4f46e5, #7c3aed);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 14px rgba(79,70,229,0.4);">{label}</a>
     </div>
     <p class="note" style="text-align:center;">
-      Or copy this link: <a href="{url}" style="color:#818cf8;">{url}</a>
+      Or copy this link: <a href="{url}" style="color:#818cf8;word-break:break-all;">{url}</a>
     </p>"""
 
 
