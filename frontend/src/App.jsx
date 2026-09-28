@@ -78,11 +78,11 @@ function Header({ user, onLogout, selectedRole }) {
           </button>
         ) : (
           <>
-            <Link className={`button ${location.pathname === '/login' ? 'button-primary' : 'button-secondary'}`} to="/login">
+            <Link className="button button-primary" style={{ backgroundColor: '#FFD700', color: '#000000', border: '2px solid #000000', fontWeight: 'bold' }} to="/login">
               Login
             </Link>
             {(!isLoginPage || selectedRole !== 'owner') && (
-              <Link className={`button ${location.pathname === '/register' ? 'button-primary' : 'button-secondary'}`} to="/register">
+              <Link className="button button-primary" style={{ backgroundColor: '#000000', color: '#FFD700', border: '2px solid #FFD700', fontWeight: 'bold' }} to="/register">
                 Register
               </Link>
             )}

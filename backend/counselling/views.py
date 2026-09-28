@@ -49,7 +49,7 @@ def send_telegram_notification(telegram_id, text):
     
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
-        print("❌ [send_telegram_notification] TELEGRAM_BOT_TOKEN not set in environment.")
+        print("ERROR: [send_telegram_notification] TELEGRAM_BOT_TOKEN not set in environment.")
         return False
     
     print(f"[send_telegram_notification] Bot token found: {token[:15]}...{token[-6:]}")
@@ -57,7 +57,7 @@ def send_telegram_notification(telegram_id, text):
     # Ensure telegram_id is a string and not empty
     telegram_id = str(telegram_id).strip() if telegram_id else None
     if not telegram_id or telegram_id == 'None':
-        print(f"❌ [send_telegram_notification] Invalid telegram_id after conversion: {telegram_id}")
+        print(f"ERROR: [send_telegram_notification] Invalid telegram_id after conversion: {telegram_id}")
         return False
     
     print(f"[send_telegram_notification] Final telegram_id: '{telegram_id}'")
@@ -77,31 +77,31 @@ def send_telegram_notification(telegram_id, text):
         print(f"[send_telegram_notification] HTTP Response status: {response.status_code}")
         
         if response.status_code != 200:
-            print(f"❌ [send_telegram_notification] API Error: {response.status_code}")
-            print(f"❌ [send_telegram_notification] Response body: {response.text}")
+            print(f"ERROR: [send_telegram_notification] API Error: {response.status_code}")
+            print(f"ERROR: [send_telegram_notification] Response body: {response.text}")
             
             # Parse common errors
             try:
                 error_data = response.json()
                 error_desc = error_data.get('description', '')
-                print(f"❌ [send_telegram_notification] Error description: {error_desc}")
+                print(f"ERROR: [send_telegram_notification] Error description: {error_desc}")
                 
                 if 'chat not found' in error_desc.lower():
-                    print(f"❌ [send_telegram_notification] USER HASN'T STARTED BOT YET!")
+                    print(f"ERROR: [send_telegram_notification] USER HASN'T STARTED BOT YET!")
                 elif 'bot was blocked' in error_desc.lower():
-                    print(f"❌ [send_telegram_notification] USER BLOCKED THE BOT!")
+                    print(f"ERROR: [send_telegram_notification] USER BLOCKED THE BOT!")
             except:
                 pass
             
             return False
         
-        print(f"✅ [send_telegram_notification] Message sent successfully!")
+        print(f"SUCCESS: [send_telegram_notification] Message sent successfully!")
         response_data = response.json()
-        print(f"✅ [send_telegram_notification] Message ID: {response_data.get('result', {}).get('message_id')}")
+        print(f"SUCCESS: [send_telegram_notification] Message ID: {response_data.get('result', {}).get('message_id')}")
         return True
         
     except Exception as e:
-        print(f"❌ [send_telegram_notification] Exception occurred: {str(e)}")
+        print(f"ERROR: [send_telegram_notification] Exception occurred: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
@@ -665,9 +665,9 @@ class MessageViewSet(viewsets.ModelViewSet):
                     )
                     
                     if success:
-                        print(f"[TELEGRAM NOTIFICATION] ✅ Voice message sent successfully")
+                        print(f"[TELEGRAM NOTIFICATION] SUCCESS: Voice message sent successfully")
                     else:
-                        print(f"[TELEGRAM NOTIFICATION] ❌ Failed to send voice message")
+                        print(f"[TELEGRAM NOTIFICATION] ERROR: Failed to send voice message")
                         # Fallback: send text notification
                         case_num = case.user_case_number if case.user_case_number else case.id
                         fallback_text = f'🎤 Voice message on your case #{case_num}: {case.title}\n\nPlease check the website to listen.'
@@ -676,18 +676,19 @@ class MessageViewSet(viewsets.ModelViewSet):
                     # Regular text message
                     case_num = case.user_case_number if case.user_case_number else case.id
                     notification_text = f'💬 New response on your case #{case_num}: {case.title}\n\n{message.content[:500]}'
-                    print(f"[TELEGRAM NOTIFICATION] Notification text preview: {notification_text[:100]}...")
+                    safe_print_text = notification_text.encode('ascii', 'ignore').decode('ascii')
+                    print(f"[TELEGRAM NOTIFICATION] Notification text preview: {safe_print_text[:100]}...")
                     print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")
                     
                     success = send_telegram_notification(telegram_id_str, notification_text)
                     
                     if success:
-                        print(f"[TELEGRAM NOTIFICATION] ✅ Notification sent successfully to case user")
+                        print(f"[TELEGRAM NOTIFICATION] SUCCESS: Notification sent successfully to case user")
                     else:
-                        print(f"[TELEGRAM NOTIFICATION] ❌ Failed to send notification to case user")
+                        print(f"[TELEGRAM NOTIFICATION] ERROR: Failed to send notification to case user")
             else:
-                print(f"[TELEGRAM NOTIFICATION] ⚠️ Case user has no telegram_id (value is: {case.user.telegram_id})")
-                print(f"[TELEGRAM NOTIFICATION] ⚠️ Notification NOT sent - user needs to /start the bot")
+                print(f"[TELEGRAM NOTIFICATION] WARNING: Case user has no telegram_id (value is: {case.user.telegram_id})")
+                print(f"[TELEGRAM NOTIFICATION] WARNING: Notification NOT sent - user needs to /start the bot")
 
             # Email owners for oversight (admin replied)
             try:
