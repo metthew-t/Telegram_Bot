@@ -601,4 +601,18 @@ async def legacy_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        print("=" * 60)
+        print("🤖 TELEGRAM BOT STARTING")
+        print("=" * 60)
+        print(f"Backend URL: {BACKEND_URL}")
+        print(f"Bot Token: {'✅ Set' if BOT_TOKEN else '❌ Missing'}")
+        print("=" * 60)
+        main()
+    except KeyboardInterrupt:
+        print("\n🛑 Bot stopped by user")
+    except Exception as e:
+        print(f"❌ FATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
