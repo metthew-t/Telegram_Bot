@@ -642,53 +642,58 @@ class MessageViewSet(viewsets.ModelViewSet):
 
         if user.role in ['admin', 'owner']:
             # Admin/Owner replied - Notify case user via Telegram
-            print(f"{'='*80}")
-            print(f"[TELEGRAM NOTIFICATION] Admin/Owner {user.username} replied to case #{case.id}")
-            print(f"[TELEGRAM NOTIFICATION] Case user: {case.user.username}")
-            print(f"[TELEGRAM NOTIFICATION] Case user telegram_id: {case.user.telegram_id}")
-            print(f"[TELEGRAM NOTIFICATION] Message type: {message.message_type}")
-            print(f"[TELEGRAM NOTIFICATION] telegram_id type: {type(case.user.telegram_id)}")
-            print(f"{'='*80}\n")
-            
-            if case.user.telegram_id:
-                telegram_id_str = str(case.user.telegram_id).strip()
-                print(f"[TELEGRAM NOTIFICATION] Converted telegram_id to string: '{telegram_id_str}'")
-                print(f"[TELEGRAM NOTIFICATION] Preparing notification...")
+            try:
+                print(f"{'='*80}")
+                print(f"[TELEGRAM NOTIFICATION] Admin/Owner {user.username} replied to case #{case.id}")
+                print(f"[TELEGRAM NOTIFICATION] Case user: {case.user.username}")
+                print(f"[TELEGRAM NOTIFICATION] Case user telegram_id: {case.user.telegram_id}")
+                print(f"[TELEGRAM NOTIFICATION] Message type: {message.message_type}")
+                print(f"[TELEGRAM NOTIFICATION] telegram_id type: {type(case.user.telegram_id)}")
+                print(f"{'='*80}")
                 
-                # Check if it's a voice message
-                if message.message_type == 'voice' and message.voice_data:
-                    print(f"[TELEGRAM NOTIFICATION] Sending VOICE message to Telegram...")
-                    success = send_telegram_voice(
-                        telegram_id_str, 
-                        message.voice_data, 
-                        message.voice_duration
-                    )
+                if case.user.telegram_id:
+                    telegram_id_str = str(case.user.telegram_id).strip()
+                    print(f"[TELEGRAM NOTIFICATION] Converted telegram_id to string: '{telegram_id_str}'")
+                    print(f"[TELEGRAM NOTIFICATION] Preparing notification...")
                     
-                    if success:
-                        print(f"[TELEGRAM NOTIFICATION] SUCCESS: Voice message sent successfully")
+                    # Check if it's a voice message
+                    if message.message_type == 'voice' and message.voice_data:
+                        print(f"[TELEGRAM NOTIFICATION] Sending VOICE message to Telegram...")
+                        success = send_telegram_voice(
+                            telegram_id_str, 
+                            message.voice_data, 
+                            message.voice_duration
+                        )
+                        
+                        if success:
+                            print(f"[TELEGRAM NOTIFICATION] SUCCESS: Voice message sent successfully")
+                        else:
+                            print(f"[TELEGRAM NOTIFICATION] ERROR: Failed to send voice message")
+                            # Fallback: send text notification
+                            case_num = case.user_case_number if case.user_case_number else case.id
+                            fallback_text = f'Voice message on your case #{case_num}: {case.title}\n\nPlease check the website to listen.'
+                            send_telegram_notification(telegram_id_str, fallback_text)
                     else:
-                        print(f"[TELEGRAM NOTIFICATION] ERROR: Failed to send voice message")
-                        # Fallback: send text notification
+                        # Regular text message
                         case_num = case.user_case_number if case.user_case_number else case.id
-                        fallback_text = f'🎤 Voice message on your case #{case_num}: {case.title}\n\nPlease check the website to listen.'
-                        send_telegram_notification(telegram_id_str, fallback_text)
+                        notification_text = f'New response on your case #{case_num}: {case.title}\n\n{message.content[:500]}'
+                        safe_print_text = notification_text.encode('ascii', 'ignore').decode('ascii')
+                        print(f"[TELEGRAM NOTIFICATION] Notification text preview: {safe_print_text[:100]}...")
+                        print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")
+                        
+                        success = send_telegram_notification(telegram_id_str, notification_text)
+                        
+                        if success:
+                            print(f"[TELEGRAM NOTIFICATION] SUCCESS: Notification sent successfully to case user")
+                        else:
+                            print(f"[TELEGRAM NOTIFICATION] ERROR: Failed to send notification to case user")
                 else:
-                    # Regular text message
-                    case_num = case.user_case_number if case.user_case_number else case.id
-                    notification_text = f'💬 New response on your case #{case_num}: {case.title}\n\n{message.content[:500]}'
-                    safe_print_text = notification_text.encode('ascii', 'ignore').decode('ascii')
-                    print(f"[TELEGRAM NOTIFICATION] Notification text preview: {safe_print_text[:100]}...")
-                    print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")
-                    
-                    success = send_telegram_notification(telegram_id_str, notification_text)
-                    
-                    if success:
-                        print(f"[TELEGRAM NOTIFICATION] SUCCESS: Notification sent successfully to case user")
-                    else:
-                        print(f"[TELEGRAM NOTIFICATION] ERROR: Failed to send notification to case user")
-            else:
-                print(f"[TELEGRAM NOTIFICATION] WARNING: Case user has no telegram_id (value is: {case.user.telegram_id})")
-                print(f"[TELEGRAM NOTIFICATION] WARNING: Notification NOT sent - user needs to /start the bot")
+                    print(f"[TELEGRAM NOTIFICATION] WARNING: Case user has no telegram_id (value is: {case.user.telegram_id})")
+                    print(f"[TELEGRAM NOTIFICATION] WARNING: Notification NOT sent - user needs to /start the bot")
+            except Exception as telegram_exc:
+                print(f"[TELEGRAM NOTIFICATION] CRITICAL EXCEPTION in notification block: {telegram_exc}")
+                import traceback
+                traceback.print_exc()
 
             # Email owners for oversight (admin replied)
             try:
