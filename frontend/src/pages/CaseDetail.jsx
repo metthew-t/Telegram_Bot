@@ -28,7 +28,7 @@ export default function CaseDetailPage() {
 
   useEffect(() => {
     fetchCaseDetail();
-    if (user?.role === 'owner' || user?.role === 'admin') {
+    if (user?.role === 'owner') {
       fetchAdmins();
     }
 
@@ -73,12 +73,12 @@ export default function CaseDetailPage() {
   };
 
   const fetchAdmins = async () => {
+    if (user?.role !== 'owner') return;
     try {
       const data = await apiCall('/api/users/', 'GET');
       setAdmins((data || []).filter((u) => u.role === 'admin'));
     } catch (err) {
-      // Owner-only endpoint; admin won't have access to full user list
-      // Admins will still see the self-assign button
+      console.error('Failed to fetch admins:', err);
     }
   };
 
