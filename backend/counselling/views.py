@@ -819,3 +819,56 @@ class InternalMessageViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
+
+
+# ─── Telegram Diagnostic View (temporary debug) ──────────────────────────────
+
+class TelegramDiagnosticView(APIView):
+    """Temporary diagnostic endpoint to debug Telegram notifications on Render."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        import requests as req
+
+        token = os.getenv('TELEGRAM_BOT_TOKEN')
+        results = {
+            'telegram_bot_token_set': bool(token),
+            'telegram_bot_token_preview': f"{token[:15]}...{token[-6:]}" if token else None,
+        }
+
+        # Check all users with telegram_id
+        users_with_telegram = list(
+            User.objects.exclude(telegram_id__isnull=True)
+            .exclude(telegram_id='')
+            .values('id', 'username', 'telegram_id', 'role')
+        )
+        results['users_with_telegram_id'] = users_with_telegram
+
+        # Check all cases and their user's telegram_id
+        cases_info = []
+        for case in Case.objects.all().select_related('user')[:20]:
+            cases_info.append({
+                'case_id': case.id,
+                'title': case.title,
+                'case_user': case.user.username,
+                'case_user_telegram_id': case.user.telegram_id,
+                'status': case.status,
+            })
+        results['cases'] = cases_info
+
+        # Test sending a message if telegram_id provided
+        test_tid = request.query_params.get('test_telegram_id')
+        if test_tid and token:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            payload = {"chat_id": str(test_tid).strip(), "text": "Diagnostic test from Render backend"}
+            try:
+                resp = req.post(url, json=payload, timeout=10)
+                results['test_send'] = {
+                    'telegram_id_tested': test_tid,
+                    'http_status': resp.status_code,
+                    'response': resp.json(),
+                }
+            except Exception as e:
+                results['test_send'] = {'error': str(e)}
+
+        return Response(results)
