@@ -251,8 +251,8 @@ a:hover {
 
 .topbar nav a {
   position: relative;
-  padding: var(--space-sm) var(--space-md);
-  font-size: 0.875rem;
+  padding: 8px 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
   border-radius: var(--radius-md);
@@ -375,21 +375,23 @@ a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-xs);
-  padding: 10px 20px;
+  gap: 8px;
+  padding: 8px 16px;
   font-family: 'Poppins', sans-serif;
-  font-size: 0.875rem;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.5;
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-base);
-  text-transform: capitalize;
-  letter-spacing: 0.02em;
+  text-transform: none;
+  letter-spacing: 0;
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   white-space: nowrap;
+  min-height: 36px;
 }
 
 .button::before {
@@ -484,8 +486,9 @@ a:hover {
 }
 
 .button-sm {
-  padding: 6px 14px;
-  font-size: 0.75rem;
+  padding: 6px 12px;
+  font-size: 13px;
+  min-height: 32px;
 }
 
 /* ─── 📝 Beautiful Forms ─── */
@@ -1021,10 +1024,25 @@ select {
   .panel-header h1 { font-size: 2rem; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
   .cases-grid { grid-template-columns: 1fr; }
-  .topbar { flex-wrap: wrap; padding: var(--space-md); }
-  .topbar nav { width: 100%; justify-content: center; flex-wrap: wrap; }
+  .topbar { 
+    flex-wrap: wrap; 
+    padding: 12px 16px; 
+  }
+  .topbar nav { 
+    width: 100%; 
+    justify-content: center; 
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .topbar nav a {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
   .page-content { padding: var(--space-lg); }
-  .button { padding: 9px 18px; font-size: 0.8125rem; }
+  .button { 
+    padding: 8px 16px; 
+    font-size: 14px;
+  }
 }
 
 /* Mobile */
@@ -1032,37 +1050,76 @@ select {
   h1 { font-size: 1.75rem; }
   .panel-header h1 { font-size: 1.5rem; }
   .stats-row { grid-template-columns: 1fr; }
+  
+  /* Full width buttons on mobile */
   .button { 
-    padding: 10px 16px; 
-    font-size: 0.8125rem;
+    padding: 12px 16px; 
+    font-size: 14px;
+    min-height: 44px;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .button-sm {
+    padding: 10px 14px;
+    font-size: 13px;
     min-height: 40px;
     width: 100%;
   }
-  .button-sm {
-    padding: 8px 12px;
-    font-size: 0.75rem;
-    min-height: 36px;
+  
+  .topbar { padding: 10px 12px; }
+  .topbar nav {
+    gap: 6px;
   }
-  .topbar { padding: var(--space-sm); }
   .topbar nav a {
-    padding: var(--space-xs) var(--space-sm);
-    font-size: 0.8125rem;
+    padding: 6px 10px;
+    font-size: 13px;
   }
-  .page-content { padding: var(--space-md); }
+  .page-content { padding: 16px 12px; }
   .stat-card .stat-value { font-size: 2rem; }
-  .message-item.own-message { margin-left: var(--space-sm); }
+  .message-item.own-message { margin-left: 8px; }
+  
   .case-actions { 
     flex-direction: column;
-    gap: var(--space-sm);
+    gap: 12px;
   }
+  
   .case-actions .button {
     width: 100%;
   }
+  
   .form-inline {
     flex-direction: column;
   }
+  
   .form-inline .button {
     width: 100%;
+  }
+  
+  /* Make all forms mobile-friendly */
+  .form-grid {
+    gap: 16px;
+  }
+  
+  input, textarea, select {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 12px 14px;
+  }
+  
+  /* Better spacing for cards */
+  .case-card, .glass-panel {
+    padding: 16px;
+  }
+  
+  /* Stack filter tabs vertically if needed */
+  .filter-tabs {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .tab {
+    width: 100%;
+    padding: 12px;
   }
 }
 
