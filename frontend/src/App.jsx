@@ -78,11 +78,11 @@ function Header({ user, onLogout, selectedRole }) {
           </button>
         ) : (
           <>
-            <Link className={location.pathname === '/login' ? 'active' : ''} to="/login">
+            <Link className={`button ${location.pathname === '/login' ? 'button-primary' : 'button-secondary'}`} to="/login">
               Login
             </Link>
             {(!isLoginPage || selectedRole !== 'owner') && (
-              <Link className={location.pathname === '/register' ? 'active' : ''} to="/register">
+              <Link className={`button ${location.pathname === '/register' ? 'button-primary' : 'button-secondary'}`} to="/register">
                 Register
               </Link>
             )}

@@ -55,7 +55,7 @@ export default function RegisterPage() {
           <p style={{ maxWidth: '460px', margin: '12px auto 0', lineHeight: 1.7, color: '#475569' }}>
             Your account has been successfully created.
             <br /><br />
-            However, for security reasons, <strong style={{ color: 'var(--color-text, #e2e8f0)' }}>
+            However, for security reasons, <strong style={{ color: '#ef4444', fontWeight: 'bold' }}>
               your account must be manually verified
             </strong> by an administrator before you can log in.
           </p>
@@ -69,8 +69,8 @@ export default function RegisterPage() {
           margin: '28px auto',
           maxWidth: '460px',
         }}>
-          <p style={{ margin: 0, fontSize: '14px', color: 'var(--color-muted, #94a3b8)', lineHeight: 1.7 }}>
-            <strong style={{ color: 'var(--color-text, #e2e8f0)' }}>📋 Next steps:</strong>
+          <p style={{ margin: 0, fontSize: '15px', color: '#334155', lineHeight: 1.7 }}>
+            <strong style={{ color: '#3b82f6', fontSize: '16px' }}>📋 Next steps:</strong>
             <br />
             1. Wait for an administrator to approve your account.<br />
             2. Once approved, you will be able to log in.<br />
@@ -137,15 +137,15 @@ export default function RegisterPage() {
         </label>
 
         <div style={{
-          background: 'rgba(245, 158, 11, 0.08)',
-          border: '1px solid rgba(245, 158, 11, 0.25)',
+          background: 'rgba(245, 158, 11, 0.1)',
+          border: '1px solid rgba(245, 158, 11, 0.4)',
           borderRadius: '8px',
           padding: '12px 16px',
-          fontSize: '13px',
-          color: '#94a3b8',
+          fontSize: '14px',
+          color: '#334155',
           lineHeight: 1.6,
         }}>
-          ⚠️ After registering, your account must be <strong style={{ color: '#e2e8f0' }}>manually verified</strong> by an administrator before you can log in and receive notifications.
+          ⚠️ After registering, your account must be <strong style={{ color: '#ef4444' }}>manually verified</strong> by an administrator before you can log in and receive notifications.
         </div>
 
         {error && <div className="form-error">{error}</div>}
