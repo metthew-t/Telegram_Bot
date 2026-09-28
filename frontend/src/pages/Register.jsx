@@ -41,7 +41,7 @@ export default function RegisterPage() {
     }
   };
 
-  /* ── Success state: email sent ─────────────────────────────────────────── */
+  /* ── Success state: pending manual verification ────────────────────────── */
   if (registered) {
     return (
       <section className="page-panel">
@@ -50,15 +50,14 @@ export default function RegisterPage() {
             fontSize: '56px',
             marginBottom: '16px',
             animation: 'pulse 2s infinite',
-          }}>✉️</div>
-          <h1 style={{ color: 'var(--color-accent, #818cf8)' }}>Check Your Email</h1>
-          <p style={{ maxWidth: '460px', margin: '12px auto 0', lineHeight: 1.7, color: 'var(--color-muted, #94a3b8)' }}>
-            A <strong style={{ color: 'var(--color-text, #e2e8f0)' }}>verification email</strong> has been sent to{' '}
-            <strong style={{ color: 'var(--color-accent, #818cf8)' }}>{email}</strong>.
+          }}>⏳</div>
+          <h1 style={{ color: 'var(--color-accent, #818cf8)' }}>Pending Verification</h1>
+          <p style={{ maxWidth: '460px', margin: '12px auto 0', lineHeight: 1.7, color: '#475569' }}>
+            Your account has been successfully created.
             <br /><br />
-            Please click the link in that email to <strong style={{ color: 'var(--color-text, #e2e8f0)' }}>
-              verify your address
-            </strong> and activate your account before logging in.
+            However, for security reasons, <strong style={{ color: 'var(--color-text, #e2e8f0)' }}>
+              your account must be manually verified
+            </strong> by an administrator before you can log in.
           </p>
         </div>
 
@@ -73,37 +72,15 @@ export default function RegisterPage() {
           <p style={{ margin: 0, fontSize: '14px', color: 'var(--color-muted, #94a3b8)', lineHeight: 1.7 }}>
             <strong style={{ color: 'var(--color-text, #e2e8f0)' }}>📋 Next steps:</strong>
             <br />
-            1. Open your inbox for <em>{email}</em><br />
-            2. Also check your <strong>Spam / Junk</strong> folder<br />
-            3. Click the <strong>"Verify My Email Address"</strong> button<br />
-            4. Return here and <strong>log in</strong> to start managing cases
+            1. Wait for an administrator to approve your account.<br />
+            2. Once approved, you will be able to log in.<br />
+            3. Contact the system owner if your account remains unverified.
           </p>
         </div>
 
         {error && <div className="form-error" style={{ maxWidth: '460px', margin: '0 auto 16px' }}>{error}</div>}
 
         <div style={{ textAlign: 'center', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '8px' }}>
-          <button
-            className="button button-secondary"
-            disabled={loading}
-            onClick={async () => {
-              setError('');
-              setLoading(true);
-              try {
-                const { apiCall } = await import('../api.js');
-                await apiCall('/api/users/resend-verification/', 'POST', { email });
-                setError('');
-                alert('✅ A new verification email has been sent! Please check your inbox and spam folder.');
-              } catch (err) {
-                const msg = err?.response?.data?.error || err?.response?.data?.message || 'Failed to resend. Please try again.';
-                setError(msg);
-              } finally {
-                setLoading(false);
-              }
-            }}
-          >
-            {loading ? 'Sending…' : '🔄 Resend Verification Email'}
-          </button>
           <button
             className="button button-primary"
             onClick={() => navigate('/login')}
@@ -121,7 +98,7 @@ export default function RegisterPage() {
     <section className="page-panel">
       <div className="panel-header">
         <h1>Support Staff Registration</h1>
-        <p>Create an account to join the support team and manage cases.</p>
+        <p style={{ color: '#475569' }}>Create an account to join the support team and manage cases.</p>
       </div>
 
       <form className="form-grid" onSubmit={handleSubmit}>
@@ -168,8 +145,7 @@ export default function RegisterPage() {
           color: '#94a3b8',
           lineHeight: 1.6,
         }}>
-          ⚠️ After registering, a <strong style={{ color: '#e2e8f0' }}>verification email</strong> will be sent
-          to your address. You must verify your email before you can log in and receive notifications.
+          ⚠️ After registering, your account must be <strong style={{ color: '#e2e8f0' }}>manually verified</strong> by an administrator before you can log in and receive notifications.
         </div>
 
         {error && <div className="form-error">{error}</div>}
@@ -180,7 +156,7 @@ export default function RegisterPage() {
           loading={loading}
           loadingText="Creating account..."
         >
-          Register &amp; Send Verification Email
+          Register Account
         </LoadingButton>
       </form>
     </section>

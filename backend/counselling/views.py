@@ -66,7 +66,6 @@ def send_telegram_notification(telegram_id, text):
     payload = {
         "chat_id": telegram_id,
         "text": text,
-        "parse_mode": "Markdown",
     }
 
     print(f"[send_telegram_notification] API URL: {url[:50]}...")
@@ -671,12 +670,12 @@ class MessageViewSet(viewsets.ModelViewSet):
                         print(f"[TELEGRAM NOTIFICATION] ❌ Failed to send voice message")
                         # Fallback: send text notification
                         case_num = case.user_case_number if case.user_case_number else case.id
-                        fallback_text = f'🎤 *Voice message on your case #{case_num}: {case.title}*\n\nPlease check the website to listen.'
+                        fallback_text = f'🎤 Voice message on your case #{case_num}: {case.title}\n\nPlease check the website to listen.'
                         send_telegram_notification(telegram_id_str, fallback_text)
                 else:
                     # Regular text message
                     case_num = case.user_case_number if case.user_case_number else case.id
-                    notification_text = f'💬 *New response on your case #{case_num}: {case.title}*\n\n{message.content[:500]}'
+                    notification_text = f'💬 New response on your case #{case_num}: {case.title}\n\n{message.content[:500]}'
                     print(f"[TELEGRAM NOTIFICATION] Notification text preview: {notification_text[:100]}...")
                     print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")
                     
@@ -710,7 +709,7 @@ class MessageViewSet(viewsets.ModelViewSet):
 
             notify_specific_users(
                 notified_users,
-                f"💬 *New message on case #{case.id}*\n"
+                f"💬 New message on case #{case.id}\n"
                 f"👤 From: {user.username}\n\n"
                 f"{message.content}"
             )

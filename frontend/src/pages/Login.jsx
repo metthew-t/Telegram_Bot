@@ -55,7 +55,7 @@ export default function LoginPage({ onLogin, selectedRole, setSelectedRole }) {
     <section className="page-panel">
       <div className="panel-header">
         <h1>Welcome back</h1>
-        <p>Use your credentials to access the support dashboard.</p>
+        <p style={{ color: '#475569' }}>Use your credentials to access the support dashboard.</p>
       </div>
 
       {successMessage && (
