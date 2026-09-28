@@ -196,24 +196,24 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-md) var(--space-xl);
-  background: rgba(15, 13, 30, 0.9);
+  padding: 10px 20px;
+  background: rgba(15, 13, 30, 0.95);
   backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 2px solid rgba(102, 126, 234, 0.3);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  font-weight: 800;
-  font-size: 1.5rem;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 1.25rem;
   background: var(--gradient-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   cursor: pointer;
   transition: all var(--transition-base);
 }
@@ -226,16 +226,15 @@ a:hover {
 .brand-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
+  padding: 3px 8px;
   background: var(--gradient-ocean);
   border-radius: var(--radius-full);
   color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 0.625rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   box-shadow: var(--glow-primary);
-  animation: pulse 2s ease-in-out infinite;
 }
 
 @keyframes pulse {
@@ -251,11 +250,11 @@ a:hover {
 
 .topbar nav a {
   position: relative;
-  padding: 8px 16px;
-  font-size: 14px;
+  padding: 6px 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   transition: all var(--transition-base);
   overflow: hidden;
   white-space: nowrap;
@@ -347,8 +346,8 @@ a:hover {
 }
 
 .panel-header h1 {
-  font-size: 3rem;
-  font-weight: 900;
+  font-size: 2rem;
+  font-weight: 800;
   background: var(--gradient-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -365,7 +364,7 @@ a:hover {
 
 .panel-header p {
   color: var(--text-secondary);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   max-width: 600px;
   margin: 0 auto;
 }
