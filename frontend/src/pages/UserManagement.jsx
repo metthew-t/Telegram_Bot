@@ -10,6 +10,7 @@ export default function UserManagementPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [deletingId, setDeletingId] = useState(null);
+  const [verifyingId, setVerifyingId] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addFormData, setAddFormData] = useState({ username: '', email: '', password: '', role: 'admin' });
   const [isAdding, setIsAdding] = useState(false);
@@ -74,6 +75,20 @@ export default function UserManagementPage() {
       alert(err.response?.data?.detail || 'Failed to change role.');
     } finally {
       setRoleChangingId(null);
+    }
+  };
+
+  const handleVerifyEmail = async (userId, username) => {
+    if (!window.confirm(`Manually verify email for ${username}? They will be able to log in immediately.`)) return;
+    setVerifyingId(userId);
+    try {
+      await apiCall(`/api/users/${userId}/verify/`, 'POST');
+      fetchUsers();
+      alert(`✅ ${username}'s email has been verified. They can now log in.`);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to verify email.');
+    } finally {
+      setVerifyingId(null);
     }
   };
 
@@ -157,6 +172,7 @@ export default function UserManagementPage() {
                   <th>ID</th>
                   <th>Username</th>
                   <th>Email</th>
+                  <th>Email Verified</th>
                   <th>Role</th>
                   <th>Telegram ID</th>
                   <th>Actions</th>
@@ -177,6 +193,15 @@ export default function UserManagementPage() {
                         {u.username}
                       </td>
                       <td>{u.email || '—'}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        {u.role === 'user' ? (
+                          <span title="Users don't require email verification">—</span>
+                        ) : u.email_verified ? (
+                          <span style={{ color: '#4ade80', fontWeight: 600 }}>✅ Verified</span>
+                        ) : (
+                          <span style={{ color: '#f59e0b', fontWeight: 600 }}>⚠️ Pending</span>
+                        )}
+                      </td>
                       <td>
                         {u.id === user?.id ? (
                           <span className={`role-badge role-${u.role}`}>{u.role}</span>
@@ -198,28 +223,42 @@ export default function UserManagementPage() {
                         {u.telegram_id || '—'}
                       </td>
                       <td>
-                        {u.id !== user?.id && (
-                          <LoadingButton
-                            className="button button-danger button-sm"
-                            loading={deletingId === u.id}
-                            loadingText="Deleting..."
-                            onClick={async () => {
-                              if (window.confirm(`Are you sure you want to delete user ${u.username}?`)) {
-                                setDeletingId(u.id);
-                                try {
-                                  await apiCall(`/api/users/${u.id}/`, 'DELETE');
-                                  fetchUsers();
-                                } catch (err) {
-                                  alert('Failed to delete user.');
-                                } finally {
-                                  setDeletingId(null);
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {/* Verify Email button — shown when admin/owner email is unverified */}
+                          {u.id !== user?.id && u.role !== 'user' && !u.email_verified && (
+                            <LoadingButton
+                              className="button button-sm"
+                              style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                              loading={verifyingId === u.id}
+                              loadingText="Verifying..."
+                              onClick={() => handleVerifyEmail(u.id, u.username)}
+                            >
+                              ✅ Verify Email
+                            </LoadingButton>
+                          )}
+                          {u.id !== user?.id && (
+                            <LoadingButton
+                              className="button button-danger button-sm"
+                              loading={deletingId === u.id}
+                              loadingText="Deleting..."
+                              onClick={async () => {
+                                if (window.confirm(`Are you sure you want to delete user ${u.username}?`)) {
+                                  setDeletingId(u.id);
+                                  try {
+                                    await apiCall(`/api/users/${u.id}/`, 'DELETE');
+                                    fetchUsers();
+                                  } catch (err) {
+                                    alert('Failed to delete user.');
+                                  } finally {
+                                    setDeletingId(null);
+                                  }
                                 }
-                              }
-                            }}
-                          >
-                            Delete
-                          </LoadingButton>
-                        )}
+                              }}
+                            >
+                              Delete
+                            </LoadingButton>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

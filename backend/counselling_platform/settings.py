@@ -248,17 +248,24 @@ LOGGING = {
 }
 
 # ─── Email Configuration ──────────────────────────────────────────────────────
-# Emails are now sent via Brevo HTTP API (not Django SMTP).
-# Set BREVO_API_KEY in your environment variables.
-# DEFAULT_FROM_EMAIL must match a verified sender in Brevo.
-# Note: Using @gmail.com may cause DKIM/DMARC issues. Consider using your own domain.
+# Primary: emails are sent via Brevo HTTP API (BREVO_API_KEY env var).
+# Fallback: if BREVO_API_KEY is not set, Django SMTP is used instead
+#           (configured by EMAIL_HOST / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD).
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'ASTU Counselling <astucounselplatform@gmail.com>')
 
-# Disable Django's built-in SMTP backend since we use Brevo API directly
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+if os.getenv('BREVO_API_KEY'):
+    # Brevo API is used directly in views.py — Django's backend only needs console.
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    # No Brevo key → fall back to SMTP so verification emails still get delivered.
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST          = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT          = int(os.getenv('EMAIL_PORT', '587'))
+    EMAIL_USE_TLS       = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+    EMAIL_HOST_USER     = os.getenv('EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 
 # Frontend URL used to build links inside notification emails
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 # Backend URL used to build the email-verification callback link
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
-

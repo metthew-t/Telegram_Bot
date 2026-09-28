@@ -74,16 +74,36 @@ export default function RegisterPage() {
             <strong style={{ color: 'var(--color-text, #e2e8f0)' }}>📋 Next steps:</strong>
             <br />
             1. Open your inbox for <em>{email}</em><br />
-            2. Click the <strong>"Verify My Email Address"</strong> button<br />
-            3. Return here and <strong>log in</strong> to start managing cases
+            2. Also check your <strong>Spam / Junk</strong> folder<br />
+            3. Click the <strong>"Verify My Email Address"</strong> button<br />
+            4. Return here and <strong>log in</strong> to start managing cases
           </p>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-muted, #64748b)', marginBottom: '8px' }}>
-          Didn't receive the email? Check your spam folder or contact your system administrator.
-        </p>
+        {error && <div className="form-error" style={{ maxWidth: '460px', margin: '0 auto 16px' }}>{error}</div>}
 
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
+        <div style={{ textAlign: 'center', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '8px' }}>
+          <button
+            className="button button-secondary"
+            disabled={loading}
+            onClick={async () => {
+              setError('');
+              setLoading(true);
+              try {
+                const { apiCall } = await import('../api.js');
+                await apiCall('/api/users/resend-verification/', 'POST', { email });
+                setError('');
+                alert('✅ A new verification email has been sent! Please check your inbox and spam folder.');
+              } catch (err) {
+                const msg = err?.response?.data?.error || err?.response?.data?.message || 'Failed to resend. Please try again.';
+                setError(msg);
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            {loading ? 'Sending…' : '🔄 Resend Verification Email'}
+          </button>
           <button
             className="button button-primary"
             onClick={() => navigate('/login')}
@@ -94,6 +114,7 @@ export default function RegisterPage() {
       </section>
     );
   }
+
 
   /* ── Registration form ─────────────────────────────────────────────────── */
   return (

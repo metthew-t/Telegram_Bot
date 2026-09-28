@@ -6,8 +6,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'telegram_id', 'password']
-        read_only_fields = ['id']
+        fields = ['id', 'username', 'email', 'role', 'telegram_id', 'email_verified', 'password']
+        read_only_fields = ['id', 'email_verified']
 
     def validate_role(self, value):
         request = self.context.get('request')
@@ -41,6 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated or request.user.role != 'owner':
             data.pop('telegram_id', None)
         return data
+
 
 class CaseSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()

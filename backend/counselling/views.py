@@ -186,7 +186,11 @@ def notify_specific_users(users, text):
 # ─── Email Notification Helpers ──────────────────────────────────────────────
 
 def _send_email(subject: str, html_body: str, text_body: str, recipients: list):
-    """Send a multipart (HTML + plain text) email to a list of recipients via SendGrid API."""
+    """Send a multipart (HTML + plain text) email.
+    
+    Uses Brevo API when BREVO_API_KEY is available.
+    Falls back to Django SMTP backend (configured via EMAIL_* env vars) otherwise.
+    """
     print(f"[DEBUG] _send_email called with {len(recipients) if recipients else 0} recipients")
     
     if not recipients:
@@ -196,50 +200,76 @@ def _send_email(subject: str, html_body: str, text_body: str, recipients: list):
     print(f"[DEBUG] Recipients: {recipients}")
         
     api_key = os.getenv('BREVO_API_KEY')
-    if not api_key:
-        print(f"\n[Brevo Skipped] BREVO_API_KEY not found. Email to {recipients} not sent.")
-        return
     
-    print(f"[DEBUG] BREVO_API_KEY found: {api_key[:15]}...{api_key[-6:]}")
+    if api_key:
+        # ── Brevo API path ──────────────────────────────────────────────────
+        print(f"[DEBUG] BREVO_API_KEY found: {api_key[:15]}...{api_key[-6:]}")
 
-    from_email_str = settings.DEFAULT_FROM_EMAIL
-    print(f"[DEBUG] DEFAULT_FROM_EMAIL: {from_email_str}")
-    
-    if '<' in from_email_str:
-        sender_name = from_email_str.split('<')[0].strip()
-        sender_email = from_email_str.split('<')[1].strip('>')
-        from_dict = {"email": sender_email, "name": sender_name}
-    else:
-        from_dict = {"email": from_email_str}
-    
-    print(f"[DEBUG] Parsed sender: {from_dict}")
-
-    headers = {
-        'api-key': api_key,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-    }
-    
-    data = {
-        "sender": from_dict,
-        "to": [{"email": email} for email in recipients],
-        "subject": subject,
-        "htmlContent": html_body,
-        "textContent": text_body
-    }
-    
-    print(f"[DEBUG] Sending request to Brevo API...")
-    
-    try:
-        response = requests.post('https://api.brevo.com/v3/smtp/email', headers=headers, json=data, timeout=10)
-        print(f"[DEBUG] Brevo API response status: {response.status_code}")
+        from_email_str = settings.DEFAULT_FROM_EMAIL
+        print(f"[DEBUG] DEFAULT_FROM_EMAIL: {from_email_str}")
         
-        if response.ok:
-            print(f"[Email] ✅ Sent '{subject}' to {len(recipients)} recipient(s) via Brevo.")
+        if '<' in from_email_str:
+            sender_name = from_email_str.split('<')[0].strip()
+            sender_email = from_email_str.split('<')[1].strip('>')
+            from_dict = {"email": sender_email, "name": sender_name}
         else:
-            print(f"[Email] ❌ Brevo API Error {response.status_code}: {response.text}")
+            from_dict = {"email": from_email_str}
+        
+        print(f"[DEBUG] Parsed sender: {from_dict}")
+
+        headers = {
+            'api-key': api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+        
+        data = {
+            "sender": from_dict,
+            "to": [{"email": email} for email in recipients],
+            "subject": subject,
+            "htmlContent": html_body,
+            "textContent": text_body
+        }
+        
+        print(f"[DEBUG] Sending request to Brevo API...")
+        
+        try:
+            response = requests.post('https://api.brevo.com/v3/smtp/email', headers=headers, json=data, timeout=10)
+            print(f"[DEBUG] Brevo API response status: {response.status_code}")
+            
+            if response.ok:
+                print(f"[Email] ✅ Sent '{subject}' to {len(recipients)} recipient(s) via Brevo.")
+            else:
+                print(f"[Email] ❌ Brevo API Error {response.status_code}: {response.text}")
+                # Fallback to SMTP on Brevo failure
+                print(f"[Email] Attempting SMTP fallback...")
+                _send_email_smtp(subject, html_body, text_body, recipients)
+        except Exception as exc:
+            print(f"[Email] ❌ Exception while sending via Brevo: {exc}")
+            print(f"[Email] Attempting SMTP fallback...")
+            _send_email_smtp(subject, html_body, text_body, recipients)
+    else:
+        # ── SMTP fallback path ──────────────────────────────────────────────
+        print(f"[Email] BREVO_API_KEY not set — falling back to SMTP backend.")
+        _send_email_smtp(subject, html_body, text_body, recipients)
+
+
+def _send_email_smtp(subject: str, html_body: str, text_body: str, recipients: list):
+    """Send email via Django SMTP backend (EMAIL_HOST / EMAIL_HOST_USER etc. from env)."""
+    try:
+        from_email_str = settings.DEFAULT_FROM_EMAIL
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            from_email=from_email_str,
+            to=recipients,
+        )
+        msg.attach_alternative(html_body, 'text/html')
+        msg.send(fail_silently=False)
+        print(f"[Email] ✅ Sent '{subject}' to {len(recipients)} recipient(s) via SMTP.")
     except Exception as exc:
-        print(f"[Email] ❌ Exception while sending '{subject}': {exc}")
+        print(f"[Email] ❌ SMTP send failed: {exc}")
+
 
 
 def _staff_email_recipients():
@@ -398,6 +428,42 @@ class UserViewSet(viewsets.ModelViewSet):
             except Exception as exc:
                 print(f"[Email] Verification email failed for {user.username}: {exc}")
 
+    @action(detail=True, methods=['post'], permission_classes=[IsOwner])
+    def verify(self, request, pk=None):
+        """Owner can manually mark an admin/user as email-verified (useful when email delivery fails)."""
+        user = self.get_object()
+        user.email_verified = True
+        user.email_verification_token = None
+        user.save(update_fields=['email_verified', 'email_verification_token'])
+        return Response({'status': 'verified', 'username': user.username})
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny], url_path='resend-verification')
+    def resend_verification(self, request):
+        """Resend verification email. Accepts {'email': '...'} or {'username': '...'}."""
+        email = request.data.get('email', '').strip()
+        username = request.data.get('username', '').strip()
+
+        user = None
+        if email:
+            user = User.objects.filter(email=email, role__in=['admin', 'owner']).first()
+        elif username:
+            user = User.objects.filter(username=username, role__in=['admin', 'owner']).first()
+
+        if not user:
+            return Response({'error': 'No admin/owner account found with that email or username.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if user.email_verified:
+            return Response({'status': 'already_verified', 'message': 'This account is already verified. Please log in.'})
+
+        if not user.email:
+            return Response({'error': 'This account has no email address on file.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            send_verification_email(user, request)
+            return Response({'status': 'sent', 'message': f'Verification email resent to {user.email}.'})
+        except Exception as exc:
+            return Response({'error': f'Failed to send verification email: {exc}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 # ─── Case ViewSet ─────────────────────────────────────────────────────────────
 
@@ -529,12 +595,16 @@ class MessageViewSet(viewsets.ModelViewSet):
                 return queryset.filter(case_id=case_id)
             return queryset
         if user.role == 'admin':
-            queryset = queryset.filter(case__assigned_admin=user)
+            # Admins can see messages from cases assigned to them OR all open cases
+            queryset = queryset.filter(
+                Q(case__assigned_admin=user) | Q(case__status='open')
+            )
         else:
             queryset = queryset.filter(case__user=user)
         if case_id:
             queryset = queryset.filter(case_id=case_id)
         return queryset
+
 
     def perform_create(self, serializer):
         case = serializer.validated_data['case']
@@ -552,7 +622,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         
         allowed = (
             user.role == 'owner' or
-            (user.role == 'admin' and case.assigned_admin == user) or
+            user.role == 'admin' or   # Any admin can reply to any case they can view
             case.user == user
         )
         
