@@ -43,16 +43,24 @@ def api_root(request):
 
 def send_telegram_notification(telegram_id, text):
     """Send a Telegram notification to a specific user"""
+    print(f"\n[send_telegram_notification] CALLED")
+    print(f"[send_telegram_notification] telegram_id param: {telegram_id} (type: {type(telegram_id)})")
+    print(f"[send_telegram_notification] text length: {len(text)}")
+    
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
-        print("❌ [Telegram] TELEGRAM_BOT_TOKEN not set in environment.")
+        print("❌ [send_telegram_notification] TELEGRAM_BOT_TOKEN not set in environment.")
         return False
+    
+    print(f"[send_telegram_notification] Bot token found: {token[:15]}...{token[-6:]}")
 
     # Ensure telegram_id is a string and not empty
     telegram_id = str(telegram_id).strip() if telegram_id else None
     if not telegram_id or telegram_id == 'None':
-        print(f"❌ [Telegram] Invalid telegram_id: {telegram_id}")
+        print(f"❌ [send_telegram_notification] Invalid telegram_id after conversion: {telegram_id}")
         return False
+    
+    print(f"[send_telegram_notification] Final telegram_id: '{telegram_id}'")
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
@@ -61,22 +69,40 @@ def send_telegram_notification(telegram_id, text):
         "parse_mode": "Markdown",
     }
 
-    print(f"[Telegram] Sending to chat_id: {telegram_id}")
-    print(f"[Telegram] Message preview: {text[:100]}...")
+    print(f"[send_telegram_notification] API URL: {url[:50]}...")
+    print(f"[send_telegram_notification] Payload chat_id: {payload['chat_id']}")
+    print(f"[send_telegram_notification] Sending HTTP POST request...")
 
     try:
         response = requests.post(url, json=payload, timeout=10)
-        print(f"[Telegram] API response status: {response.status_code}")
+        print(f"[send_telegram_notification] HTTP Response status: {response.status_code}")
         
         if response.status_code != 200:
-            print(f"❌ [Telegram] API Error: {response.status_code}")
-            print(f"❌ [Telegram] Response: {response.text}")
+            print(f"❌ [send_telegram_notification] API Error: {response.status_code}")
+            print(f"❌ [send_telegram_notification] Response body: {response.text}")
+            
+            # Parse common errors
+            try:
+                error_data = response.json()
+                error_desc = error_data.get('description', '')
+                print(f"❌ [send_telegram_notification] Error description: {error_desc}")
+                
+                if 'chat not found' in error_desc.lower():
+                    print(f"❌ [send_telegram_notification] USER HASN'T STARTED BOT YET!")
+                elif 'bot was blocked' in error_desc.lower():
+                    print(f"❌ [send_telegram_notification] USER BLOCKED THE BOT!")
+            except:
+                pass
+            
             return False
         
-        print(f"✅ [Telegram] Message sent successfully!")
+        print(f"✅ [send_telegram_notification] Message sent successfully!")
+        response_data = response.json()
+        print(f"✅ [send_telegram_notification] Message ID: {response_data.get('result', {}).get('message_id')}")
         return True
+        
     except Exception as e:
-        print(f"❌ [Telegram] Exception: {str(e)}")
+        print(f"❌ [send_telegram_notification] Exception occurred: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
@@ -456,36 +482,64 @@ class MessageViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         case = serializer.validated_data['case']
         user = self.request.user
+        
+        # ENHANCED LOGGING FOR DEBUGGING
+        print(f"\n{'='*80}")
+        print(f"[MESSAGE CREATE] New message being created")
+        print(f"[MESSAGE CREATE] Sender: {user.username} (Role: {user.role}, ID: {user.id})")
+        print(f"[MESSAGE CREATE] Case ID: {case.id}")
+        print(f"[MESSAGE CREATE] Case user: {case.user.username} (ID: {case.user.id})")
+        print(f"[MESSAGE CREATE] Case user telegram_id: {case.user.telegram_id}")
+        print(f"[MESSAGE CREATE] Case assigned_admin: {case.assigned_admin}")
+        print(f"{'='*80}\n")
+        
         allowed = (
             user.role == 'owner' or
             (user.role == 'admin' and case.assigned_admin == user) or
             case.user == user
         )
+        
+        print(f"[PERMISSION CHECK] User role: {user.role}")
+        print(f"[PERMISSION CHECK] Is owner: {user.role == 'owner'}")
+        print(f"[PERMISSION CHECK] Is assigned admin: {user.role == 'admin' and case.assigned_admin == user}")
+        print(f"[PERMISSION CHECK] Is case user: {case.user == user}")
+        print(f"[PERMISSION CHECK] Allowed: {allowed}\n")
+        
         if not allowed:
+            print(f"[PERMISSION DENIED] User {user.username} not allowed to message case #{case.id}")
             raise PermissionDenied('Permission denied')
 
         message = serializer.save(sender=user)
+        print(f"[MESSAGE SAVED] Message ID: {message.id}, Content length: {len(message.content)}\n")
+        
         frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
         if user.role in ['admin', 'owner']:
             # Admin/Owner replied - Notify case user via Telegram
-            print(f"\n{'='*60}")
-            print(f"[Telegram] Admin/Owner {user.username} replied to case #{case.id}")
-            print(f"[Telegram] Case user: {case.user.username}")
-            print(f"[Telegram] Case user telegram_id: {case.user.telegram_id}")
-            print(f"{'='*60}\n")
+            print(f"{'='*80}")
+            print(f"[TELEGRAM NOTIFICATION] Admin/Owner {user.username} replied to case #{case.id}")
+            print(f"[TELEGRAM NOTIFICATION] Case user: {case.user.username}")
+            print(f"[TELEGRAM NOTIFICATION] Case user telegram_id: {case.user.telegram_id}")
+            print(f"[TELEGRAM NOTIFICATION] telegram_id type: {type(case.user.telegram_id)}")
+            print(f"{'='*80}\n")
             
             if case.user.telegram_id:
                 telegram_id_str = str(case.user.telegram_id).strip()
-                print(f"[Telegram] Sending notification to chat_id: {telegram_id_str}")
+                print(f"[TELEGRAM NOTIFICATION] Converted telegram_id to string: '{telegram_id_str}'")
+                print(f"[TELEGRAM NOTIFICATION] Preparing notification...")
                 notification_text = f'💬 *New support response on case #{case.id}: {case.title}*\n\n{message.content[:500]}'
+                print(f"[TELEGRAM NOTIFICATION] Notification text preview: {notification_text[:100]}...")
+                print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")
+                
                 success = send_telegram_notification(telegram_id_str, notification_text)
+                
                 if success:
-                    print(f"[Telegram] ✅ Notification sent successfully to case user")
+                    print(f"[TELEGRAM NOTIFICATION] ✅ Notification sent successfully to case user")
                 else:
-                    print(f"[Telegram] ❌ Failed to send notification to case user")
+                    print(f"[TELEGRAM NOTIFICATION] ❌ Failed to send notification to case user")
             else:
-                print(f"[Telegram] ⚠️ Case user has no telegram_id (telegram_id is: {case.user.telegram_id})")
+                print(f"[TELEGRAM NOTIFICATION] ⚠️ Case user has no telegram_id (value is: {case.user.telegram_id})")
+                print(f"[TELEGRAM NOTIFICATION] ⚠️ Notification NOT sent - user needs to /start the bot")
 
             # Email owners for oversight (admin replied)
             try:
