@@ -69,10 +69,11 @@ class CaseSerializer(serializers.ModelSerializer):
             'assigned_admin',
             'user_id',
             'assigned_admin_id',
+            'user_case_number',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user_case_number', 'created_at', 'updated_at']
 
     def get_user(self, obj):
         request = self.context.get('request')
@@ -105,7 +106,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['id', 'case', 'sender', 'sender_role', 'content', 'timestamp']
+        fields = ['id', 'case', 'sender', 'sender_role', 'content', 'message_type', 'voice_data', 'voice_duration', 'timestamp']
         read_only_fields = ['id', 'timestamp']
 
     def get_sender(self, obj):
@@ -142,5 +143,5 @@ class InternalMessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InternalMessage
-        fields = ['id', 'sender', 'sender_name', 'sender_role', 'content', 'message_type', 'timestamp', 'file_name', 'file_content']
+        fields = ['id', 'sender', 'sender_name', 'sender_role', 'content', 'message_type', 'message_format', 'voice_data', 'voice_duration', 'timestamp', 'file_name', 'file_content']
         read_only_fields = ['id', 'timestamp', 'sender']

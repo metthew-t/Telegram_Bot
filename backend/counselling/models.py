@@ -28,16 +28,37 @@ class Case(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cases')
     assigned_admin = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_cases')
+    user_case_number = models.IntegerField(default=1)  # Per-user case numbering
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        # Auto-assign user_case_number if this is a new case
+        if not self.pk:  # New case
+            last_case = Case.objects.filter(user=self.user).order_by('-user_case_number').first()
+            if last_case:
+                self.user_case_number = last_case.user_case_number + 1
+            else:
+                self.user_case_number = 1
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Case {self.id}: {self.title}"
 
 class Message(models.Model):
+    MESSAGE_TYPE_CHOICES = [
+        ('text', 'Text'),
+        ('voice', 'Voice'),
+    ]
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
+    message_type = models.CharField(max_length=10, choices=MESSAGE_TYPE_CHOICES, default='text')
+    voice_data = models.TextField(null=True, blank=True)  # Base64 encoded audio
+    voice_duration = models.IntegerField(null=True, blank=True)  # Duration in seconds
     timestamp = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -65,9 +86,17 @@ class InternalMessage(models.Model):
         ('chat', 'Chat'),
         ('report', 'Report'),
     ]
+    MESSAGE_FORMAT_CHOICES = [
+        ('text', 'Text'),
+        ('voice', 'Voice'),
+        ('file', 'File'),
+    ]
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='internal_messages')
     content = models.TextField()
     message_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='chat')
+    message_format = models.CharField(max_length=10, choices=MESSAGE_FORMAT_CHOICES, default='text')
+    voice_data = models.TextField(null=True, blank=True)  # Base64 encoded audio
+    voice_duration = models.IntegerField(null=True, blank=True)  # Duration in seconds
     timestamp = models.DateTimeField(default=timezone.now)
     file_name = models.CharField(max_length=255, null=True, blank=True)
     file_content = models.TextField(null=True, blank=True)
