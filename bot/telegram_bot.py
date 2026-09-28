@@ -1,5 +1,6 @@
 import os
 import requests
+import base64
 from dotenv import load_dotenv
 
 # Load .env file
@@ -212,10 +213,11 @@ async def newcase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if response.ok:
         data = response.json()
+        case_num = data.get('user_case_number', data.get('id'))
         await update.message.reply_text(
             f'✅ *Case created successfully!*\n\n'
-            f'🆔 Case ID: *{data.get("id")}*\n'
-            f'📝 Title: {data.get("title")}\n'
+            f'📝 Your Case *#{case_num}*\n'
+            f'📌 Title: {data.get("title")}\n'
             f'📊 Status: {data.get("status")}\n\n'
             f'You\'ll be notified when support responds.',
             parse_mode='Markdown',
@@ -266,7 +268,8 @@ async def list_cases(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = ['📋 *Your Cases:*\n']
     for case in cases:
         icon = status_icons.get(case['status'], '⚪')
-        lines.append(f'{icon} *#{case["id"]}* — {case["title"]} (`{case["status"]}`)')
+        case_num = case.get('user_case_number', case['id'])
+        lines.append(f'{icon} *Your Case #{case_num}* — {case["title"]} (`{case["status"]}`)')
 
     lines.append(f'\n_Total: {len(cases)} case(s)_')
     lines.append('\nUse /viewcase to view messages on a case.')
@@ -393,9 +396,10 @@ async def show_case_messages(update, context, case_id):
 
     status_icons = {'open': '🔵', 'assigned': '🟡', 'closed': '🟢'}
     icon = status_icons.get(case['status'], '⚪')
+    case_num = case.get('user_case_number', case['id'])
 
     lines = [
-        f'📋 *Case #{case["id"]}:* {case["title"]}',
+        f'📋 *Your Case #{case_num}:* {case["title"]}',
         f'{icon} Status: `{case["status"]}`',
         '',
     ]
@@ -410,7 +414,15 @@ async def show_case_messages(update, context, case_id):
             role = msg.get('sender_role', '')
             role_tag = f' [{role}]' if role else ''
             lines.append(f'*{label}*{role_tag}:')
-            lines.append(f'{msg["content"]}')
+            
+            # Check if voice message
+            if msg.get('message_type') == 'voice' and msg.get('voice_data'):
+                duration = msg.get('voice_duration', 0)
+                lines.append(f'🎤 Voice message ({duration}s)')
+                lines.append('_[Voice messages can be played on the website]_')
+            else:
+                lines.append(f'{msg["content"]}')
+            
             lines.append(f'_{msg.get("timestamp", "")}_\n')
 
         if len(messages) > 10:
@@ -475,14 +487,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if len(cases) == 1:
         case_id = cases[0]['id']
+        case_num = cases[0].get('user_case_number', case_id)
         print(f"DEBUG: Routing message to case #{case_id}")
         msg_resp = backend_request(
             '/api/messages/',
             token=token,
-            json={'case': case_id, 'content': update.message.text},
+            json={'case': case_id, 'content': update.message.text, 'message_type': 'text'},
         )
         if msg_resp.ok:
-            await update.message.reply_text(f'✅ Sent to case *#{case_id}*.', parse_mode='Markdown')
+            await update.message.reply_text(f'✅ Sent to your case *#{case_num}*.', parse_mode='Markdown')
         else:
             print(f"DEBUG: Failed to send message to backend: {msg_resp.text}")
             await update.message.reply_text(f'⚠️ Failed to send: {msg_resp.text}')
@@ -498,6 +511,86 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'Use /newcase to start a support request.',
             parse_mode='Markdown'
         )
+
+
+async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle voice messages from users and route to their active case."""
+    if update.effective_user is None or update.message is None or not update.message.voice:
+        print("DEBUG: Early return (user/message/voice is None)")
+        return
+
+    print(f"DEBUG: handle_voice triggered for user {update.effective_user.id}")
+
+    token = get_access_token(update)
+    if token is None:
+        print("DEBUG: Failed to get access token")
+        await update.message.reply_text('⚠️ Unable to authenticate. Please try /start first.')
+        return
+
+    # Find active cases (open or assigned)
+    response = backend_request('/api/cases/', method='get', token=token)
+    if not response.ok:
+        print(f"DEBUG: Failed to fetch cases: {response.text}")
+        await update.message.reply_text('⚠️ Unable to fetch your cases.')
+        return
+
+    cases = [c for c in response.json() if c['status'] in ['open', 'assigned']]
+    print(f"DEBUG: Found {len(cases)} active cases")
+    
+    if len(cases) != 1:
+        if len(cases) > 1:
+            await update.message.reply_text(
+                '📝 You have multiple active cases. Please use text messages to specify which case you\'re referring to.',
+                parse_mode='Markdown'
+            )
+        else:
+            await update.message.reply_text(
+                '👋 You don\'t have any active cases right now.\n\nUse /newcase to start a support request.'
+            )
+        return
+
+    case_id = cases[0]['id']
+    case_num = cases[0].get('user_case_number', case_id)
+    voice = update.message.voice
+
+    try:
+        # Download voice file from Telegram
+        print(f"DEBUG: Downloading voice file {voice.file_id}")
+        file = await context.bot.get_file(voice.file_id)
+        voice_bytes = await file.download_as_bytearray()
+        
+        # Convert to base64
+        voice_base64 = base64.b64encode(voice_bytes).decode('utf-8')
+        
+        print(f"DEBUG: Voice file downloaded, size: {len(voice_bytes)} bytes, duration: {voice.duration}s")
+        
+        # Send to backend
+        msg_resp = backend_request(
+            '/api/messages/',
+            token=token,
+            json={
+                'case': case_id,
+                'content': '[Voice Message]',
+                'message_type': 'voice',
+                'voice_data': voice_base64,
+                'voice_duration': voice.duration
+            },
+        )
+        
+        if msg_resp.ok:
+            await update.message.reply_text(
+                f'✅ 🎤 Voice message sent to your case *#{case_num}*.',
+                parse_mode='Markdown'
+            )
+        else:
+            print(f"DEBUG: Failed to send voice to backend: {msg_resp.text}")
+            await update.message.reply_text(f'⚠️ Failed to send voice: {msg_resp.text}')
+    
+    except Exception as e:
+        print(f"ERROR: Failed to process voice message: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        await update.message.reply_text(f'⚠️ Error processing voice message: {str(e)}')
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -560,6 +653,9 @@ def main():
     
     application.add_handler(CommandHandler('help', help_command))
     application.add_handler(MessageHandler(filters.Regex('^(❓ Help|Help)$'), help_command))
+
+    # Voice message handler
+    application.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     # General text handler for seamless chat
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))

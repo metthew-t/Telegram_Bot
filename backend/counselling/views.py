@@ -115,6 +115,63 @@ def notify_case_user(case, text):
     send_telegram_notification(case.user.telegram_id, text)
 
 
+def send_telegram_voice(telegram_id, voice_data, duration=None):
+    """Send a voice message to a Telegram user"""
+    print(f"\n[send_telegram_voice] CALLED")
+    print(f"[send_telegram_voice] telegram_id: {telegram_id}")
+    print(f"[send_telegram_voice] voice_data length: {len(voice_data) if voice_data else 0}")
+    print(f"[send_telegram_voice] duration: {duration}s")
+    
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if not token:
+        print("❌ [send_telegram_voice] TELEGRAM_BOT_TOKEN not set")
+        return False
+    
+    telegram_id = str(telegram_id).strip() if telegram_id else None
+    if not telegram_id or telegram_id == 'None':
+        print(f"❌ [send_telegram_voice] Invalid telegram_id: {telegram_id}")
+        return False
+    
+    try:
+        import base64
+        import io
+        
+        # Decode base64 voice data
+        voice_bytes = base64.b64decode(voice_data)
+        print(f"[send_telegram_voice] Decoded voice bytes: {len(voice_bytes)}")
+        
+        # Telegram sendVoice API
+        url = f"https://api.telegram.org/bot{token}/sendVoice"
+        
+        # Send as file upload
+        files = {
+            'voice': ('voice.ogg', io.BytesIO(voice_bytes), 'audio/ogg')
+        }
+        data = {
+            'chat_id': telegram_id,
+        }
+        if duration:
+            data['duration'] = duration
+        
+        print(f"[send_telegram_voice] Sending voice via Telegram API...")
+        response = requests.post(url, data=data, files=files, timeout=30)
+        
+        print(f"[send_telegram_voice] HTTP Response status: {response.status_code}")
+        
+        if response.status_code != 200:
+            print(f"❌ [send_telegram_voice] API Error: {response.text}")
+            return False
+        
+        print(f"✅ [send_telegram_voice] Voice message sent successfully!")
+        return True
+        
+    except Exception as e:
+        print(f"❌ [send_telegram_voice] Exception: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def notify_staff(text):
     staff_users = User.objects.filter(role__in=['admin', 'owner']).exclude(telegram_id__isnull=True).exclude(telegram_id='')
     for user in staff_users:
@@ -520,6 +577,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             print(f"[TELEGRAM NOTIFICATION] Admin/Owner {user.username} replied to case #{case.id}")
             print(f"[TELEGRAM NOTIFICATION] Case user: {case.user.username}")
             print(f"[TELEGRAM NOTIFICATION] Case user telegram_id: {case.user.telegram_id}")
+            print(f"[TELEGRAM NOTIFICATION] Message type: {message.message_type}")
             print(f"[TELEGRAM NOTIFICATION] telegram_id type: {type(case.user.telegram_id)}")
             print(f"{'='*80}\n")
             
@@ -527,16 +585,37 @@ class MessageViewSet(viewsets.ModelViewSet):
                 telegram_id_str = str(case.user.telegram_id).strip()
                 print(f"[TELEGRAM NOTIFICATION] Converted telegram_id to string: '{telegram_id_str}'")
                 print(f"[TELEGRAM NOTIFICATION] Preparing notification...")
-                notification_text = f'💬 *New support response on case #{case.id}: {case.title}*\n\n{message.content[:500]}'
-                print(f"[TELEGRAM NOTIFICATION] Notification text preview: {notification_text[:100]}...")
-                print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")
                 
-                success = send_telegram_notification(telegram_id_str, notification_text)
-                
-                if success:
-                    print(f"[TELEGRAM NOTIFICATION] ✅ Notification sent successfully to case user")
+                # Check if it's a voice message
+                if message.message_type == 'voice' and message.voice_data:
+                    print(f"[TELEGRAM NOTIFICATION] Sending VOICE message to Telegram...")
+                    success = send_telegram_voice(
+                        telegram_id_str, 
+                        message.voice_data, 
+                        message.voice_duration
+                    )
+                    
+                    if success:
+                        print(f"[TELEGRAM NOTIFICATION] ✅ Voice message sent successfully")
+                    else:
+                        print(f"[TELEGRAM NOTIFICATION] ❌ Failed to send voice message")
+                        # Fallback: send text notification
+                        case_num = case.user_case_number if case.user_case_number else case.id
+                        fallback_text = f'🎤 *Voice message on your case #{case_num}: {case.title}*\n\nPlease check the website to listen.'
+                        send_telegram_notification(telegram_id_str, fallback_text)
                 else:
-                    print(f"[TELEGRAM NOTIFICATION] ❌ Failed to send notification to case user")
+                    # Regular text message
+                    case_num = case.user_case_number if case.user_case_number else case.id
+                    notification_text = f'💬 *New response on your case #{case_num}: {case.title}*\n\n{message.content[:500]}'
+                    print(f"[TELEGRAM NOTIFICATION] Notification text preview: {notification_text[:100]}...")
+                    print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")
+                    
+                    success = send_telegram_notification(telegram_id_str, notification_text)
+                    
+                    if success:
+                        print(f"[TELEGRAM NOTIFICATION] ✅ Notification sent successfully to case user")
+                    else:
+                        print(f"[TELEGRAM NOTIFICATION] ❌ Failed to send notification to case user")
             else:
                 print(f"[TELEGRAM NOTIFICATION] ⚠️ Case user has no telegram_id (value is: {case.user.telegram_id})")
                 print(f"[TELEGRAM NOTIFICATION] ⚠️ Notification NOT sent - user needs to /start the bot")
