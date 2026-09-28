@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getUser } from '../auth.js';
 import { apiCall } from '../api.js';
 import LoadingButton from '../components/LoadingButton.jsx';
+import VoiceRecorder from '../components/VoiceRecorder.jsx';
+import AudioPlayer from '../components/AudioPlayer.jsx';
 
 const POLL_INTERVAL = 10000; // 10 seconds
 
@@ -18,6 +20,7 @@ export default function CaseDetailPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const messagesEndRef = useRef(null);
   const pollRef = useRef(null);
   const user = getUser();
@@ -79,22 +82,46 @@ export default function CaseDetailPage() {
     }
   };
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!messageContent.trim()) return;
-    setIsSending(true);
-    try {
-      await apiCall('/api/messages/', 'POST', {
-        case: parseInt(id),
-        content: messageContent,
-      });
-      setMessageContent('');
-      setError('');
-      await fetchMessages();
-    } catch (err) {
-      setError('Failed to send message');
-    } finally {
-      setIsSending(false);
+  const handleSendMessage = async (e, voiceData = null) => {
+    e?.preventDefault();
+    
+    if (voiceData) {
+      // Sending voice message
+      setIsSending(true);
+      try {
+        await apiCall('/api/messages/', 'POST', {
+          case: parseInt(id),
+          message_type: 'voice',
+          voice_data: voiceData.voice_data,
+          voice_duration: voiceData.voice_duration,
+          content: '[Voice Message]' // Fallback text
+        });
+        setShowVoiceRecorder(false);
+        setError('');
+        await fetchMessages();
+      } catch (err) {
+        setError('Failed to send voice message');
+      } finally {
+        setIsSending(false);
+      }
+    } else {
+      // Sending text message
+      if (!messageContent.trim()) return;
+      setIsSending(true);
+      try {
+        await apiCall('/api/messages/', 'POST', {
+          case: parseInt(id),
+          message_type: 'text',
+          content: messageContent,
+        });
+        setMessageContent('');
+        setError('');
+        await fetchMessages();
+      } catch (err) {
+        setError('Failed to send message');
+      } finally {
+        setIsSending(false);
+      }
     }
   };
 
@@ -263,7 +290,16 @@ export default function CaseDetailPage() {
                       {msg.sender_role}
                     </span>
                   )}
-                  <p>{msg.content}</p>
+                  
+                  {/* Voice Message */}
+                  {msg.message_type === 'voice' && msg.voice_data ? (
+                    <div style={{ marginTop: '8px' }}>
+                      <AudioPlayer voiceData={msg.voice_data} duration={msg.voice_duration} />
+                    </div>
+                  ) : (
+                    <p>{msg.content}</p>
+                  )}
+                  
                   <small>{new Date(msg.timestamp).toLocaleString()}</small>
                 </div>
               ))
@@ -273,23 +309,61 @@ export default function CaseDetailPage() {
 
           {/* Send Message Form */}
           {caseData.status !== 'closed' && (
-            <form className="form-inline" onSubmit={handleSendMessage}>
-              <input
-                type="text"
-                value={messageContent}
-                onChange={(e) => setMessageContent(e.target.value)}
-                placeholder="Type your message..."
-                required
-              />
-              <LoadingButton
-                className="button button-primary"
-                type="submit"
-                loading={isSending}
-                loadingText="Sending..."
-              >
-                Send
-              </LoadingButton>
-            </form>
+            <div>
+              {/* Voice Recorder (for admin/owner only) */}
+              {(user?.role === 'admin' || user?.role === 'owner') && showVoiceRecorder ? (
+                <div style={{ marginBottom: '12px' }}>
+                  <VoiceRecorder 
+                    onRecordingComplete={(voiceData) => handleSendMessage(null, voiceData)} 
+                  />
+                  <button
+                    onClick={() => setShowVoiceRecorder(false)}
+                    className="button"
+                    style={{ marginTop: '8px', fontSize: '13px', padding: '6px 12px' }}
+                  >
+                    ← Back to Text
+                  </button>
+                </div>
+              ) : (
+                <form className="form-inline" onSubmit={handleSendMessage}>
+                  <input
+                    type="text"
+                    value={messageContent}
+                    onChange={(e) => setMessageContent(e.target.value)}
+                    placeholder="Type your message..."
+                    required={!showVoiceRecorder}
+                  />
+                  
+                  {/* Voice button for admin/owner */}
+                  {(user?.role === 'admin' || user?.role === 'owner') && (
+                    <button
+                      type="button"
+                      onClick={() => setShowVoiceRecorder(true)}
+                      className="button"
+                      style={{
+                        padding: '10px',
+                        fontSize: '18px',
+                        minWidth: 'auto',
+                        background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.1) 100%)',
+                        border: '1px solid rgba(255, 215, 0, 0.3)'
+                      }}
+                      title="Send voice message"
+                    >
+                      🎤
+                    </button>
+                  )}
+                  
+                  <LoadingButton
+                    className="button button-primary"
+                    type="submit"
+                    loading={isSending}
+                    loadingText="Sending..."
+                  >
+                    Send
+                  </LoadingButton>
+                </form>
+              )}
+            </div>
           )}
 
           {error && <div className="form-error" style={{ marginTop: '12px' }}>{error}</div>}

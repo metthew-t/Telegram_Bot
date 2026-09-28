@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { getUser } from '../auth.js';
 import { fetchInternalMessages, sendInternalMessage } from '../api.js';
 import LoadingButton from '../components/LoadingButton.jsx';
+import VoiceRecorder from '../components/VoiceRecorder.jsx';
+import AudioPlayer from '../components/AudioPlayer.jsx';
 
 const POLL_INTERVAL = 10000; // 10 seconds
 
@@ -14,6 +16,7 @@ export default function SystemChatPage() {
     const [selectedFile, setSelectedFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
     const user = getUser();
@@ -80,28 +83,52 @@ export default function SystemChatPage() {
         reader.readAsDataURL(file);
     };
 
-    const handleSendMessage = async (e) => {
-        e.preventDefault();
-        const contentText = messageContent.trim();
-        const submissionContent = contentText || (selectedFile ? `Uploaded report: ${selectedFile.name}` : '');
-        if (!submissionContent) return;
+    const handleSendMessage = async (e, voiceData = null) => {
+        e?.preventDefault();
+        
+        if (voiceData) {
+            // Sending voice message
+            setIsSending(true);
+            try {
+                await sendInternalMessage({
+                    content: '[Voice Message]',
+                    message_type: activeTab,
+                    message_format: 'voice',
+                    voice_data: voiceData.voice_data,
+                    voice_duration: voiceData.voice_duration,
+                });
+                setShowVoiceRecorder(false);
+                setError('');
+                await fetchMessages(false);
+            } catch (err) {
+                setError('Failed to send voice message');
+            } finally {
+                setIsSending(false);
+            }
+        } else {
+            // Sending text or file message
+            const contentText = messageContent.trim();
+            const submissionContent = contentText || (selectedFile ? `Uploaded report: ${selectedFile.name}` : '');
+            if (!submissionContent) return;
 
-        setIsSending(true);
-        try {
-            await sendInternalMessage({
-                content: submissionContent,
-                message_type: activeTab, // explicitly submit the active tab type
-                file_name: selectedFile ? selectedFile.name : null,
-                file_content: selectedFile ? selectedFile.content : null,
-            });
-            setMessageContent('');
-            setSelectedFile(null);
-            setError('');
-            await fetchMessages(false);
-        } catch (err) {
-            setError(`Failed to post ${activeTab === 'chat' ? 'message' : 'report'}`);
-        } finally {
-            setIsSending(false);
+            setIsSending(true);
+            try {
+                await sendInternalMessage({
+                    content: submissionContent,
+                    message_type: activeTab,
+                    message_format: 'text',
+                    file_name: selectedFile ? selectedFile.name : null,
+                    file_content: selectedFile ? selectedFile.content : null,
+                });
+                setMessageContent('');
+                setSelectedFile(null);
+                setError('');
+                await fetchMessages(false);
+            } catch (err) {
+                setError('Failed to send message');
+            } finally {
+                setIsSending(false);
+            }
         }
     };
 
@@ -176,7 +203,16 @@ export default function SystemChatPage() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <p style={{ margin: 0 }}>{msg.content}</p>
+                                            
+                                            {/* Voice Message */}
+                                            {msg.message_format === 'voice' && msg.voice_data ? (
+                                                <div style={{ margin: '8px 0' }}>
+                                                    <AudioPlayer voiceData={msg.voice_data} duration={msg.voice_duration} />
+                                                </div>
+                                            ) : (
+                                                <p style={{ margin: 0 }}>{msg.content}</p>
+                                            )}
+                                            
                                             <small>{new Date(msg.timestamp).toLocaleString()}</small>
                                         </div>
                                     ))
@@ -185,25 +221,59 @@ export default function SystemChatPage() {
                             </div>
                         )}
 
-                        <form className="form-inline" onSubmit={handleSendMessage}>
-                            <input
-                                type="text"
-                                value={messageContent}
-                                onChange={(e) => setMessageContent(e.target.value)}
-                                placeholder="Post an internal coordinate update..."
-                                required
-                                disabled={loading}
-                            />
-                            <LoadingButton 
-                                className="button button-primary" 
-                                type="submit" 
-                                disabled={!messageContent.trim()}
-                                loading={isSending}
-                                loadingText="Sending..."
-                            >
-                                Send
-                            </LoadingButton>
-                        </form>
+                        {/* Voice Recorder or Regular Form */}
+                        {showVoiceRecorder ? (
+                            <div>
+                                <VoiceRecorder 
+                                    onRecordingComplete={(voiceData) => handleSendMessage(null, voiceData)} 
+                                />
+                                <button
+                                    onClick={() => setShowVoiceRecorder(false)}
+                                    className="button"
+                                    style={{ marginTop: '8px', fontSize: '13px', padding: '6px 12px' }}
+                                >
+                                    ← Back to Text
+                                </button>
+                            </div>
+                        ) : (
+                            <form className="form-inline" onSubmit={handleSendMessage}>
+                                <input
+                                    type="text"
+                                    value={messageContent}
+                                    onChange={(e) => setMessageContent(e.target.value)}
+                                    placeholder="Post an internal coordinate update..."
+                                    required={!showVoiceRecorder}
+                                    disabled={loading}
+                                />
+                                
+                                {/* Voice button */}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowVoiceRecorder(true)}
+                                    className="button"
+                                    style={{
+                                        padding: '10px',
+                                        fontSize: '18px',
+                                        minWidth: 'auto',
+                                        background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.1) 100%)',
+                                        border: '1px solid rgba(255, 215, 0, 0.3)'
+                                    }}
+                                    title="Send voice message"
+                                >
+                                    🎤
+                                </button>
+                                
+                                <LoadingButton 
+                                    className="button button-primary" 
+                                    type="submit" 
+                                    disabled={!messageContent.trim()}
+                                    loading={isSending}
+                                    loadingText="Sending..."
+                                >
+                                    Send
+                                </LoadingButton>
+                            </form>
+                        )}
                     </div>
                 ) : (
                     /* ─── SYSTEM REPORTS SECTION ─── */
