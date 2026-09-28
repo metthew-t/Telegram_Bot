@@ -161,7 +161,10 @@ export default function CaseDetailPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
             <div>
               <h1 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '4px' }}>{caseData.title}</h1>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Case #{caseData.id}</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                {user?.role === 'user' ? `Your Case #${caseData.user_case_number || caseData.id}` : `${caseData.user?.username || 'User'} - Case #${caseData.user_case_number || caseData.id}`}
+                {user?.role !== 'user' && ` (ID: ${caseData.id})`}
+              </p>
             </div>
             <span className={`status-badge status-${caseData.status}`}>
               {caseData.status}

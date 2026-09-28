@@ -118,7 +118,7 @@ export default function DashboardPage() {
             {cases.map((caseItem) => (
               <div key={caseItem.id} className="case-card" onClick={() => handleCaseClick(caseItem.id)}>
                 <div className="case-header">
-                  <h3>Case #{caseItem.id}</h3>
+                  <h3>Your Case #{caseItem.user_case_number || caseItem.id}</h3>
                   <span className={`status-badge status-${caseItem.status}`}>
                     {caseItem.status}
                   </span>

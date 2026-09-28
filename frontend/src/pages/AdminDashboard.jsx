@@ -155,7 +155,7 @@ export default function AdminDashboardPage() {
                 onClick={() => navigate(`/cases/${caseItem.id}`)}
               >
                 <div className="case-header">
-                  <h3>Case #{caseItem.id}</h3>
+                  <h3>{caseItem.user?.username || 'User'} - Case #{caseItem.user_case_number || caseItem.id}</h3>
                   <span className={`status-badge status-${caseItem.status}`}>
                     {caseItem.status}
                   </span>
@@ -164,7 +164,7 @@ export default function AdminDashboardPage() {
                 <p>{caseItem.description?.substring(0, 80)}...</p>
 
                 <div className="case-meta">
-                  <span>User: {caseItem.user?.username || 'Guest'}</span>
+                  <span>Database ID: #{caseItem.id}</span>
                 </div>
 
                 {caseItem.status === 'open' && (
