@@ -108,17 +108,18 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Search Bar */}
-      <div className="search-bar">
+      <div style={{ marginBottom: '20px' }}>
         <input
           type="text"
           placeholder="Search for a case ID or title..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          style={{ width: '100%' }}
         />
       </div>
 
       {/* Filter Tabs */}
-      <div className="filter-tabs glass-panel">
+      <div className="filter-tabs">
         <button
           className={`tab ${filter === 'all' ? 'active' : ''}`}
           onClick={() => setFilter('all')}
@@ -140,7 +141,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Cases List */}
-      <div className="cases-section glass-panel">
+      <div style={{ marginTop: '20px' }}>
         {loading ? (
           <div className="loading-spinner" />
         ) : cases.length === 0 ? (
@@ -184,8 +185,8 @@ export default function AdminDashboardPage() {
             ))}
           </div>
         )}
-        {error && <div className="form-error">{error}</div>}
       </div>
+      {error && <div className="form-error" style={{ marginTop: '16px' }}>{error}</div>}
     </div>
   );
 }

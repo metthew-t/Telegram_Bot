@@ -105,10 +105,12 @@ export default function DashboardPage() {
 
 
       {/* Cases List */}
-      <div className="cases-section glass-panel">
-        <h2>Cases {cases.length > 0 && `(${cases.length})`}</h2>
+      <div style={{ marginTop: '24px' }}>
+        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
+          Cases {cases.length > 0 && `(${cases.length})`}
+        </h2>
         {loading ? (
-          <p>Loading cases...</p>
+          <div className="loading-spinner" />
         ) : cases.length === 0 ? (
           <p className="empty-state">No cases yet. Create one to get started.</p>
         ) : (

@@ -156,38 +156,38 @@ export default function CaseDetailPage() {
         ← Back
       </button>
 
-      <div className="case-detail glass-panel">
-        <div className="case-header">
-          <div>
-            <h1>{caseData.title}</h1>
-            <p className="case-id">Case #{caseData.id}</p>
-          </div>
-          <div className="case-actions">
+      <div className="glass-panel">
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+            <div>
+              <h1 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '4px' }}>{caseData.title}</h1>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Case #{caseData.id}</p>
+            </div>
             <span className={`status-badge status-${caseData.status}`}>
               {caseData.status}
             </span>
           </div>
-        </div>
 
-        <div className="case-info">
-          <p><strong>Description:</strong></p>
-          <p>{caseData.description}</p>
-          {user?.role === 'owner' && caseData.user && (
-            <p style={{ marginTop: '0.5rem' }}>
-              <strong>Submitted by:</strong>{' '}
-              {caseData.user?.username || caseData.user?.label || 'Anonymous'}
+          <div style={{ fontSize: '14px', lineHeight: 1.6 }}>
+            <p><strong>Description:</strong></p>
+            <p style={{ marginTop: '8px' }}>{caseData.description}</p>
+            {user?.role === 'owner' && caseData.user && (
+              <p style={{ marginTop: '12px' }}>
+                <strong>Submitted by:</strong>{' '}
+                {caseData.user?.username || caseData.user?.label || 'Anonymous'}
+              </p>
+            )}
+            {caseData.assigned_admin && (
+              <p style={{ marginTop: '8px' }}>
+                <strong>Assigned to:</strong>{' '}
+                {caseData.assigned_admin?.label || caseData.assigned_admin?.username || 'Admin'}
+              </p>
+            )}
+            <p style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-muted)' }}>
+              Created: {new Date(caseData.created_at).toLocaleString()}
+              {caseData.updated_at && ` · Updated: ${new Date(caseData.updated_at).toLocaleString()}`}
             </p>
-          )}
-          {caseData.assigned_admin && (
-            <p style={{ marginTop: '0.5rem' }}>
-              <strong>Assigned to:</strong>{' '}
-              {caseData.assigned_admin?.label || caseData.assigned_admin?.username || 'Admin'}
-            </p>
-          )}
-          <p style={{ marginTop: '0.5rem', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-            Created: {new Date(caseData.created_at).toLocaleString()}
-            {caseData.updated_at && ` · Updated: ${new Date(caseData.updated_at).toLocaleString()}`}
-          </p>
+          </div>
         </div>
 
         {/* Assign / Reassign Section */}
@@ -236,9 +236,9 @@ export default function CaseDetailPage() {
 
         {/* Messages Section */}
         <div className="messages-section">
-          <h3>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
             Conversation
-            <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.5rem' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '8px' }}>
               Auto-refreshes every 10s
             </span>
           </h3>
@@ -255,7 +255,7 @@ export default function CaseDetailPage() {
                   {msg.sender_role && (
                     <span
                       className={`role-badge role-${msg.sender_role}`}
-                      style={{ marginLeft: '0.5rem', fontSize: '0.625rem' }}
+                      style={{ marginLeft: '8px' }}
                     >
                       {msg.sender_role}
                     </span>
@@ -289,7 +289,7 @@ export default function CaseDetailPage() {
             </form>
           )}
 
-          {error && <div className="form-error" style={{ marginTop: '0.5rem' }}>{error}</div>}
+          {error && <div className="form-error" style={{ marginTop: '12px' }}>{error}</div>}
         </div>
 
         {/* Close Case Button */}
@@ -309,14 +309,14 @@ export default function CaseDetailPage() {
         {caseData.status === 'closed' && (
           <div style={{
             textAlign: 'center',
-            padding: 'var(--space-lg)',
-            marginTop: 'var(--space-lg)',
-            background: 'var(--success-bg)',
-            borderRadius: 'var(--radius-md)',
+            padding: '20px',
+            marginTop: '20px',
+            background: 'rgba(16, 185, 129, 0.1)',
+            borderRadius: '8px',
             border: '1px solid rgba(16, 185, 129, 0.2)',
           }}>
-            <p style={{ color: 'var(--success)', fontWeight: 600 }}>
-              This case has been closed
+            <p style={{ color: 'var(--success)', fontWeight: 600, margin: 0 }}>
+              ✓ This case has been closed
             </p>
           </div>
         )}
