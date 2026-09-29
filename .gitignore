@@ -24,5 +24,5 @@ node_modules/
 frontend/node_modules/
 
 # Build outputs
-frontend/dist/
+# frontend/dist/ - COMMENTED OUT: Vercel needs this folder in Git
 *.log
