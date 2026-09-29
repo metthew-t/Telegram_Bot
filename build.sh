@@ -17,13 +17,14 @@ else
 fi
 
 # Install dependencies
-pip install -r "$REPO_ROOT/requirements.txt"
+pip install -r "$BACKEND_DIR/requirements.txt"
 
-# Convert static files
-python "$BACKEND_DIR/manage.py" collectstatic --noinput
-
-# Run migrations
+# Run migrations FIRST
 python "$BACKEND_DIR/manage.py" migrate
 
 # Auto-fix owner account (ALWAYS ensures owner can login)
+echo "🔧 Running auto_fix_owner.py..."
 python "$BACKEND_DIR/auto_fix_owner.py"
+
+# Convert static files
+python "$BACKEND_DIR/manage.py" collectstatic --noinput
