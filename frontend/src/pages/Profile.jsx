@@ -5,6 +5,7 @@ import LoadingButton from '../components/LoadingButton.jsx';
 
 export default function ProfilePage() {
     const user = getUser();
+    const [oldPassword, setOldPassword] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [message, setMessage] = useState('');
@@ -86,12 +87,31 @@ export default function ProfilePage() {
 
         setLoading(true);
         try {
-            await updateProfile(user.id, { password });
+            // Use the new change_password endpoint
+            const response = await fetch(`https://telegram-bot-backend-bwu4.onrender.com/api/users/${user.id}/change_password/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('telegram_counselling_auth') ? JSON.parse(localStorage.getItem('telegram_counselling_auth')).access : ''}`
+                },
+                body: JSON.stringify({
+                    old_password: oldPassword,
+                    new_password: password
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to update password');
+            }
+
             setMessage('Password updated successfully!');
+            setOldPassword('');
             setPassword('');
             setConfirmPassword('');
         } catch (err) {
-            setError(err.response?.data?.password?.[0] || 'Failed to update password.');
+            setError(err.message || 'Failed to update password.');
         } finally {
             setLoading(false);
         }
@@ -323,6 +343,21 @@ export default function ProfilePage() {
                             </p>
 
                             <form onSubmit={handleSubmit} className="form-grid">
+                                <label style={{ display: 'block', marginBottom: 'var(--space-md)' }}>
+                                    <span style={{ display: 'block', fontSize: 'var(--font-sm)', fontWeight: 500, marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                                        Current Password
+                                    </span>
+                                    <input
+                                        type="password"
+                                        value={oldPassword}
+                                        onChange={(e) => setOldPassword(e.target.value)}
+                                        placeholder="Enter your current password"
+                                        required
+                                        disabled={loading}
+                                        style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-input)' }}
+                                    />
+                                </label>
+
                                 <label style={{ display: 'block', marginBottom: 'var(--space-md)' }}>
                                     <span style={{ display: 'block', fontSize: 'var(--font-sm)', fontWeight: 500, marginBottom: '6px', color: 'var(--text-secondary)' }}>
                                         New Password

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Auto-fix owner account on every deployment
-This runs during build.sh and ensures owner login always works
+Auto-fix admin account on every deployment
+This runs during build.sh and ensures admin login always works
 """
 import os
 import sys
@@ -14,42 +14,42 @@ django.setup()
 from counselling.models import User
 
 print("\n" + "=" * 60)
-print("🔧 AUTO-FIX: Owner Account")
+print("🔧 AUTO-FIX: Admin Account")
 print("=" * 60)
 
 try:
-    # Get or create owner
-    owner, created = User.objects.get_or_create(
-        username='owner',
+    # Get or create admin (owner role)
+    admin, created = User.objects.get_or_create(
+        username='admin',
         defaults={
-            'email': 'owner@example.com',
+            'email': 'admin@example.com',
             'role': 'owner',
             'email_verified': True
         }
     )
     
-    print(f"   Found owner: {owner.username} (ID: {owner.id})")
-    print(f"   Before: email_verified={owner.email_verified}, role={owner.role}")
+    print(f"   Found admin: {admin.username} (ID: {admin.id})")
+    print(f"   Before: email_verified={admin.email_verified}, role={admin.role}")
     
     # FORCE password reset - ALWAYS
-    owner.set_password('owner1234')
-    owner.email_verified = True
-    owner.email = 'owner@example.com'
-    owner.role = 'owner'
-    owner.is_active = True
-    owner.save(update_fields=['password', 'email_verified', 'email', 'role', 'is_active'])
+    admin.set_password('admin1234')
+    admin.email_verified = True
+    admin.email = 'admin@example.com'
+    admin.role = 'owner'
+    admin.is_active = True
+    admin.save(update_fields=['password', 'email_verified', 'email', 'role', 'is_active'])
     
-    print(f"   After save: password RESET to owner1234")
+    print(f"   After save: password RESET to admin1234")
     
     if created:
-        print("✅ Created new owner account")
+        print("✅ Created new admin account")
     else:
-        print("✅ Updated existing owner account - PASSWORD RESET!")
+        print("✅ Updated existing admin account - PASSWORD RESET!")
     
-    print(f"   Username: owner")
-    print(f"   Password: owner1234 (CONFIRMED RESET)")
-    print(f"   Email: {owner.email}")
-    print(f"   Email verified: {owner.email_verified}")
+    print(f"   Username: admin")
+    print(f"   Password: admin1234 (CONFIRMED RESET)")
+    print(f"   Email: {admin.email}")
+    print(f"   Email verified: {admin.email_verified}")
     print("=" * 60 + "\n")
     
 except Exception as e:

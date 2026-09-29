@@ -484,6 +484,48 @@ class UserViewSet(viewsets.ModelViewSet):
         user.email_verified = True
         user.email_verification_token = None
         user.save(update_fields=['email_verified', 'email_verification_token'])
+        return Response({'status': 'verified'})
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def change_password(self, request, pk=None):
+        """Allow user to change their own password"""
+        user = self.get_object()
+        
+        # Users can only change their own password (unless owner)
+        if request.user.id != user.id and request.user.role != 'owner':
+            return Response(
+                {'error': 'You can only change your own password'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        
+        if not old_password or not new_password:
+            return Response(
+                {'error': 'Both old_password and new_password are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify old password
+        if not user.check_password(old_password):
+            return Response(
+                {'error': 'Current password is incorrect'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+        
+        # Log the password change
+        AuditLog.objects.create(
+            user=request.user,
+            action='CHANGE_PASSWORD',
+            details=f'User {user.username} changed their password'
+        )
+        
+        return Response({'status': 'success', 'message': 'Password changed successfully'})
         return Response({'status': 'verified', 'username': user.username})
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny], url_path='resend-verification')
