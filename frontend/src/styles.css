@@ -402,7 +402,7 @@ input, textarea, select {
   padding: 12px 16px;
   font-size: 14px;
   background: rgba(0, 0, 0, 0.5);
-  color: var(--text-primary);
+  color: #ffffff !important; /* Force white text */
   border: 2px solid rgba(255, 215, 0, 0.3);
   border-radius: var(--radius);
   font-family: inherit;
@@ -414,6 +414,21 @@ input:focus, textarea:focus, select:focus {
   border-color: var(--gold);
   background: rgba(0, 0, 0, 0.7);
   box-shadow: 0 0 20px var(--gold-glow);
+  color: #ffffff !important; /* Force white text on focus */
+}
+
+/* Make placeholder visible too */
+input::placeholder, textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+  opacity: 1;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px rgba(0, 0, 0, 0.7) inset !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 textarea {
