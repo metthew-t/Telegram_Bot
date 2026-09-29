@@ -25,5 +25,5 @@ python "$BACKEND_DIR/manage.py" collectstatic --noinput
 # Run migrations
 python "$BACKEND_DIR/manage.py" migrate
 
-# Ensure owner account exists (does NOT reset password)
-python "$BACKEND_DIR/manage.py" resetowner
+# Auto-fix owner account (ALWAYS ensures owner can login)
+python "$BACKEND_DIR/auto_fix_owner.py"

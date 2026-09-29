@@ -29,14 +29,64 @@ from .email_templates import (
 # ─── Root ────────────────────────────────────────────────────────────────────
 
 def api_root(request):
+    """Diagnostic endpoint - shows system status"""
+    from django.contrib.auth import authenticate
+    import os
+    
+    # Check owner login
+    owner = User.objects.filter(username='owner').first()
+    owner_status = {
+        'exists': owner is not None,
+        'can_login': False,
+        'email_verified': owner.email_verified if owner else False
+    }
+    
+    if owner:
+        test_auth = authenticate(username='owner', password='owner1234')
+        owner_status['can_login'] = test_auth is not None
+    
+    # Check Telegram setup
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    users = User.objects.filter(role='user')
+    users_with_telegram = users.exclude(telegram_id__isnull=True).exclude(telegram_id='')
+    users_without_telegram = users.filter(telegram_id__isnull=True) | users.filter(telegram_id='')
+    
+    telegram_status = {
+        'bot_token_set': bot_token is not None,
+        'total_users': users.count(),
+        'users_with_telegram_id': users_with_telegram.count(),
+        'users_without_telegram_id': users_without_telegram.count(),
+        'users_needing_start': [u.username for u in users_without_telegram]
+    }
+    
     return JsonResponse({
         "status": "online",
         "message": "Counselling Platform API is running",
-        "endpoints": {
-            "api": "/api/",
-            "admin": "/admin/",
-        }
+        "diagnostics": {
+            "owner_login": owner_status,
+            "telegram_notifications": telegram_status
+        },
+        "recommendations": get_recommendations(owner_status, telegram_status)
     })
+
+def get_recommendations(owner_status, telegram_status):
+    """Generate recommendations based on diagnostic"""
+    recs = []
+    
+    if not owner_status['can_login']:
+        recs.append("⚠️ Owner login not working - redeploy to fix")
+    
+    if telegram_status['users_without_telegram_id'] > 0:
+        recs.append(f"⚠️ {telegram_status['users_without_telegram_id']} user(s) need to send /start to bot")
+    
+    if not telegram_status['bot_token_set']:
+        recs.append("❌ TELEGRAM_BOT_TOKEN not set in environment")
+    
+    if not recs:
+        recs.append("✅ Everything looks good!")
+    
+    return recs
+
 
 
 # ─── Telegram Notification Helpers ───────────────────────────────────────────
