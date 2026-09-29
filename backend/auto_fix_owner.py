@@ -28,21 +28,26 @@ try:
         }
     )
     
-    # Always reset password and verify email
+    print(f"   Found owner: {owner.username} (ID: {owner.id})")
+    print(f"   Before: email_verified={owner.email_verified}, role={owner.role}")
+    
+    # FORCE password reset - ALWAYS
     owner.set_password('owner1234')
     owner.email_verified = True
     owner.email = 'owner@example.com'
     owner.role = 'owner'
     owner.is_active = True
-    owner.save()
+    owner.save(update_fields=['password', 'email_verified', 'email', 'role', 'is_active'])
+    
+    print(f"   After save: password RESET to owner1234")
     
     if created:
         print("✅ Created new owner account")
     else:
-        print("✅ Updated existing owner account")
+        print("✅ Updated existing owner account - PASSWORD RESET!")
     
     print(f"   Username: owner")
-    print(f"   Password: owner1234")
+    print(f"   Password: owner1234 (CONFIRMED RESET)")
     print(f"   Email: {owner.email}")
     print(f"   Email verified: {owner.email_verified}")
     print("=" * 60 + "\n")
