@@ -1,18 +1,29 @@
 #!/usr/bin/env bash
-# Exit on error
+# build.sh — works whether Root Directory is repo root OR backend/
 set -o errexit
 
+# Detect if we're inside backend/ or at repo root
+if [ -f "manage.py" ]; then
+    # We're inside backend/
+    REPO_ROOT=".."
+    BACKEND_DIR="."
+elif [ -f "backend/manage.py" ]; then
+    # We're at repo root
+    REPO_ROOT="."
+    BACKEND_DIR="backend"
+else
+    echo "❌ Cannot find manage.py. Check your Root Directory setting."
+    exit 1
+fi
+
 # Install dependencies
-pip install -r requirements.txt
+pip install -r "$REPO_ROOT/requirements.txt"
 
 # Convert static files
-# We run this from the root but manage.py is in backend/
-python backend/manage.py collectstatic --noinput
+python "$BACKEND_DIR/manage.py" collectstatic --noinput
 
 # Run migrations
-# Note: DATABASE_URL must be set in Render environment
-python backend/manage.py migrate
+python "$BACKEND_DIR/manage.py" migrate
 
-# Reset owner account (ensure owner can always login)
-echo "🔧 Resetting owner account..."
-python backend/manage.py resetowner
+# Ensure owner account exists (does NOT reset password)
+python "$BACKEND_DIR/manage.py" resetowner

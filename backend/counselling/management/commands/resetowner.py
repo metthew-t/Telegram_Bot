@@ -1,5 +1,5 @@
 """
-Django management command to reset owner password and verify email
+Django management command to ensure owner account exists
 Usage: python manage.py resetowner
 """
 from django.core.management.base import BaseCommand
@@ -8,30 +8,30 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class Command(BaseCommand):
-    help = 'Reset owner password to owner1234 and verify email'
+    help = 'Ensure owner account exists (does NOT reset password if owner already exists)'
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.WARNING('\n🔧 Resetting owner account...\n'))
+        # Find existing owner
+        owner = User.objects.filter(role='owner').first()
         
-        # Find or create owner
-        owner = User.objects.filter(username='owner').first()
-        
-        if not owner:
-            self.stdout.write(self.style.WARNING('⚠️  Owner not found. Creating new owner...'))
+        if owner:
+            # Owner already exists — do NOT touch the password
+            # Only ensure email_verified is True so they can always log in
+            if not owner.email_verified:
+                owner.email_verified = True
+                owner.save()
+                self.stdout.write(self.style.SUCCESS(f'✅ Owner "{owner.username}" email_verified set to True'))
+            else:
+                self.stdout.write(self.style.SUCCESS(f'✅ Owner "{owner.username}" already exists (password unchanged)'))
+        else:
+            # No owner exists — create one with default credentials
             owner = User.objects.create(
                 username='owner',
                 email='owner@example.com',
                 role='owner'
             )
-        
-        # Reset password and verify email
-        owner.set_password('owner1234')
-        owner.email_verified = True
-        owner.save()
-        
-        self.stdout.write(self.style.SUCCESS('✅ Owner account ready!'))
-        self.stdout.write(self.style.SUCCESS(f'   Username: {owner.username}'))
-        self.stdout.write(self.style.SUCCESS(f'   Password: owner1234'))
-        self.stdout.write(self.style.SUCCESS(f'   Email: {owner.email}'))
-        self.stdout.write(self.style.SUCCESS(f'   Email verified: {owner.email_verified}'))
-        self.stdout.write(self.style.SUCCESS(f'   Role: {owner.role}\n'))
+            owner.set_password('owner1234')
+            owner.email_verified = True
+            owner.save()
+            self.stdout.write(self.style.SUCCESS('✅ Created new owner: owner / owner1234'))
+
