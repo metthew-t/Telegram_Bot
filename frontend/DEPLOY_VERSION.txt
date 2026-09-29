@@ -1,0 +1,8 @@
+DEPLOYMENT VERSION: 2026-09-29-FINAL
+Backend URL: https://telegram-bot-backend-bwu4.onrender.com
+Admin Credentials: admin / admin1234
+Changes:
+- Fixed input text visibility (white text)
+- Changed owner to admin/admin1234
+- Added password change in Profile
+- Fixed all API URLs to correct backend
