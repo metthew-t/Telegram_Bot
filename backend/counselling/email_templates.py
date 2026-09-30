@@ -22,11 +22,12 @@ _BASE_STYLES = """
   .intro    { font-size: 15px; color: #94a3b8; line-height: 1.6; margin: 0 0 28px; }
   .info-card { background-color: #242736; border-radius: 10px; border-left: 4px solid #4f46e5;
                padding: 20px 24px; margin-bottom: 28px; }
-  .info-row  { display: flex; margin-bottom: 10px; }
+  .info-row  { display: flex; align-items: flex-start; margin-bottom: 12px; gap: 12px; }
   .info-row:last-child { margin-bottom: 0; }
   .info-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px;
-                font-weight: 600; min-width: 110px; padding-top: 2px; }
-  .info-value { font-size: 14px; color: #e2e8f0; font-weight: 500; flex: 1; line-height: 1.5; }
+                font-weight: 600; min-width: 110px; flex-shrink: 0; padding-top: 2px; }
+  .info-value { font-size: 14px; color: #e2e8f0; font-weight: 500; flex: 1; line-height: 1.6; 
+                word-break: break-word; }
   .info-value.mono { font-family: monospace; background: #1a1d27; padding: 2px 8px; border-radius: 4px;
                      font-size: 13px; }
   .status-badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px;
@@ -57,8 +58,26 @@ _BASE_STYLES = """
     .greeting { font-size: 20px; }
     .intro { font-size: 14px; }
     .info-card { padding: 16px 18px; }
-    .info-row { flex-direction: column; margin-bottom: 12px; }
-    .info-label { min-width: 0; margin-bottom: 4px; }
+    .info-row { 
+      display: flex; 
+      flex-direction: row; 
+      align-items: flex-start;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+    .info-label { 
+      min-width: 90px;
+      max-width: 90px;
+      flex-shrink: 0;
+      margin-bottom: 0;
+      font-size: 11px;
+      padding-top: 2px;
+    }
+    .info-value {
+      flex: 1;
+      font-size: 13px;
+      word-break: break-word;
+    }
     .cta-btn { display: block !important; width: 100%; box-sizing: border-box; padding: 16px 24px; }
     .cta-block { margin: 20px 0; }
     .footer { padding: 20px 16px; }
@@ -307,12 +326,12 @@ def render_new_message_email(case, message, actor_username: str, frontend_url: s
         <span class="info-value">{from_label}</span>
       </div>
       <div class="info-row">
-        <span class="info-label">Message</span>
-        <span class="info-value" style="background:#1a1d27;padding:12px 16px;border-radius:6px;display:block;margin-top:8px;line-height:1.6;color:#e2e8f0;">{message.content[:500]}{'…' if len(message.content) > 500 else ''}</span>
-      </div>
-      <div class="info-row" style="margin-top:12px;">
         <span class="info-label">Sent at</span>
         <span class="info-value">{message.timestamp.strftime('%d %B %Y, %H:%M UTC')}</span>
+      </div>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #2a2d3d;">
+        <div class="info-label" style="margin-bottom:8px;">Message</div>
+        <div style="background:#1a1d27;padding:12px 16px;border-radius:6px;line-height:1.6;color:#e2e8f0;font-size:14px;word-break:break-word;">{message.content[:500]}{'…' if len(message.content) > 500 else ''}</div>
       </div>
     </div>
     
