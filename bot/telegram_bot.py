@@ -517,12 +517,78 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             if matching_case:
                 context.user_data['selected_case_id'] = matching_case['id']
-                await update.message.reply_text(
-                    f'✅ Case *#{case_num}* selected.\n\n'
-                    f'*{matching_case["title"]}*\n\n'
-                    f'Now send your message, and it will go to this case.',
-                    parse_mode='Markdown'
-                )
+                
+                # Check if there's a pending message to send
+                pending_message = context.user_data.pop('pending_message', None)
+                pending_voice = context.user_data.pop('pending_voice', None)
+                
+                if pending_voice:
+                    # Send the pending voice message immediately
+                    try:
+                        print(f"DEBUG: Sending pending voice to case #{matching_case['id']}")
+                        file = await context.bot.get_file(pending_voice['file_id'])
+                        voice_bytes = await file.download_as_bytearray()
+                        voice_base64 = base64.b64encode(voice_bytes).decode('utf-8')
+                        
+                        msg_resp = backend_request(
+                            '/api/messages/',
+                            token=token,
+                            json={
+                                'case': matching_case['id'],
+                                'content': '[Voice Message]',
+                                'message_type': 'voice',
+                                'voice_data': voice_base64,
+                                'voice_duration': pending_voice['duration']
+                            },
+                        )
+                        
+                        if msg_resp.ok:
+                            await update.message.reply_text(
+                                f'✅ 🎤 Voice message sent to case *#{case_num}*: *{matching_case["title"]}*\n\n'
+                                f'All future messages will go to this case.',
+                                parse_mode='Markdown'
+                            )
+                        else:
+                            await update.message.reply_text(
+                                f'✅ Case *#{case_num}* selected: *{matching_case["title"]}*\n\n'
+                                f'⚠️ But failed to send voice: {msg_resp.text}',
+                                parse_mode='Markdown'
+                            )
+                    except Exception as e:
+                        print(f"ERROR: Failed to send pending voice: {str(e)}")
+                        await update.message.reply_text(
+                            f'✅ Case *#{case_num}* selected: *{matching_case["title"]}*\n\n'
+                            f'⚠️ But failed to send voice message.',
+                            parse_mode='Markdown'
+                        )
+                elif pending_message:
+                    # Send the pending message immediately
+                    print(f"DEBUG: Sending pending message to case #{matching_case['id']}")
+                    msg_resp = backend_request(
+                        '/api/messages/',
+                        token=token,
+                        json={'case': matching_case['id'], 'content': pending_message, 'message_type': 'text'},
+                    )
+                    if msg_resp.ok:
+                        await update.message.reply_text(
+                            f'✅ Message sent to case *#{case_num}*: *{matching_case["title"]}*\n\n'
+                            f'All future messages will go to this case.',
+                            parse_mode='Markdown'
+                        )
+                    else:
+                        print(f"DEBUG: Failed to send pending message: {msg_resp.text}")
+                        await update.message.reply_text(
+                            f'✅ Case *#{case_num}* selected: *{matching_case["title"]}*\n\n'
+                            f'⚠️ But failed to send your message: {msg_resp.text}',
+                            parse_mode='Markdown'
+                        )
+                else:
+                    # No pending message, just confirm selection
+                    await update.message.reply_text(
+                        f'✅ Case *#{case_num}* selected: *{matching_case["title"]}*\n\n'
+                        f'All your messages will now go to this case.',
+                        parse_mode='Markdown'
+                    )
                 return
             else:
                 await update.message.reply_text(
@@ -554,11 +620,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Case no longer active, clear selection
                 context.user_data.pop('selected_case_id', None)
         
-        # No case selected - ask user to select
+        # No case selected - ask user to select and store the message for later
+        context.user_data['pending_message'] = message_text
         case_list = '\n'.join([f"• *{c.get('user_case_number', c['id'])}* - {c['title']}" for c in cases[:10]])
         await update.message.reply_text(
             f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'
-            f'Please send just the case number (e.g., "1") to select which case.',
+            f'Please send just the case number (e.g., "1") to send your message.',
             parse_mode='Markdown'
         )
     
@@ -619,10 +686,16 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
     # Multiple cases and no selection
     elif len(cases) > 1:
+        # Store the voice data for after case selection
+        context.user_data['pending_voice'] = {
+            'file_id': voice.file_id,
+            'duration': voice.duration
+        }
         case_list = '\n'.join([f"• Case #{c.get('user_case_number', c['id'])}: {c['title']}" for c in cases[:5]])
         await update.message.reply_text(
+            f'🎤 Voice message received!\n\n'
             f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'
-            'Please send a text message with just the case number (e.g., "1") to select which case, then you can send voice messages.',
+            'Please send the case number (e.g., "1") to send your voice message.',
             parse_mode='Markdown'
         )
         return

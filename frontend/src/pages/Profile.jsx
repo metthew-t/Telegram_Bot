@@ -139,7 +139,7 @@ export default function ProfilePage() {
     const roleIsOwner = user?.role === 'owner';
 
     return (
-        <section className="page-panel">
+        <section className="page-panel" style={{ paddingLeft: '20px', paddingRight: '20px' }}>
             <div className="panel-header">
                 <h1>My Profile</h1>
                 <p>Manage your account settings, platform clearance, and notification alerts</p>
@@ -367,7 +367,17 @@ export default function ProfilePage() {
                                         placeholder="Enter your current password"
                                         required
                                         disabled={loading}
-                                        style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-input)' }}
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '12px 16px', 
+                                            background: 'rgba(255, 255, 255, 0.03)',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            borderRadius: 'var(--radius-md)',
+                                            color: '#ffffff',
+                                            fontSize: '14px',
+                                            marginLeft: '10px',
+                                            marginRight: '10px'
+                                        }}
                                     />
                                 </label>
 
@@ -382,7 +392,17 @@ export default function ProfilePage() {
                                         placeholder="Enter minimum 8 characters"
                                         required
                                         disabled={loading}
-                                        style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-input)' }}
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '12px 16px', 
+                                            background: 'rgba(255, 255, 255, 0.03)',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            borderRadius: 'var(--radius-md)',
+                                            color: '#ffffff',
+                                            fontSize: '14px',
+                                            marginLeft: '10px',
+                                            marginRight: '10px'
+                                        }}
                                     />
                                 </label>
 
@@ -415,7 +435,17 @@ export default function ProfilePage() {
                                         placeholder="Re-enter password to confirm"
                                         required
                                         disabled={loading}
-                                        style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-input)' }}
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '12px 16px', 
+                                            background: 'rgba(255, 255, 255, 0.03)',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            borderRadius: 'var(--radius-md)',
+                                            color: '#ffffff',
+                                            fontSize: '14px',
+                                            marginLeft: '10px',
+                                            marginRight: '10px'
+                                        }}
                                     />
                                 </label>
 

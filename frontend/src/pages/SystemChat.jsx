@@ -170,10 +170,10 @@ export default function SystemChatPage() {
                 </button>
             </div>
 
-            <div className="case-detail glass-panel" style={{ padding: 'var(--space-lg)' }}>
+            <div className="case-detail glass-panel" style={{ padding: 'var(--space-lg)', marginLeft: '20px', marginRight: '20px' }}>
                 {activeTab === 'chat' ? (
                     /* ─── CHAT SECTION ─── */
-                    <div className="messages-section" style={{ marginTop: 0 }}>
+                    <div className="messages-section" style={{ marginTop: 0, paddingLeft: '10px', paddingRight: '10px' }}>
                         <h3 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>Internal Staff Chat</span>
                             <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', fontWeight: 400 }}>
@@ -277,7 +277,7 @@ export default function SystemChatPage() {
                     </div>
                 ) : (
                     /* ─── SYSTEM REPORTS SECTION ─── */
-                    <div className="messages-section" style={{ marginTop: 0 }}>
+                    <div className="messages-section" style={{ marginTop: 0, paddingLeft: '10px', paddingRight: '10px' }}>
                         <h3 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>Formal System Reports</span>
                             <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', fontWeight: 400 }}>
