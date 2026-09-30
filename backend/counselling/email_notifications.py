@@ -24,16 +24,27 @@ def send_case_message_notification(case, message, sender):
     from .models import User
     from . import views  # Import module, not function
     
+    print(f"[CaseNotification] send_case_message_notification called")
+    print(f"[CaseNotification] Sender: {sender.username} (role: {sender.role})")
+    print(f"[CaseNotification] Case: #{case.id}")
+    print(f"[CaseNotification] Assigned admin: {case.assigned_admin}")
+    
     frontend_url = os.getenv('FRONTEND_URL', 'https://astucounselbot.vercel.app')
     
     # If sender is user, notify the assigned admin
     if sender.role == 'user' and case.assigned_admin:
         admin = case.assigned_admin
+        print(f"[CaseNotification] Notifying assigned admin: {admin.username}")
+        print(f"[CaseNotification] Admin email: {admin.email}")
+        print(f"[CaseNotification] Admin email_verified: {admin.email_verified}")
+        print(f"[CaseNotification] Admin email_notifications_enabled: {admin.email_notifications_enabled}")
         
         # Check if admin has email verified and notifications enabled
         if (admin.email and 
             admin.email_verified and 
             admin.email_notifications_enabled):
+            
+            print(f"[CaseNotification] All conditions met, sending email...")
             
             try:
                 subject, html_content, text_body = render_new_message_email(
@@ -43,13 +54,21 @@ def send_case_message_notification(case, message, sender):
                     frontend_url
                 )
                 
+                print(f"[CaseNotification] Email template rendered, calling _send_email...")
                 views._send_email(subject, html_content, text_body, [admin.email])
                 
-                print(f"✅ Email notification sent to {admin.username} ({admin.email}) for case #{case.id}")
+                print(f"[CaseNotification] ✅ Email notification sent to {admin.username} ({admin.email}) for case #{case.id}")
             except Exception as e:
-                print(f"❌ Failed to send email to {admin.username}: {e}")
+                print(f"[CaseNotification] ❌ Failed to send email to {admin.username}: {e}")
                 import traceback
                 traceback.print_exc()
+        else:
+            print(f"[CaseNotification] ⚠️ Admin does not meet notification requirements")
+    else:
+        if sender.role != 'user':
+            print(f"[CaseNotification] Sender is {sender.role}, not user - skipping notification")
+        elif not case.assigned_admin:
+            print(f"[CaseNotification] No assigned admin for case #{case.id} - skipping notification")
 
 
 def send_internal_message_notification(internal_message, sender):

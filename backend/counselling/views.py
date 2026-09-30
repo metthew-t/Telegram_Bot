@@ -947,17 +947,23 @@ class ForgotPasswordView(APIView):
         reset_url = f"{frontend_url}/reset-password?token={reset_token.token}"
         
         # Send email using centralized function
+        print(f"[ForgotPassword] Attempting to send reset email to: {user.email}")
+        print(f"[ForgotPassword] Reset URL: {reset_url}")
+        
         try:
             html_content = render_password_reset_email(user, reset_url)
+            print(f"[ForgotPassword] Email template rendered successfully")
+            
             subject = '🔐 Password Reset Request - Counselling Platform'
             text_body = f'Click this link to reset your password: {reset_url}\n\nThis link expires in 24 hours.'
             
+            print(f"[ForgotPassword] Calling _send_email...")
             # Call _send_email from module level
             _send_email(subject, html_content, text_body, [user.email])
             
-            print(f"✅ Password reset email sent to {user.email}")
+            print(f"[ForgotPassword] ✅ Password reset email sent to {user.email}")
         except Exception as e:
-            print(f"❌ Failed to send password reset email: {e}")
+            print(f"[ForgotPassword] ❌ Failed to send password reset email: {e}")
             import traceback
             traceback.print_exc()
             # Still return success to not reveal email existence
