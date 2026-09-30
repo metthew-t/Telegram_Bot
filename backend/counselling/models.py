@@ -13,6 +13,8 @@ class User(AbstractUser):
     telegram_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     email_verified = models.BooleanField(default=False)
     email_verification_token = models.UUIDField(null=True, blank=True, default=None)
+    email_notifications_enabled = models.BooleanField(default=True)  # Allow admins to toggle notifications
+    email_approved_by_owner = models.BooleanField(default=False)  # Owner must approve admin emails for notifications
 
     def __str__(self):
         return f"{self.username} ({self.role})"
@@ -103,3 +105,24 @@ class InternalMessage(models.Model):
 
     def __str__(self):
         return f"Internal {self.message_type} from {self.sender} at {self.timestamp}"
+
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        # Set expiration to 24 hours from creation
+        if not self.pk:
+            self.expires_at = timezone.now() + timezone.timedelta(hours=24)
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        """Check if token is still valid (not expired and not used)"""
+        return not self.used and timezone.now() < self.expires_at
+
+    def __str__(self):
+        return f"Password reset for {self.user.username} - {'Valid' if self.is_valid() else 'Invalid'}"

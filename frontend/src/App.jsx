@@ -11,6 +11,8 @@ import AuditLogsPage from './pages/AuditLogs.jsx';
 import ProfilePage from './pages/Profile.jsx';
 import SystemChatPage from './pages/SystemChat.jsx';
 import EmailVerifiedPage from './pages/EmailVerified.jsx';
+import ForgotPasswordPage from './pages/ForgotPassword.jsx';
+import ResetPasswordPage from './pages/ResetPassword.jsx';
 import { getUser, isAuthenticated, logoutUser } from './auth.js';
 
 function ProtectedRoute({ children, requiredRole }) {
@@ -188,6 +190,8 @@ export default function App() {
               }
             />
             <Route path="/email-verified" element={<EmailVerifiedPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/register" element={!user ? <RegisterPage onLogin={setUser} /> : <Navigate to="/" />} />
             <Route path="/login" element={!user ? <LoginPage onLogin={setUser} selectedRole={selectedRole} setSelectedRole={setSelectedRole} /> : <Navigate to={user?.role === 'owner' ? '/owner' : (user?.role === 'admin' ? '/admin' : '/')} />} />
             <Route path="*" element={<Navigate to={user?.role === 'owner' ? '/owner' : (user?.role === 'admin' ? '/admin' : '/')} />} />

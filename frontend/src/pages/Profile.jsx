@@ -12,6 +12,8 @@ export default function ProfilePage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [activeSubTab, setActiveSubTab] = useState('security'); // 'security' | 'clearance' | 'notifications'
+    const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.email_notifications_enabled ?? true);
+    const [updatingEmailNotifs, setUpdatingEmailNotifs] = useState(false);
 
     // Notification Toggles saved in localStorage
     const [notifs, setNotifs] = useState(() => {
@@ -47,6 +49,39 @@ export default function ProfilePage() {
         navigator.clipboard.writeText(text);
         setCopiedState(true);
         setTimeout(() => setCopiedState(false), 2000);
+    };
+
+    const handleToggleEmailNotifications = async () => {
+        setUpdatingEmailNotifs(true);
+        try {
+            const response = await fetch(`https://telegram-bot-backend-bwu4.onrender.com/api/users/${user.id}/`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('telegram_counselling_auth') ? JSON.parse(localStorage.getItem('telegram_counselling_auth')).access : ''}`
+                },
+                body: JSON.stringify({
+                    email_notifications_enabled: !emailNotificationsEnabled
+                })
+            });
+
+            if (response.ok) {
+                setEmailNotificationsEnabled(!emailNotificationsEnabled);
+                
+                // Update user in localStorage
+                const authData = JSON.parse(localStorage.getItem('telegram_counselling_auth') || '{}');
+                if (authData.user) {
+                    authData.user.email_notifications_enabled = !emailNotificationsEnabled;
+                    localStorage.setItem('telegram_counselling_auth', JSON.stringify(authData));
+                }
+            } else {
+                alert('Failed to update email notification preferences');
+            }
+        } catch (err) {
+            alert('Error updating email notifications');
+        } finally {
+            setUpdatingEmailNotifs(false);
+        }
     };
 
     const evaluatePasswordStrength = (pass) => {
@@ -598,6 +633,73 @@ export default function ProfilePage() {
                             <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', marginBottom: 'var(--space-lg)' }}>
                                 Configure how you would like to receive push notifications and platform system alerts.
                             </p>
+
+                            {/* Email Notifications Toggle - Only for Admin/Owner */}
+                            {user?.role !== 'user' && (
+                                <div style={{
+                                    padding: 'var(--space-md)',
+                                    background: 'rgba(99, 102, 241, 0.05)',
+                                    border: '1px solid rgba(99, 102, 241, 0.2)',
+                                    borderRadius: 'var(--radius-md)',
+                                    marginBottom: 'var(--space-lg)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ flex: 1, paddingRight: 'var(--space-md)' }}>
+                                            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-base)', color: 'var(--text-primary)', marginBottom: '6px' }}>
+                                                <span style={{ fontSize: '20px' }}>📧</span>
+                                                Email Notifications
+                                            </strong>
+                                            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                                                Receive email alerts for case messages and system updates. 
+                                                {!user?.email_verified && (
+                                                    <span style={{ color: '#f59e0b', fontWeight: 600 }}> ⚠️ Email not verified</span>
+                                                )}
+                                                {user?.email_verified && !user?.email_approved_by_owner && (
+                                                    <span style={{ color: '#f59e0b', fontWeight: 600 }}> ⚠️ Awaiting owner approval</span>
+                                                )}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={handleToggleEmailNotifications}
+                                            disabled={updatingEmailNotifs || !user?.email_verified || !user?.email_approved_by_owner}
+                                            style={{
+                                                width: '56px',
+                                                height: '30px',
+                                                borderRadius: 'var(--radius-full)',
+                                                background: emailNotificationsEnabled ? 'linear-gradient(135deg, #4f46e5, #7c3aed)' : 'rgba(255,255,255,0.08)',
+                                                border: 'none',
+                                                cursor: (!user?.email_verified || !user?.email_approved_by_owner || updatingEmailNotifs) ? 'not-allowed' : 'pointer',
+                                                position: 'relative',
+                                                transition: 'all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1)',
+                                                boxShadow: emailNotificationsEnabled ? '0 0 15px rgba(79, 70, 229, 0.4)' : 'none',
+                                                opacity: (!user?.email_verified || !user?.email_approved_by_owner) ? 0.5 : 1
+                                            }}
+                                            title={
+                                                !user?.email_verified ? 'Email must be verified first' :
+                                                !user?.email_approved_by_owner ? 'Email must be approved by owner' :
+                                                emailNotificationsEnabled ? 'Click to disable' : 'Click to enable'
+                                            }
+                                        >
+                                            <div style={{
+                                                width: '24px',
+                                                height: '24px',
+                                                borderRadius: '50%',
+                                                background: '#fff',
+                                                position: 'absolute',
+                                                top: '3px',
+                                                left: emailNotificationsEnabled ? '29px' : '3px',
+                                                transition: 'all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '12px'
+                                            }}>
+                                                {updatingEmailNotifs ? '...' : emailNotificationsEnabled ? '✓' : ''}
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                                 

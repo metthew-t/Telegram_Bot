@@ -11,6 +11,8 @@ from .views import (
     TelegramLoginView,
     InternalMessageViewSet,
     EmailVerifyView,
+    ForgotPasswordView,
+    ResetPasswordView,
     api_root,
 )
 
@@ -28,5 +30,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/profile/', ProfileView.as_view(), name='profile'),
     path('api/verify-email/', EmailVerifyView.as_view(), name='verify_email'),
+    path('api/forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
+    path('api/reset-password/', ResetPasswordView.as_view(), name='reset_password'),
     path('api/diagnostic/', api_root, name='diagnostic'),  # Add diagnostic endpoint
 ]

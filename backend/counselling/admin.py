@@ -1,9 +1,9 @@
 from django.contrib import admin
-from .models import User, Case, Message, AuditLog
+from .models import User, Case, Message, AuditLog, PasswordResetToken
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ['username', 'email', 'role', 'telegram_id']
+    list_display = ['username', 'email', 'role', 'telegram_id', 'email_verified', 'email_approved_by_owner']
 
 @admin.register(Case)
 class CaseAdmin(admin.ModelAdmin):
@@ -18,3 +18,9 @@ class AuditLogAdmin(admin.ModelAdmin):
     list_display = ['id', 'case', 'performer', 'action', 'created_at']
     list_filter = ['action', 'created_at']
     search_fields = ['case__id', 'performer__username', 'details']
+
+@admin.register(PasswordResetToken)
+class PasswordResetTokenAdmin(admin.ModelAdmin):
+    list_display = ['user', 'token', 'created_at', 'expires_at', 'used']
+    list_filter = ['used', 'created_at']
+    search_fields = ['user__username', 'token']

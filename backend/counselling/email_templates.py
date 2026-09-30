@@ -349,3 +349,36 @@ View the case: {case_url}
 """
 
     return subject, _html_wrap("✅ Case Closed", "green", body_html), text_body
+
+
+# ─── Template: Password Reset ─────────────────────────────────────────────────
+
+def render_password_reset_email(user, reset_url: str):
+    """
+    Generate password reset email HTML.
+    Returns just the HTML content (will be wrapped by _html_wrap in views.py)
+    """
+    body_html = f"""
+    <div class="alert-icon">🔐</div>
+    <h2 class="greeting">Password Reset Request</h2>
+    <p class="intro">
+      Hello <strong style="color:#818cf8;">{user.username}</strong>,
+      <br><br>
+      We received a request to reset the password for your account on the
+      <strong>Counselling Platform</strong>. If you made this request, click the button
+      below to set a new password.
+    </p>
+    {_cta_button("🔑 Reset My Password", reset_url)}
+    <hr class="divider"/>
+    <p class="note"><strong style="color:#94a3b8;">This link will expire in 24 hours.</strong></p>
+    <p class="note" style="margin-top:10px;">
+      <strong style="color:#ef4444;">⚠️ Didn't request this?</strong><br>
+      If you did not request a password reset, you can safely ignore this email.
+      Your password will not be changed, and your account remains secure.
+    </p>
+    <p class="note" style="margin-top:14px;color:#475569;">
+      For security reasons, this link can only be used once. If you need another
+      reset link, please submit a new request from the login page.
+    </p>"""
+
+    return _html_wrap("🔐 Password Reset", "red", body_html)

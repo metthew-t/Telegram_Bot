@@ -11,6 +11,7 @@ export default function UserManagementPage() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [deletingId, setDeletingId] = useState(null);
   const [verifyingId, setVerifyingId] = useState(null);
+  const [approvingId, setApprovingId] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addFormData, setAddFormData] = useState({ username: '', email: '', password: '', role: 'admin' });
   const [isAdding, setIsAdding] = useState(false);
@@ -89,6 +90,25 @@ export default function UserManagementPage() {
       alert(err.response?.data?.error || 'Failed to verify email.');
     } finally {
       setVerifyingId(null);
+    }
+  };
+
+  const handleToggleEmailApproval = async (userId, currentStatus, username) => {
+    const action = currentStatus ? 'revoke' : 'approve';
+    const message = currentStatus 
+      ? `Revoke email notification approval for ${username}? They will stop receiving email notifications.`
+      : `Approve ${username}'s email for notifications? They will start receiving email alerts.`;
+    
+    if (!window.confirm(message)) return;
+    
+    setApprovingId(userId);
+    try {
+      await apiCall(`/api/users/${userId}/`, 'PATCH', { email_approved_by_owner: !currentStatus });
+      fetchUsers();
+    } catch (err) {
+      alert(err.response?.data?.error || `Failed to ${action} email.`);
+    } finally {
+      setApprovingId(null);
     }
   };
 
@@ -173,6 +193,7 @@ export default function UserManagementPage() {
                   <th>Username</th>
                   <th>Email</th>
                   <th>Email Verified</th>
+                  <th>Email Approved</th>
                   <th>Role</th>
                   <th>Telegram ID</th>
                   <th>Actions</th>
@@ -181,7 +202,7 @@ export default function UserManagementPage() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>
                       No users found
                     </td>
                   </tr>
@@ -200,6 +221,45 @@ export default function UserManagementPage() {
                           <span style={{ color: '#4ade80', fontWeight: 600 }}>✅ Verified</span>
                         ) : (
                           <span style={{ color: '#f59e0b', fontWeight: 600 }}>⚠️ Pending</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {u.role === 'user' ? (
+                          <span title="Users don't receive email notifications">—</span>
+                        ) : u.email_approved_by_owner ? (
+                          <button
+                            className="button button-sm"
+                            style={{
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              color: '#10b981',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              fontSize: 'var(--font-xs)',
+                              padding: '4px 12px',
+                              cursor: approvingId === u.id ? 'wait' : 'pointer'
+                            }}
+                            onClick={() => handleToggleEmailApproval(u.id, true, u.username)}
+                            disabled={approvingId === u.id}
+                            title="Click to revoke email notification approval"
+                          >
+                            {approvingId === u.id ? '...' : '✅ Approved'}
+                          </button>
+                        ) : (
+                          <button
+                            className="button button-sm"
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              fontSize: 'var(--font-xs)',
+                              padding: '4px 12px',
+                              cursor: approvingId === u.id ? 'wait' : 'pointer'
+                            }}
+                            onClick={() => handleToggleEmailApproval(u.id, false, u.username)}
+                            disabled={approvingId === u.id}
+                            title="Click to approve email for notifications"
+                          >
+                            {approvingId === u.id ? '...' : '❌ Not Approved'}
+                          </button>
                         )}
                       </td>
                       <td>

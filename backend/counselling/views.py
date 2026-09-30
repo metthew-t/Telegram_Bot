@@ -24,6 +24,7 @@ from .email_templates import (
     render_case_assigned_email,
     render_case_closed_email,
 )
+from .email_notifications import send_case_message_notification, send_internal_message_notification
 
 
 # ─── Root ────────────────────────────────────────────────────────────────────
@@ -730,6 +731,12 @@ class MessageViewSet(viewsets.ModelViewSet):
         message = serializer.save(sender=user)
         print(f"[MESSAGE SAVED] Message ID: {message.id}, Content length: {len(message.content)}\n")
         
+        # Send email notification for case messages
+        try:
+            send_case_message_notification(case, message, user)
+        except Exception as e:
+            print(f"[EMAIL NOTIFICATION] Error sending case message notification: {e}")
+        
         frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
         if user.role in ['admin', 'owner']:
@@ -899,6 +906,128 @@ class ProfileView(APIView):
         return Response(serializer.data)
 
 
+# ─── Password Reset Views ─────────────────────────────────────────────────────
+
+class ForgotPasswordView(APIView):
+    """
+    POST /api/forgot-password/
+    Request password reset - sends email with reset link
+    Body: { "email": "admin@example.com" }
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from .models import PasswordResetToken
+        from .email_templates import render_password_reset_email
+        
+        email = request.data.get('email', '').strip().lower()
+        
+        if not email:
+            return Response(
+                {'error': 'Email is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Find user by email (only admins and owners can reset password)
+        try:
+            user = User.objects.get(email=email, role__in=['admin', 'owner'])
+        except User.DoesNotExist:
+            # Don't reveal if email exists for security
+            return Response(
+                {'message': 'If that email is registered, a password reset link has been sent.'},
+                status=status.HTTP_200_OK
+            )
+        
+        # Create password reset token
+        reset_token = PasswordResetToken.objects.create(user=user)
+        
+        # Build reset URL
+        frontend_url = os.getenv('FRONTEND_URL', 'https://astucounselbot.vercel.app')
+        reset_url = f"{frontend_url}/reset-password?token={reset_token.token}"
+        
+        # Send email
+        try:
+            html_content = render_password_reset_email(user, reset_url)
+            subject = '🔐 Password Reset Request - Counselling Platform'
+            
+            msg = EmailMultiAlternatives(
+                subject,
+                f'Click this link to reset your password: {reset_url}',
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email]
+            )
+            msg.attach_alternative(html_content, "text/html")
+            msg.send()
+            
+            print(f"✅ Password reset email sent to {user.email}")
+        except Exception as e:
+            print(f"❌ Failed to send password reset email: {e}")
+            # Still return success to not reveal email existence
+        
+        return Response(
+            {'message': 'If that email is registered, a password reset link has been sent.'},
+            status=status.HTTP_200_OK
+        )
+
+
+class ResetPasswordView(APIView):
+    """
+    POST /api/reset-password/
+    Reset password using token
+    Body: { "token": "uuid", "new_password": "newpass123" }
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from .models import PasswordResetToken
+        
+        token_str = request.data.get('token', '').strip()
+        new_password = request.data.get('new_password', '').strip()
+        
+        if not token_str or not new_password:
+            return Response(
+                {'error': 'Token and new password are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(new_password) < 8:
+            return Response(
+                {'error': 'Password must be at least 8 characters long'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Find and validate token
+        try:
+            reset_token = PasswordResetToken.objects.get(token=token_str)
+        except PasswordResetToken.DoesNotExist:
+            return Response(
+                {'error': 'Invalid or expired reset token'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not reset_token.is_valid():
+            return Response(
+                {'error': 'This reset link has expired or already been used'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Reset password
+        user = reset_token.user
+        user.set_password(new_password)
+        user.save()
+        
+        # Mark token as used
+        reset_token.used = True
+        reset_token.save()
+        
+        print(f"✅ Password reset successful for user: {user.username}")
+        
+        return Response(
+            {'message': 'Password reset successful. You can now login with your new password.'},
+            status=status.HTTP_200_OK
+        )
+
+
 # ─── Internal Message ViewSet ─────────────────────────────────────────────────
 
 class InternalMessageViewSet(viewsets.ModelViewSet):
@@ -915,4 +1044,11 @@ class InternalMessageViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(sender=self.request.user)
+        internal_message = serializer.save(sender=self.request.user)
+        
+        # Send email notification to other admins/owner
+        try:
+            send_internal_message_notification(internal_message, self.request.user)
+        except Exception as e:
+            print(f"[EMAIL NOTIFICATION] Error sending internal message notification: {e}")
+

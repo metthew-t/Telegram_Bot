@@ -100,6 +100,21 @@ export default function LoginPage({ onLogin, selectedRole, setSelectedRole }) {
           <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
         </label>
 
+        {/* Forgot Password Link */}
+        <div style={{ textAlign: 'right', marginTop: '-8px', marginBottom: '8px' }}>
+          <a 
+            href="/forgot-password" 
+            style={{ 
+              color: 'var(--accent-primary)', 
+              fontSize: 'var(--font-sm)', 
+              textDecoration: 'none',
+              fontWeight: 500
+            }}
+          >
+            Forgot password?
+          </a>
+        </div>
+
         {error && <div className="form-error">{error}</div>}
 
         <LoadingButton

@@ -6,7 +6,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'telegram_id', 'email_verified', 'password']
+        fields = ['id', 'username', 'email', 'role', 'telegram_id', 'email_verified', 'email_notifications_enabled', 'email_approved_by_owner', 'password']
         read_only_fields = ['id', 'email_verified']
 
     def validate_role(self, value):
