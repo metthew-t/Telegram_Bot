@@ -382,12 +382,12 @@ export default function UserManagementPage() {
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                 <button
                   type="button"
-                  className="button button-outline"
+                  className="button button-secondary"
                   onClick={() => setIsAddModalOpen(false)}
                   disabled={isAdding}
                   style={{ flex: 1 }}
                 >
-                  Cancel
+                  CANCEL
                 </button>
                 <LoadingButton
                   className="button button-primary"
@@ -396,7 +396,7 @@ export default function UserManagementPage() {
                   loadingText="Creating..."
                   style={{ flex: 1 }}
                 >
-                  Create User
+                  CREATE USER
                 </LoadingButton>
               </div>
             </form>

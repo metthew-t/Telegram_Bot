@@ -919,6 +919,7 @@ class ForgotPasswordView(APIView):
     def post(self, request):
         from .models import PasswordResetToken
         from .email_templates import render_password_reset_email
+        from .views import send_email  # Use centralized email function
         
         email = request.data.get('email', '').strip().lower()
         
@@ -945,23 +946,19 @@ class ForgotPasswordView(APIView):
         frontend_url = os.getenv('FRONTEND_URL', 'https://astucounselbot.vercel.app')
         reset_url = f"{frontend_url}/reset-password?token={reset_token.token}"
         
-        # Send email
+        # Send email using centralized function
         try:
             html_content = render_password_reset_email(user, reset_url)
             subject = '🔐 Password Reset Request - Counselling Platform'
+            text_body = f'Click this link to reset your password: {reset_url}\n\nThis link expires in 24 hours.'
             
-            msg = EmailMultiAlternatives(
-                subject,
-                f'Click this link to reset your password: {reset_url}',
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email]
-            )
-            msg.attach_alternative(html_content, "text/html")
-            msg.send()
+            send_email(subject, html_content, text_body, [user.email])
             
             print(f"✅ Password reset email sent to {user.email}")
         except Exception as e:
             print(f"❌ Failed to send password reset email: {e}")
+            import traceback
+            traceback.print_exc()
             # Still return success to not reveal email existence
         
         return Response(

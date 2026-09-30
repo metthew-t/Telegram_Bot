@@ -5,7 +5,6 @@ Sends email notifications to admins/owners for case messages and internal messag
 
 import os
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
 from .email_templates import render_new_message_email
 
 
@@ -23,6 +22,7 @@ def send_case_message_notification(case, message, sender):
         sender: User instance who sent the message
     """
     from .models import User
+    from .views import send_email  # Use centralized email function
     
     frontend_url = os.getenv('FRONTEND_URL', 'https://astucounselbot.vercel.app')
     
@@ -43,18 +43,13 @@ def send_case_message_notification(case, message, sender):
                     frontend_url
                 )
                 
-                msg = EmailMultiAlternatives(
-                    subject,
-                    text_body,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [admin.email]
-                )
-                msg.attach_alternative(html_content, "text/html")
-                msg.send()
+                send_email(subject, html_content, text_body, [admin.email])
                 
                 print(f"✅ Email notification sent to {admin.username} ({admin.email}) for case #{case.id}")
             except Exception as e:
                 print(f"❌ Failed to send email to {admin.username}: {e}")
+                import traceback
+                traceback.print_exc()
 
 
 def send_internal_message_notification(internal_message, sender):
@@ -70,6 +65,7 @@ def send_internal_message_notification(internal_message, sender):
         sender: User instance who sent the message
     """
     from .models import User
+    from .views import send_email  # Use centralized email function
     
     frontend_url = os.getenv('FRONTEND_URL', 'https://astucounselbot.vercel.app')
     
@@ -168,17 +164,11 @@ You can disable notifications in your profile settings.
 """
     
     # Send to all eligible recipients
-    for recipient in recipients:
-        try:
-            msg = EmailMultiAlternatives(
-                subject,
-                text_body,
-                settings.DEFAULT_FROM_EMAIL,
-                [recipient.email]
-            )
-            msg.attach_alternative(html_content, "text/html")
-            msg.send()
-            
-            print(f"✅ Internal message notification sent to {recipient.username} ({recipient.email})")
-        except Exception as e:
-            print(f"❌ Failed to send email to {recipient.username}: {e}")
+    recipient_emails = [r.email for r in recipients]
+    try:
+        send_email(subject, html_content, text_body, recipient_emails)
+        print(f"✅ Internal message notification sent to {len(recipient_emails)} recipients")
+    except Exception as e:
+        print(f"❌ Failed to send internal message notifications: {e}")
+        import traceback
+        traceback.print_exc()
