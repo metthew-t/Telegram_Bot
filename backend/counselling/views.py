@@ -919,7 +919,6 @@ class ForgotPasswordView(APIView):
     def post(self, request):
         from .models import PasswordResetToken
         from .email_templates import render_password_reset_email
-        from .views import send_email  # Use centralized email function
         
         email = request.data.get('email', '').strip().lower()
         
@@ -952,6 +951,7 @@ class ForgotPasswordView(APIView):
             subject = '🔐 Password Reset Request - Counselling Platform'
             text_body = f'Click this link to reset your password: {reset_url}\n\nThis link expires in 24 hours.'
             
+            # Call send_email from module level
             send_email(subject, html_content, text_body, [user.email])
             
             print(f"✅ Password reset email sent to {user.email}")
