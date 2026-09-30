@@ -460,7 +460,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ─── /cancel (global fallback) ───
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Seamlessly route plain text messages to the user's active case."""
+    """Seamlessly route plain text messages to the user's active case with simplified case selection."""
     if update.effective_user is None or update.message is None or not update.message.text:
         print("DEBUG: Early return (user/message/text is None)")
         return
@@ -485,9 +485,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cases = [c for c in response.json() if c['status'] in ['open', 'assigned']]
     print(f"DEBUG: Found {len(cases)} active cases")
     
+    # Single case - send directly
     if len(cases) == 1:
         case_id = cases[0]['id']
         case_num = cases[0].get('user_case_number', case_id)
+        context.user_data['selected_case_id'] = case_id
         print(f"DEBUG: Routing message to case #{case_id}")
         msg_resp = backend_request(
             '/api/messages/',
@@ -499,11 +501,68 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             print(f"DEBUG: Failed to send message to backend: {msg_resp.text}")
             await update.message.reply_text(f'⚠️ Failed to send: {msg_resp.text}')
+    
+    # Multiple cases - check for case selection
     elif len(cases) > 1:
+        message_text = update.message.text.strip()
+        
+        # Check if user is entering just a case number to select
+        if message_text.isdigit():
+            case_num = int(message_text)
+            # Find case by user_case_number or database ID
+            matching_case = next(
+                (c for c in cases if c.get('user_case_number') == case_num or c['id'] == case_num),
+                None
+            )
+            
+            if matching_case:
+                context.user_data['selected_case_id'] = matching_case['id']
+                await update.message.reply_text(
+                    f'✅ Case *#{case_num}* selected.\n\n'
+                    f'*{matching_case["title"]}*\n\n'
+                    f'Now send your message, and it will go to this case.',
+                    parse_mode='Markdown'
+                )
+                return
+            else:
+                await update.message.reply_text(
+                    f'⚠️ Case #{case_num} not found in your active cases.',
+                    parse_mode='Markdown'
+                )
+                return
+        
+        # Check if user has previously selected a case
+        selected_case_id = context.user_data.get('selected_case_id')
+        if selected_case_id:
+            # Verify the case is still active
+            matching_case = next((c for c in cases if c['id'] == selected_case_id), None)
+            if matching_case:
+                case_num = matching_case.get('user_case_number', selected_case_id)
+                print(f"DEBUG: Routing message to pre-selected case #{selected_case_id}")
+                msg_resp = backend_request(
+                    '/api/messages/',
+                    token=token,
+                    json={'case': selected_case_id, 'content': update.message.text, 'message_type': 'text'},
+                )
+                if msg_resp.ok:
+                    await update.message.reply_text(f'✅ Sent to your case *#{case_num}*.', parse_mode='Markdown')
+                else:
+                    print(f"DEBUG: Failed to send message to backend: {msg_resp.text}")
+                    await update.message.reply_text(f'⚠️ Failed to send: {msg_resp.text}')
+                return
+            else:
+                # Case no longer active, clear selection
+                context.user_data.pop('selected_case_id', None)
+        
+        # No case selected - ask user to select
+        case_list = '\n'.join([f"• *{c.get('user_case_number', c['id'])}* - {c['title']}" for c in cases[:10]])
         await update.message.reply_text(
-            '📝 You have multiple active cases. Please use `/reply <case_id>` to specify which one you are talking about.',
+            f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'
+            f'Please send just the case number (e.g., "1") to select which case.',
             parse_mode='Markdown'
         )
+    
+    # No cases
     else:
         print("DEBUG: No active cases found")
         await update.message.reply_text(
@@ -527,6 +586,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('⚠️ Unable to authenticate. Please try /start first.')
         return
 
+    # Check if user has an active case selected in context
+    selected_case_id = context.user_data.get('selected_case_id')
+    
     # Find active cases (open or assigned)
     response = backend_request('/api/cases/', method='get', token=token)
     if not response.ok:
@@ -537,20 +599,40 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cases = [c for c in response.json() if c['status'] in ['open', 'assigned']]
     print(f"DEBUG: Found {len(cases)} active cases")
     
-    if len(cases) != 1:
-        if len(cases) > 1:
-            await update.message.reply_text(
-                '📝 You have multiple active cases. Please use text messages to specify which case you\'re referring to.',
-                parse_mode='Markdown'
-            )
+    # If only one case, use it
+    if len(cases) == 1:
+        case_id = cases[0]['id']
+        case_num = cases[0].get('user_case_number', case_id)
+    # If user has selected a case previously, use it
+    elif selected_case_id:
+        # Verify the selected case is still active
+        matching_case = next((c for c in cases if c['id'] == selected_case_id), None)
+        if matching_case:
+            case_id = matching_case['id']
+            case_num = matching_case.get('user_case_number', case_id)
         else:
             await update.message.reply_text(
-                '👋 You don\'t have any active cases right now.\n\nUse /newcase to start a support request.'
+                '📝 Your selected case is no longer active. Please send a text message with the case number to select a different case.',
+                parse_mode='Markdown'
             )
+            context.user_data.pop('selected_case_id', None)
+            return
+    # Multiple cases and no selection
+    elif len(cases) > 1:
+        case_list = '\n'.join([f"• Case #{c.get('user_case_number', c['id'])}: {c['title']}" for c in cases[:5]])
+        await update.message.reply_text(
+            f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'
+            'Please send a text message with just the case number (e.g., "1") to select which case, then you can send voice messages.',
+            parse_mode='Markdown'
+        )
+        return
+    # No cases
+    else:
+        await update.message.reply_text(
+            '👋 You don\'t have any active cases right now.\n\nUse /newcase to start a support request.'
+        )
         return
 
-    case_id = cases[0]['id']
-    case_num = cases[0].get('user_case_number', case_id)
     voice = update.message.voice
 
     try:

@@ -100,10 +100,23 @@ export default function ProfilePage() {
                 })
             });
 
-            const data = await response.json();
-
+            // Check content-type to handle both JSON and HTML responses
+            const contentType = response.headers.get('content-type');
+            
             if (!response.ok) {
+                // If response is HTML (Django error page), extract error or use generic message
+                if (contentType && contentType.includes('text/html')) {
+                    throw new Error('Failed to update password. Please check your current password.');
+                }
+                
+                const data = await response.json();
                 throw new Error(data.error || 'Failed to update password');
+            }
+
+            // Parse JSON response only if content-type is JSON
+            let data;
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
             }
 
             setMessage('Password updated successfully!');

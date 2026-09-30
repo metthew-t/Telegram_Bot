@@ -347,7 +347,7 @@ export default function SystemChatPage() {
                                                         justifyContent: 'space-between',
                                                         gap: 'var(--space-sm)'
                                                     }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', overflow: 'hidden' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', overflow: 'hidden', flex: 1 }}>
                                                             <span style={{ fontSize: '1.2rem' }}>📄</span>
                                                             <span style={{ 
                                                                 color: 'var(--text-primary)', 
@@ -355,7 +355,8 @@ export default function SystemChatPage() {
                                                                 fontWeight: 500,
                                                                 textOverflow: 'ellipsis',
                                                                 whiteSpace: 'nowrap',
-                                                                overflow: 'hidden'
+                                                                overflow: 'hidden',
+                                                                paddingLeft: '8px'
                                                             }} title={msg.file_name}>
                                                                 {msg.file_name}
                                                             </span>
@@ -367,16 +368,20 @@ export default function SystemChatPage() {
                                                                 display: 'inline-flex',
                                                                 alignItems: 'center',
                                                                 gap: '4px',
-                                                                padding: '4px 12px',
-                                                                background: 'rgba(245, 158, 11, 0.15)',
-                                                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                                padding: '8px 16px',
+                                                                background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%)',
+                                                                border: '2px solid var(--gold)',
                                                                 borderRadius: 'var(--radius-sm)',
-                                                                color: 'var(--warning)',
-                                                                fontSize: 'var(--font-xs)',
-                                                                fontWeight: 600,
+                                                                color: '#000000',
+                                                                fontSize: 'var(--font-sm)',
+                                                                fontWeight: 700,
                                                                 textDecoration: 'none',
                                                                 cursor: 'pointer',
-                                                                transition: 'all var(--transition-fast) ease'
+                                                                transition: 'all var(--transition-fast) ease',
+                                                                boxShadow: '0 0 15px rgba(255, 215, 0, 0.4)',
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.05em',
+                                                                flexShrink: 0
                                                             }}
                                                             onMouseOver={(e) => {
                                                                 e.currentTarget.style.background = 'rgba(245, 158, 11, 0.25)';
@@ -429,32 +434,44 @@ export default function SystemChatPage() {
                                     className="button"
                                     onClick={() => document.getElementById('report-file-input').click()}
                                     style={{
-                                        background: 'rgba(255, 255, 255, 0.04)',
-                                        color: 'var(--text-secondary)',
-                                        border: '1px solid var(--border-subtle)',
+                                        background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%)',
+                                        color: '#000000',
+                                        border: '2px solid var(--gold)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '6px',
-                                        whiteSpace: 'nowrap'
+                                        whiteSpace: 'nowrap',
+                                        fontWeight: 700,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                        padding: '10px 20px',
+                                        fontSize: '0.875rem',
+                                        boxShadow: '0 0 15px rgba(255, 215, 0, 0.4)'
                                     }}
                                     disabled={loading || isUploading}
                                 >
-                                    📎 {selectedFile ? 'Change File' : 'Attach File'}
+                                    📎 {selectedFile ? 'CHANGE FILE' : 'ATTACH FILE'}
                                 </button>
                                 <LoadingButton
                                     className="button button-success"
                                     type="submit"
                                     style={{
-                                        background: 'rgba(245, 158, 11, 0.12)',
-                                        color: 'var(--warning)',
-                                        border: '1px solid rgba(245, 158, 11, 0.2)',
-                                        whiteSpace: 'nowrap'
+                                        background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%)',
+                                        color: '#000000',
+                                        border: '2px solid var(--gold)',
+                                        whiteSpace: 'nowrap',
+                                        fontWeight: 700,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                        padding: '10px 20px',
+                                        fontSize: '0.875rem',
+                                        boxShadow: '0 0 15px rgba(255, 215, 0, 0.4)'
                                     }}
                                     disabled={isUploading || (!messageContent.trim() && !selectedFile)}
                                     loading={isSending}
                                     loadingText="Reporting..."
                                 >
-                                    File Report
+                                    FILE REPORT
                                 </LoadingButton>
                             </div>
                             
