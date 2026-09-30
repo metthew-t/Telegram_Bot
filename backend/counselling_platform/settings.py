@@ -191,6 +191,7 @@ CORS_ALLOW_ALL_ORIGINS = DEBUG # Allow all only in debug
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.netlify\.app$",
+    r"^https://.*\.vercel\.app$",  # Allow all Vercel preview and production deployments
 ]
 
 # REST Framework settings
