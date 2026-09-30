@@ -244,45 +244,102 @@ View the case: {case_url}
 
 # ─── Template: New Message on a Case ─────────────────────────────────────────
 
-def render_new_message_email(case, message, actor_username: str, frontend_url: str):
+def render_new_message_email(case, message, actor_username: str, frontend_url: str, recipient_role: str = 'admin'):
+    """
+    Generate email for new message on a case.
+    
+    Privacy Rules:
+    - For admins: Hide user identity (show "Anonymous User" or "User")
+    - For owners: Show full user identity (username)
+    
+    Args:
+        case: Case instance
+        message: Message instance
+        actor_username: Username of the person who sent the message
+        frontend_url: Frontend URL for building links
+        recipient_role: Role of the email recipient ('admin' or 'owner')
+    """
     subject = f"💬 New Message on Case #{case.id} — {case.title}"
     case_url = f"{frontend_url}/cases/{case.id}"
+    
+    # Privacy: Hide user identity for admins, show for owners
+    if recipient_role == 'owner':
+        display_username = actor_username
+        from_label = f"<strong>{actor_username}</strong>"
+        intro_text = f"<strong style=\"color:#818cf8;\">{actor_username}</strong> has posted a new message on the support case below."
+    else:
+        # For admins: Hide identity for privacy
+        display_username = "User"
+        from_label = "<strong>User</strong> <em style=\"color:#64748b;font-size:12px;\">(Identity protected)</em>"
+        intro_text = "A new message has been posted on your assigned case. Please log in to review and respond."
 
     body_html = f"""
     <div class="alert-icon">💬</div>
     <h2 class="greeting">New Message on Case #{case.id}</h2>
     <p class="intro">
-      <strong style="color:#818cf8;">{actor_username}</strong> has posted a new message on the support case below.
-      Please log in to review and respond.
+      {intro_text}
     </p>
-    {_case_info_card(case)}
-    <div class="info-card" style="border-left-color:#0ea5e9;">
+    
+    <!-- Case Information Card -->
+    <div class="info-card">
+      <div class="info-row">
+        <span class="info-label">Case ID</span>
+        <span class="info-value mono"># {case.id}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Title</span>
+        <span class="info-value">{case.title}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Status</span>
+        <span class="info-value"><span class="status-badge status-assigned">Active</span></span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Assigned to</span>
+        <span class="info-value">{case.assigned_admin.username if case.assigned_admin else 'Unassigned'}</span>
+      </div>
+    </div>
+    
+    <!-- Message Details Card -->
+    <div class="info-card" style="border-left-color:#0ea5e9;margin-top:16px;">
       <div class="info-row">
         <span class="info-label">From</span>
-        <span class="info-value"><strong>{actor_username}</strong></span>
+        <span class="info-value">{from_label}</span>
       </div>
       <div class="info-row">
         <span class="info-label">Message</span>
-        <span class="info-value" style="font-style:italic;color:#94a3b8;">{message.content[:500]}{'…' if len(message.content) > 500 else ''}</span>
+        <span class="info-value" style="background:#1a1d27;padding:12px 16px;border-radius:6px;display:block;margin-top:8px;line-height:1.6;color:#e2e8f0;">{message.content[:500]}{'…' if len(message.content) > 500 else ''}</span>
       </div>
-      <div class="info-row">
+      <div class="info-row" style="margin-top:12px;">
         <span class="info-label">Sent at</span>
         <span class="info-value">{message.timestamp.strftime('%d %B %Y, %H:%M UTC')}</span>
       </div>
     </div>
+    
     {_cta_button("💬 Open Conversation", case_url)}
+    
     <hr class="divider"/>
-    <p class="note">This notification was sent to all verified administrators and the platform owner.</p>"""
+    
+    <!-- Privacy Notice -->
+    <div class="info-card" style="background:#13151f;border-left-color:#64748b;padding:16px 20px;margin-top:16px;">
+      <p class="note" style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;">
+        <strong style="color:#cbd5e1;">🔒 Privacy Notice:</strong><br>
+        User identities are protected in notifications to admins. Full details are visible only when you log in to the platform.
+      </p>
+    </div>"""
 
     text_body = f"""New Message on Case #{case.id} — {case.title}
 
-From:    {actor_username}
+From:    {display_username}
 At:      {message.timestamp.strftime('%d %B %Y, %H:%M UTC')}
 
 Message:
 {message.content}
 
 View the case: {case_url}
+
+---
+Privacy Notice: User identities are protected in email notifications.
 """
 
     return subject, _html_wrap("💬 New Message", "purple", body_html), text_body

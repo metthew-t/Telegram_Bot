@@ -47,11 +47,13 @@ def send_case_message_notification(case, message, sender):
             print(f"[CaseNotification] All conditions met, sending email...")
             
             try:
+                # Pass recipient role for privacy control
                 subject, html_content, text_body = render_new_message_email(
                     case, 
                     message, 
                     sender.username,
-                    frontend_url
+                    frontend_url,
+                    recipient_role=admin.role  # Pass admin's role (admin or owner)
                 )
                 
                 print(f"[CaseNotification] Email template rendered, calling _send_email...")
