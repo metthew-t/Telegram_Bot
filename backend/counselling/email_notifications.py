@@ -43,7 +43,7 @@ def send_case_message_notification(case, message, sender):
                     frontend_url
                 )
                 
-                views.send_email(subject, html_content, text_body, [admin.email])
+                views._send_email(subject, html_content, text_body, [admin.email])
                 
                 print(f"✅ Email notification sent to {admin.username} ({admin.email}) for case #{case.id}")
             except Exception as e:
@@ -166,7 +166,7 @@ You can disable notifications in your profile settings.
     # Send to all eligible recipients
     recipient_emails = [r.email for r in recipients]
     try:
-        views.send_email(subject, html_content, text_body, recipient_emails)
+        views._send_email(subject, html_content, text_body, recipient_emails)
         print(f"✅ Internal message notification sent to {len(recipient_emails)} recipients")
     except Exception as e:
         print(f"❌ Failed to send internal message notifications: {e}")

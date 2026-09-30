@@ -929,9 +929,10 @@ class ForgotPasswordView(APIView):
             )
         
         # Find user by email (only admins and owners can reset password)
-        try:
-            user = User.objects.get(email=email, role__in=['admin', 'owner'])
-        except User.DoesNotExist:
+        # Use filter().first() to handle duplicate emails gracefully
+        user = User.objects.filter(email=email, role__in=['admin', 'owner']).first()
+        
+        if not user:
             # Don't reveal if email exists for security
             return Response(
                 {'message': 'If that email is registered, a password reset link has been sent.'},
@@ -951,8 +952,8 @@ class ForgotPasswordView(APIView):
             subject = '🔐 Password Reset Request - Counselling Platform'
             text_body = f'Click this link to reset your password: {reset_url}\n\nThis link expires in 24 hours.'
             
-            # Call send_email from module level
-            send_email(subject, html_content, text_body, [user.email])
+            # Call _send_email from module level
+            _send_email(subject, html_content, text_body, [user.email])
             
             print(f"✅ Password reset email sent to {user.email}")
         except Exception as e:
