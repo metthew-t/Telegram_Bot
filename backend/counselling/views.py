@@ -906,6 +906,43 @@ class ProfileView(APIView):
         return Response(serializer.data)
 
 
+class ServerInfoView(APIView):
+    """
+    GET /api/server-info/
+    Returns server IP address and other debug info (owner only)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'owner':
+            return Response(
+                {'error': 'Only owners can view server info'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get server's outbound IP by making a request to a service
+        try:
+            import requests
+            response = requests.get('https://api.ipify.org?format=json', timeout=5)
+            server_ip = response.json().get('ip', 'Unable to detect')
+        except Exception as e:
+            server_ip = f'Error: {str(e)}'
+        
+        # Check Brevo API status
+        brevo_api_key = os.getenv('BREVO_API_KEY')
+        brevo_status = 'Configured' if brevo_api_key else 'Not configured'
+        
+        info = {
+            'server_ip': server_ip,
+            'brevo_api_key_status': brevo_status,
+            'smtp_host': os.getenv('EMAIL_HOST', 'Not configured'),
+            'smtp_user': os.getenv('EMAIL_HOST_USER', 'Not configured'),
+            'default_from_email': settings.DEFAULT_FROM_EMAIL,
+        }
+        
+        return Response(info)
+
+
 # ─── Password Reset Views ─────────────────────────────────────────────────────
 
 class ForgotPasswordView(APIView):
