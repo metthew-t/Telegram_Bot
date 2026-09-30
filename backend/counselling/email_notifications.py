@@ -14,7 +14,7 @@ def send_case_message_notification(case, message, sender):
     Send email notification when a message is posted to a case.
     
     Rules:
-    - When user sends message → notify ONLY the assigned admin (if email verified and approved)
+    - When user sends message → notify ONLY the assigned admin (if email verified and notifications enabled)
     - When admin/owner sends message → already handled by Telegram bot (no email needed)
     
     Args:
@@ -30,10 +30,9 @@ def send_case_message_notification(case, message, sender):
     if sender.role == 'user' and case.assigned_admin:
         admin = case.assigned_admin
         
-        # Check if admin has email verified, approved by owner, and notifications enabled
+        # Check if admin has email verified and notifications enabled
         if (admin.email and 
             admin.email_verified and 
-            admin.email_approved_by_owner and 
             admin.email_notifications_enabled):
             
             try:
@@ -64,7 +63,7 @@ def send_internal_message_notification(internal_message, sender):
     
     Rules:
     - Notify all admins and owner (except the sender)
-    - Only send to users with email verified, approved by owner, and notifications enabled
+    - Only send to users with email verified and notifications enabled
     
     Args:
         internal_message: InternalMessage instance
@@ -82,7 +81,6 @@ def send_internal_message_notification(internal_message, sender):
     ).filter(
         email__isnull=False,
         email_verified=True,
-        email_approved_by_owner=True,
         email_notifications_enabled=True
     )
     
