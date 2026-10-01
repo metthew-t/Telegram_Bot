@@ -1048,14 +1048,18 @@ class ResetPasswordView(APIView):
         
         # Reset password
         user = reset_token.user
-        print(f"[PasswordReset] Resetting password for user: {user.username}")
+        print(f"[PasswordReset] Resetting password for user: {user.username} (ID: {user.id})")
         print(f"[PasswordReset] Old password hash: {user.password[:20]}...")
         
         user.set_password(new_password)
         user.save(update_fields=['password'])  # Explicit field update
         
+        # Force database commit
+        from django.db import transaction
+        transaction.commit()
+        
         print(f"[PasswordReset] New password hash: {user.password[:20]}...")
-        print(f"[PasswordReset] Password saved to database")
+        print(f"[PasswordReset] Password saved and transaction committed")
         
         # Mark token as used
         reset_token.used = True
@@ -1064,6 +1068,10 @@ class ResetPasswordView(APIView):
         # Verify the password was saved by reloading from database
         user.refresh_from_db()
         print(f"[PasswordReset] Verified password hash after reload: {user.password[:20]}...")
+        
+        # Test the new password
+        test_check = user.check_password(new_password)
+        print(f"[PasswordReset] Password verification test: {'✅ PASS' if test_check else '❌ FAIL'}")
         
         print(f"[PasswordReset] ✅ Password reset successful for user: {user.username}")
         

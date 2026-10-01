@@ -948,15 +948,21 @@ textarea {
   
   .form-inline {
     flex-direction: column;
-    gap: 10px;
+    gap: 12px !important;
+  }
+  
+  .form-inline > div {
+    flex-direction: column !important;
+    gap: 12px !important;
   }
   
   .form-inline .button {
-    width: 100%;
-    padding: 14px 20px;
-    font-size: 13px;
-    white-space: normal;
-    text-align: center;
+    width: 100% !important;
+    padding: 14px 20px !important;
+    font-size: 13px !important;
+    white-space: normal !important;
+    text-align: center !important;
+    min-width: unset !important;
   }
   
   .case-actions {
