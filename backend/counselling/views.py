@@ -457,6 +457,16 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         requested_role = self.request.data.get('role', 'admin')
+        email = self.request.data.get('email', '').strip().lower()
+        
+        # Check for duplicate email if email is provided
+        if email:
+            existing_user = User.objects.filter(email=email).first()
+            if existing_user:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({
+                    'email': f'An account with email {email} already exists. Please use a different email or use forgot password to reset your password.'
+                })
 
         # If anonymous, only allow 'admin' or 'user'
         if not self.request.user.is_authenticated:
@@ -1046,61 +1056,47 @@ class ResetPasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Reset password
+        # Reset password FOR ALL USERS WITH THIS EMAIL
         user = reset_token.user
         print(f"[PasswordReset] ========================================")
         print(f"[PasswordReset] Resetting password for user: {user.username} (ID: {user.id})")
         print(f"[PasswordReset] User email: {user.email}")
         
-        # Check for duplicate users with same email
+        # Check for duplicate users with same email and update ALL of them
         from .models import User as UserModel
-        duplicate_users = UserModel.objects.filter(email=user.email)
-        print(f"[PasswordReset] Users with email '{user.email}': {duplicate_users.count()}")
-        for dup_user in duplicate_users:
-            print(f"[PasswordReset]   - ID: {dup_user.id}, Username: {dup_user.username}, Role: {dup_user.role}")
+        users_with_email = UserModel.objects.filter(email=user.email)
+        print(f"[PasswordReset] Users with email '{user.email}': {users_with_email.count()}")
         
-        print(f"[PasswordReset] Old password hash: {user.password[:20]}...")
-        
-        user.set_password(new_password)
-        user.save(update_fields=['password'])  # Explicit field update
+        updated_count = 0
+        for dup_user in users_with_email:
+            print(f"[PasswordReset]   Updating password for ID: {dup_user.id}, Username: {dup_user.username}, Role: {dup_user.role}")
+            dup_user.set_password(new_password)
+            dup_user.save(update_fields=['password'])
+            updated_count += 1
         
         # Force database commit
         from django.db import transaction
         transaction.commit()
         
-        print(f"[PasswordReset] New password hash: {user.password[:20]}...")
-        print(f"[PasswordReset] Password saved and transaction committed")
+        print(f"[PasswordReset] ✅ Updated password for {updated_count} user(s) with email {user.email}")
         
         # Mark token as used
         reset_token.used = True
         reset_token.save()
         
-        # Verify the password was saved by reloading from database
-        user.refresh_from_db()
-        print(f"[PasswordReset] Verified password hash after reload: {user.password[:20]}...")
-        
-        # Test the new password
-        test_check = user.check_password(new_password)
-        print(f"[PasswordReset] Password verification test: {'✅ PASS' if test_check else '❌ FAIL'}")
-        
-        # Try authenticating with username and new password
+        # Verify by testing authentication with the original user
         from django.contrib.auth import authenticate
         auth_user = authenticate(username=user.username, password=new_password)
         if auth_user:
             print(f"[PasswordReset] ✅ Authentication test PASSED for user: {auth_user.username} (ID: {auth_user.id})")
         else:
-            print(f"[PasswordReset] ❌ Authentication test FAILED - Django could not authenticate user")
-            # Try to find which user Django is trying to authenticate
-            all_users_with_username = UserModel.objects.filter(username=user.username)
-            print(f"[PasswordReset] Users with username '{user.username}': {all_users_with_username.count()}")
-            for u in all_users_with_username:
-                print(f"[PasswordReset]   - ID: {u.id}, Email: {u.email}, Password hash: {u.password[:20]}...")
+            print(f"[PasswordReset] ⚠️ Authentication test failed for primary user")
         
-        print(f"[PasswordReset] ✅ Password reset successful for user: {user.username}")
+        print(f"[PasswordReset] ✅ Password reset successful")
         print(f"[PasswordReset] ========================================")
         
         return Response(
-            {'message': 'Password reset successful. You can now login with your new password.'},
+            {'message': f'Password reset successful for all {updated_count} account(s) with this email. You can now login with any of your usernames.'},
             status=status.HTTP_200_OK
         )
 
