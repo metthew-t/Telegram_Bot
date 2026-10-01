@@ -519,12 +519,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user.set_password(new_password)
         user.save()
         
-        # Log the password change
-        AuditLog.objects.create(
-            user=request.user,
-            action='CHANGE_PASSWORD',
-            details=f'User {user.username} changed their password'
-        )
+        print(f"[PasswordChange] ✅ Password changed successfully for user: {user.username}")
         
         return Response({'status': 'success', 'message': 'Password changed successfully'})
 
@@ -1057,7 +1052,7 @@ class ResetPasswordView(APIView):
         print(f"[PasswordReset] Old password hash: {user.password[:20]}...")
         
         user.set_password(new_password)
-        user.save()
+        user.save(update_fields=['password'])  # Explicit field update
         
         print(f"[PasswordReset] New password hash: {user.password[:20]}...")
         print(f"[PasswordReset] Password saved to database")
@@ -1065,6 +1060,10 @@ class ResetPasswordView(APIView):
         # Mark token as used
         reset_token.used = True
         reset_token.save()
+        
+        # Verify the password was saved by reloading from database
+        user.refresh_from_db()
+        print(f"[PasswordReset] Verified password hash after reload: {user.password[:20]}...")
         
         print(f"[PasswordReset] ✅ Password reset successful for user: {user.username}")
         
