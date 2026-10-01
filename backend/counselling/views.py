@@ -1048,7 +1048,17 @@ class ResetPasswordView(APIView):
         
         # Reset password
         user = reset_token.user
+        print(f"[PasswordReset] ========================================")
         print(f"[PasswordReset] Resetting password for user: {user.username} (ID: {user.id})")
+        print(f"[PasswordReset] User email: {user.email}")
+        
+        # Check for duplicate users with same email
+        from .models import User as UserModel
+        duplicate_users = UserModel.objects.filter(email=user.email)
+        print(f"[PasswordReset] Users with email '{user.email}': {duplicate_users.count()}")
+        for dup_user in duplicate_users:
+            print(f"[PasswordReset]   - ID: {dup_user.id}, Username: {dup_user.username}, Role: {dup_user.role}")
+        
         print(f"[PasswordReset] Old password hash: {user.password[:20]}...")
         
         user.set_password(new_password)
@@ -1073,7 +1083,21 @@ class ResetPasswordView(APIView):
         test_check = user.check_password(new_password)
         print(f"[PasswordReset] Password verification test: {'✅ PASS' if test_check else '❌ FAIL'}")
         
+        # Try authenticating with username and new password
+        from django.contrib.auth import authenticate
+        auth_user = authenticate(username=user.username, password=new_password)
+        if auth_user:
+            print(f"[PasswordReset] ✅ Authentication test PASSED for user: {auth_user.username} (ID: {auth_user.id})")
+        else:
+            print(f"[PasswordReset] ❌ Authentication test FAILED - Django could not authenticate user")
+            # Try to find which user Django is trying to authenticate
+            all_users_with_username = UserModel.objects.filter(username=user.username)
+            print(f"[PasswordReset] Users with username '{user.username}': {all_users_with_username.count()}")
+            for u in all_users_with_username:
+                print(f"[PasswordReset]   - ID: {u.id}, Email: {u.email}, Password hash: {u.password[:20]}...")
+        
         print(f"[PasswordReset] ✅ Password reset successful for user: {user.username}")
+        print(f"[PasswordReset] ========================================")
         
         return Response(
             {'message': 'Password reset successful. You can now login with your new password.'},
