@@ -4,6 +4,14 @@ set -o errexit
 
 cd "$(dirname "$0")"
 
+# Start Keep-Alive Service (prevents Render free tier sleep)
+if [ -n "$RENDER_EXTERNAL_URL" ]; then
+    echo "🏓 Starting Keep-Alive Service..."
+    bash keep_alive.sh &
+    KEEPALIVE_PID=$!
+    echo "✅ Keep-Alive started with PID: $KEEPALIVE_PID"
+fi
+
 # Start Telegram Bot with auto-restart if it fails
 if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ "$TELEGRAM_BOT_TOKEN" != "your_token_here" ]; then
     echo "🤖 Starting Telegram Bot..."

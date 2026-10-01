@@ -527,7 +527,6 @@ class UserViewSet(viewsets.ModelViewSet):
         )
         
         return Response({'status': 'success', 'message': 'Password changed successfully'})
-        return Response({'status': 'verified', 'username': user.username})
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny], url_path='resend-verification')
     def resend_verification(self, request):
@@ -1054,14 +1053,20 @@ class ResetPasswordView(APIView):
         
         # Reset password
         user = reset_token.user
+        print(f"[PasswordReset] Resetting password for user: {user.username}")
+        print(f"[PasswordReset] Old password hash: {user.password[:20]}...")
+        
         user.set_password(new_password)
         user.save()
+        
+        print(f"[PasswordReset] New password hash: {user.password[:20]}...")
+        print(f"[PasswordReset] Password saved to database")
         
         # Mark token as used
         reset_token.used = True
         reset_token.save()
         
-        print(f"✅ Password reset successful for user: {user.username}")
+        print(f"[PasswordReset] ✅ Password reset successful for user: {user.username}")
         
         return Response(
             {'message': 'Password reset successful. You can now login with your new password.'},
