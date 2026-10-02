@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# keep_alive.sh - Pings the health endpoint every 10 minutes to keep Render awake
+# keep_alive.sh - Pings the health endpoint every 5 minutes to keep Render awake
 
 echo "🏓 Keep-Alive Service Started"
-echo "Pinging health endpoint every 10 minutes to prevent sleep..."
+echo "Pinging health endpoint every 5 minutes to prevent sleep..."
 
 while true; do
-    sleep 600  # 10 minutes
+    sleep 300  # 5 minutes (more frequent to prevent 15-min timeout)
     
     # Get the current URL from environment or default
     BACKEND_URL="${RENDER_EXTERNAL_URL:-http://localhost:8000}"
     
-    # Ping the health endpoint
-    curl -s "$BACKEND_URL/health/" > /dev/null 2>&1
+    # Ping the health endpoint with timeout
+    response=$(curl -s -w "%{http_code}" -o /dev/null --max-time 10 "$BACKEND_URL/health/")
     
-    if [ $? -eq 0 ]; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Keep-alive ping successful"
+    if [ "$response" = "200" ]; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Keep-alive ping successful (HTTP $response)"
     else
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️ Keep-alive ping failed"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️ Keep-alive ping failed (HTTP $response)"
     fi
 done
