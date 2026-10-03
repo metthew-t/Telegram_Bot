@@ -141,13 +141,13 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
-  animation: glow 2s ease-in-out infinite;
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+  text-shadow: none;
+  animation: none;
+  background: linear-gradient(135deg, #DAA520 0%, #B8860B 100%);
   padding: 8px 16px;
   border-radius: var(--radius);
-  border: 2px solid var(--gold);
-  box-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+  border: 2px solid #DAA520;
+  box-shadow: 0 0 30px rgba(218, 165, 32, 0.6);
 }
 
 @keyframes glow {
@@ -1164,34 +1164,66 @@ textarea {
 }
 
 .page-panel:has(form.form-grid) .panel-header h1 {
-  color: var(--gold) !important;
+  color: #FFD700 !important;
   font-size: 36px;
   font-weight: 800;
-  text-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 4px 10px rgba(0, 0, 0, 0.8);
+  text-shadow: none !important;
   margin-bottom: 16px;
   letter-spacing: 1px;
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .page-panel:has(form.form-grid) .panel-header p {
-  color: #ffffff !important;
+  color: #10b981 !important;
   font-size: 16px;
   font-weight: 600;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 255, 255, 0.3);
+  text-shadow: none !important;
   letter-spacing: 0.3px;
 }
 
 .page-panel:has(form.form-grid) label {
-  color: #ffffff !important;
+  color: #000000 !important;
   font-size: 15px;
   font-weight: 700;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  text-shadow: none !important;
   letter-spacing: 0.5px;
 }
 
+.page-panel:has(form.form-grid) input[type="text"],
+.page-panel:has(form.form-grid) input[type="password"] {
+  background: #f5f5f5 !important;
+  color: #000000 !important;
+  border: 2px solid #d1d5db !important;
+}
+
+.page-panel:has(form.form-grid) input[type="text"]:focus,
+.page-panel:has(form.form-grid) input[type="password"]:focus {
+  background: #ffffff !important;
+  border-color: var(--gold) !important;
+}
+
 .page-panel:has(form.form-grid) a {
-  color: var(--gold) !important;
+  color: #3b82f6 !important;
   font-weight: 700;
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+  text-shadow: none !important;
+}
+
+/* Login button - Green */
+.page-panel:has(form.form-grid) .button-primary {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  border: 2px solid #10b981 !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4) !important;
+}
+
+.page-panel:has(form.form-grid) .button-primary:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  box-shadow: 0 6px 30px rgba(16, 185, 129, 0.6) !important;
 }
 
 /* Role selector buttons */
@@ -1228,6 +1260,8 @@ textarea {
   border-color: var(--gold);
   color: #000000 !important;
   box-shadow: 0 4px 20px var(--gold-glow);
+  text-shadow: none !important;
+  font-weight: 700 !important;
 }
 
 .radio-label input[type="radio"] {
@@ -1439,6 +1473,41 @@ small {
 time {
   color: #ffffff !important;
   font-weight: 500;
+}
+
+/* Emoji button inside input field */
+.input-with-emoji {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-emoji input {
+  width: 100%;
+  padding-right: 50px !important;
+}
+
+.emoji-picker-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none !important;
+  border: none !important;
+  padding: 6px 10px !important;
+  font-size: 20px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  z-index: 10;
+  box-shadow: none !important;
+  min-width: auto !important;
+}
+
+.emoji-picker-btn:hover {
+  transform: translateY(-50%) scale(1.2);
+  background: none !important;
+  box-shadow: none !important;
 }
 
 /* Voice Recording Animations */
