@@ -155,7 +155,7 @@ export default function AdminDashboardPage() {
                 onClick={() => navigate(`/cases/${caseItem.id}`)}
               >
                 <div className="case-header">
-                  <h3>{caseItem.user?.username || 'User'} - Case #{caseItem.user_case_number || caseItem.id}</h3>
+                  <h3><span className="case-id-badge">Case #{caseItem.user_case_number || caseItem.id}</span> - {caseItem.user?.username || 'User'}</h3>
                   <span className={`status-badge status-${caseItem.status}`}>
                     {caseItem.status}
                   </span>
