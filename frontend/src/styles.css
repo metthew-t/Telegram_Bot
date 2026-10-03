@@ -174,7 +174,7 @@ a:hover {
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--gold-light);
+  color: #ffffff;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -182,7 +182,7 @@ a:hover {
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
 }
 
 .topbar nav a::before,
@@ -219,6 +219,26 @@ a:hover {
   color: var(--gold);
   border-color: var(--gold);
   box-shadow: 0 0 20px var(--gold-glow);
+}
+
+/* Special styling for LOGOUT button */
+.topbar nav a[href*="logout"],
+.topbar nav button:contains("LOGOUT"),
+.topbar nav a:last-child {
+  background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
+  color: #ffffff !important;
+  border: 2px solid var(--danger);
+  font-weight: 700;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.topbar nav a[href*="logout"]:hover,
+.topbar nav button:contains("LOGOUT"):hover,
+.topbar nav a:last-child:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.6);
 }
 
 /* === Content === */
@@ -279,8 +299,9 @@ a:hover {
 
 .panel-header p {
   font-size: 14px;
-  color: #e0e0e0;
+  color: #ffffff !important;
   font-weight: 500;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
 }
 
 /* === Buttons === */
@@ -366,6 +387,24 @@ a:hover {
   border-color: var(--danger);
 }
 
+/* LOGOUT button special styling */
+.logout-btn {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: #ffffff !important;
+  border: 2px solid #ef4444 !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4) !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.logout-btn:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  transform: translateY(-3px) scale(1.05) !important;
+  box-shadow: 0 6px 25px rgba(239, 68, 68, 0.6) !important;
+}
+
 .button-sm {
   padding: 6px 14px;
   font-size: 12px;
@@ -395,7 +434,8 @@ a:hover {
   gap: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: #ffffff !important;
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
 }
 
 input, textarea, select {
@@ -571,21 +611,25 @@ textarea {
 .case-card h3 {
   font-size: 14px;
   font-weight: 600;
-  color: var(--gold);
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
 .case-card h4 {
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 10px;
-  color: #ffffff;
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
 .case-card p {
   font-size: 13px;
-  color: #d0d0d0;
+  color: #ffffff !important;
   margin-bottom: 16px;
   line-height: 1.6;
+  font-weight: 500;
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
 }
 
 .case-meta {
@@ -595,7 +639,8 @@ textarea {
   padding-top: 14px;
   border-top: 1px solid rgba(255, 215, 0, 0.2);
   font-size: 12px;
-  color: var(--text-muted);
+  color: #ffffff !important;
+  font-weight: 500;
 }
 
 /* === Status Badges === */
@@ -611,24 +656,25 @@ textarea {
 }
 
 .status-open {
-  background: rgba(59, 130, 246, 0.2);
-  color: var(--info);
-  border: 1px solid var(--info);
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  border: 2px solid var(--info);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
 }
 
 .status-assigned {
-  background: rgba(245, 158, 11, 0.2);
-  color: var(--warning);
-  border: 1px solid var(--warning);
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+  background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+  color: #ffffff;
+  border: 2px solid var(--success);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+  font-weight: 700;
 }
 
 .status-closed {
-  background: rgba(16, 185, 129, 0.2);
-  color: var(--success);
-  border: 1px solid var(--success);
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  border: 2px solid var(--success);
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
 }
 
 /* === Role Badges === */
@@ -643,21 +689,24 @@ textarea {
 }
 
 .role-owner {
-  background: rgba(139, 92, 246, 0.2);
-  color: #a78bfa;
-  border: 1px solid #a78bfa;
+  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  color: #ffffff;
+  border: 2px solid #a78bfa;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
 }
 
 .role-admin {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
-  border: 1px solid #60a5fa;
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: #ffffff;
+  border: 2px solid #60a5fa;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
 }
 
 .role-user {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
-  border: 1px solid #34d399;
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  color: #ffffff;
+  border: 2px solid #34d399;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
 }
 
 /* === Filter Tabs === */
@@ -808,16 +857,19 @@ textarea {
   padding: 14px 16px;
   text-align: left;
   font-size: 13px;
+  color: #ffffff !important;
+  font-weight: 500;
 }
 
 .data-table th {
   background: rgba(255, 215, 0, 0.1);
-  color: var(--gold);
+  color: var(--gold) !important;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-size: 12px;
   border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
 }
 
 .data-table tr {
@@ -1094,6 +1146,44 @@ textarea {
   }
 }
 
+
+/* === Additional Color Enhancements === */
+
+/* Make all general text white and visible */
+p, span, div, li {
+  color: #ffffff;
+  font-weight: 400;
+}
+
+/* Strong/bold text should be even more visible */
+strong, b {
+  color: #ffffff !important;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+/* Headers should be bright and visible */
+h1, h2, h3, h4, h5, h6 {
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* Links should be gold */
+a {
+  color: var(--gold) !important;
+}
+
+/* Small text should still be visible */
+small {
+  color: #e0e0e0 !important;
+}
+
+/* Time/date stamps */
+time {
+  color: #ffffff !important;
+  font-weight: 500;
+}
 
 /* Voice Recording Animations */
 @keyframes blink {

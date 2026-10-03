@@ -75,8 +75,8 @@ function Header({ user, onLogout, selectedRole }) {
           </Link>
         )}
         {user ? (
-          <button className="button button-secondary" onClick={onLogout}>
-            Logout
+          <button className="button button-danger logout-btn" onClick={onLogout}>
+            LOGOUT
           </button>
         ) : (
           <>
