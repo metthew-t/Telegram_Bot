@@ -83,11 +83,11 @@ function Header({ user, onLogout, selectedRole }) {
             <Link 
               className="button" 
               style={{ 
-                background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)', 
-                color: '#FFD700', 
-                border: '2px solid #FFD700', 
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+                color: '#ffffff', 
+                border: '2px solid #10b981', 
                 fontWeight: '700',
-                boxShadow: '0 0 20px rgba(255, 215, 0, 0.4)',
+                boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)',
                 textShadow: 'none'
               }} 
               to="/login"

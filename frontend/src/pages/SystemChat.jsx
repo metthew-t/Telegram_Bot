@@ -4,6 +4,7 @@ import { fetchInternalMessages, sendInternalMessage } from '../api.js';
 import LoadingButton from '../components/LoadingButton.jsx';
 import VoiceRecorder from '../components/VoiceRecorder.jsx';
 import AudioPlayer from '../components/AudioPlayer.jsx';
+import EmojiPickerComponent from '../components/EmojiPickerComponent.jsx';
 
 const POLL_INTERVAL = 10000; // 10 seconds
 
@@ -19,6 +20,7 @@ export default function SystemChatPage() {
     const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
+    const chatInputRef = useRef(null);
     const user = getUser();
 
     // Reset selected file when tab changes
@@ -239,6 +241,7 @@ export default function SystemChatPage() {
                             <form className="form-inline" onSubmit={handleSendMessage}>
                                 <div className="input-with-emoji">
                                     <input
+                                        ref={chatInputRef}
                                         type="text"
                                         value={messageContent}
                                         onChange={(e) => setMessageContent(e.target.value)}
@@ -246,23 +249,15 @@ export default function SystemChatPage() {
                                         required={!showVoiceRecorder}
                                         disabled={loading}
                                     />
-                                    <button
-                                        type="button"
-                                        className="emoji-picker-btn"
-                                        onClick={() => {
-                                            if (window.navigator?.userAgentData?.platform === 'Windows' || window.navigator.platform.includes('Win')) {
-                                                // Trigger Windows emoji picker
-                                                document.execCommand('insertText', false, '');
+                                    <EmojiPickerComponent
+                                        onEmojiClick={(emoji) => {
+                                            setMessageContent(prev => prev + emoji);
+                                            if (chatInputRef.current) {
+                                                chatInputRef.current.focus();
                                             }
-                                            alert('💡 Emoji Picker:\n\n' +
-                                                  '• Windows: Press Windows key + . (period)\n' +
-                                                  '• Mac: Press Control + Command + Space\n' +
-                                                  '• Linux: Press Ctrl + . or Ctrl + ;');
                                         }}
-                                        title="Click for emoji picker instructions"
-                                    >
-                                        😊
-                                    </button>
+                                        inputRef={chatInputRef}
+                                    />
                                 </div>
                                 
                                 {/* Voice button */}
