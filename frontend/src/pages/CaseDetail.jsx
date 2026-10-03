@@ -336,9 +336,35 @@ export default function CaseDetailPage() {
                     type="text"
                     value={messageContent}
                     onChange={(e) => setMessageContent(e.target.value)}
-                    placeholder="Type your message..."
+                    placeholder="Type your message... (Windows key + . for emojis)"
                     required={!showVoiceRecorder}
+                    title="Press Windows key + . (period) to open emoji picker"
                   />
+                  
+                  {/* Emoji hint button */}
+                  <button
+                    type="button"
+                    className="button"
+                    style={{
+                      padding: '10px',
+                      fontSize: '18px',
+                      minWidth: 'auto',
+                      background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.1) 100%)',
+                      border: '1px solid rgba(255, 215, 0, 0.3)',
+                      cursor: 'help'
+                    }}
+                    title="Click input, then press Windows key + . to open emoji picker"
+                    onClick={() => {
+                      const input = document.querySelector('input[placeholder*="message"]');
+                      if (input) input.focus();
+                      alert('💡 Emoji Tip:\n\n' +
+                            '• Windows: Press Windows key + . (period)\n' +
+                            '• Mac: Press Control + Command + Space\n' +
+                            '• Linux: Press Ctrl + . or Ctrl + ;');
+                    }}
+                  >
+                    😊
+                  </button>
                   
                   {/* Voice button for admin/owner */}
                   {(user?.role === 'admin' || user?.role === 'owner') && (

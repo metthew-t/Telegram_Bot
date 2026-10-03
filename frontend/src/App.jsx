@@ -80,12 +80,33 @@ function Header({ user, onLogout, selectedRole }) {
           </button>
         ) : (
           <>
-            <Link className="button button-primary" style={{ backgroundColor: '#FFD700', color: '#000000', border: '2px solid #000000', fontWeight: 'bold' }} to="/login">
-              Login
+            <Link 
+              className="button button-primary" 
+              style={{ 
+                background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%)', 
+                color: '#000000', 
+                border: '2px solid var(--gold)', 
+                fontWeight: '700',
+                boxShadow: '0 0 20px rgba(255, 215, 0, 0.6)',
+                textShadow: 'none'
+              }} 
+              to="/login"
+            >
+              LOGIN
             </Link>
             {(!isLoginPage || selectedRole !== 'owner') && (
-              <Link className="button button-primary" style={{ backgroundColor: '#000000', color: '#FFD700', border: '2px solid #FFD700', fontWeight: 'bold' }} to="/register">
-                Register
+              <Link 
+                className="button button-secondary" 
+                style={{ 
+                  background: 'rgba(255, 215, 0, 0.1)', 
+                  color: '#FFD700', 
+                  border: '2px solid #FFD700', 
+                  fontWeight: '700',
+                  boxShadow: '0 0 15px rgba(255, 215, 0, 0.4)'
+                }} 
+                to="/register"
+              >
+                REGISTER
               </Link>
             )}
           </>

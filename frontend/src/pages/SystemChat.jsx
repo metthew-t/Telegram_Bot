@@ -195,10 +195,10 @@ export default function SystemChatPage() {
                                             key={msg.id}
                                             className={`message-item ${isOwnMessage(msg) ? 'own-message' : 'other-message'}`}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', marginBottom: '4px' }}>
-                                                <strong style={{ color: 'var(--accent-primary-hover)' }}>{getSenderLabel(msg)}</strong>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                                <strong style={{ color: 'var(--accent-primary-hover)', fontSize: '15px', fontWeight: 700 }}>{getSenderLabel(msg)}</strong>
                                                 {msg.sender_role && (
-                                                    <span className={`role-badge role-${msg.sender_role}`} style={{ fontSize: '0.625rem' }}>
+                                                    <span className={`role-badge role-${msg.sender_role}`} style={{ fontSize: '11px', padding: '4px 10px' }}>
                                                         {msg.sender_role}
                                                     </span>
                                                 )}
@@ -241,10 +241,35 @@ export default function SystemChatPage() {
                                     type="text"
                                     value={messageContent}
                                     onChange={(e) => setMessageContent(e.target.value)}
-                                    placeholder="Post an internal coordinate update..."
+                                    placeholder="Post an internal coordinate update... (Use Windows key + . for emojis)"
                                     required={!showVoiceRecorder}
                                     disabled={loading}
+                                    title="Press Windows key + . (period) to open emoji picker"
                                 />
+                                
+                                {/* Emoji hint button */}
+                                <button
+                                    type="button"
+                                    className="button"
+                                    style={{
+                                        padding: '10px',
+                                        fontSize: '18px',
+                                        minWidth: 'auto',
+                                        background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.1) 100%)',
+                                        border: '1px solid rgba(255, 215, 0, 0.3)',
+                                        cursor: 'help'
+                                    }}
+                                    title="Click input field, then press Windows key + . (period) to open emoji picker"
+                                    onClick={() => {
+                                        const input = document.querySelector('input[type="text"]');
+                                        if (input) input.focus();
+                                        alert('💡 Tip: Press Windows key + . (period) to open emoji picker!\n\n' +
+                                              'On Mac: Press Control + Command + Space\n' +
+                                              'On Linux: Press Ctrl + . or Ctrl + ;');
+                                    }}
+                                >
+                                    😊
+                                </button>
                                 
                                 {/* Voice button */}
                                 <button
