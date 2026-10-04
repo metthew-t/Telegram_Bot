@@ -95,6 +95,20 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleSelfAssign = async (caseId) => {
+    setRequestingId(caseId);
+    try {
+      await apiCall(`/api/cases/${caseId}/assign/`, 'POST', {
+        admin_id: user?.id,
+      });
+      fetchCases();
+    } catch (err) {
+      alert('Failed to assign case');
+    } finally {
+      setRequestingId(null);
+    }
+  };
+
   const getTimeElapsed = (timestamp) => {
     if (!timestamp) return 'N/A';
     const now = new Date();
@@ -192,7 +206,11 @@ export default function AdminDashboardPage() {
               const isAssignedToMe = caseItem.assigned_admin?.id === user?.id || 
                                      caseItem.assigned_admin?.label === user?.username;
               const caseFeedback = feedbacks.find(f => f.case === caseItem.id);
-              const isClickable = user?.role === 'owner' || isAssignedToMe || caseItem.status === 'open';
+              // For admins: only open cases and assigned cases are clickable
+              // For owners: all cases are clickable
+              const isClickable = user?.role === 'owner' || 
+                                  (caseItem.status === 'open' && !caseItem.assigned_admin) ||
+                                  isAssignedToMe;
               
               return (
                 <div
@@ -200,11 +218,12 @@ export default function AdminDashboardPage() {
                   className="case-card"
                   onClick={() => isClickable && navigate(`/cases/${caseItem.id}`)}
                   style={{
-                    opacity: isClickable ? 1 : 0.6,
+                    opacity: isClickable ? 1 : 0.5,
                     cursor: isClickable ? 'pointer' : 'not-allowed',
                     background: isClickable 
                       ? undefined 
-                      : 'linear-gradient(135deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.05) 100%)',
+                      : 'linear-gradient(135deg, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.08) 100%)',
+                    filter: isClickable ? undefined : 'blur(0.3px)',
                   }}
                 >
                   <div className="case-header">
@@ -249,7 +268,7 @@ export default function AdminDashboardPage() {
                     </div>
                   )}
 
-                  {caseItem.status === 'open' && !caseItem.assigned_admin && (
+                  {caseItem.status === 'open' && !caseItem.assigned_admin && user?.role !== 'owner' && (
                     <LoadingButton
                       className="button button-primary button-sm"
                       style={{ marginTop: '0.75rem' }}
@@ -263,17 +282,33 @@ export default function AdminDashboardPage() {
                       Request Assignment
                     </LoadingButton>
                   )}
+
+                  {caseItem.status === 'open' && !caseItem.assigned_admin && user?.role === 'owner' && (
+                    <LoadingButton
+                      className="button button-primary button-sm"
+                      style={{ marginTop: '0.75rem' }}
+                      loading={requestingId === caseItem.id}
+                      loadingText="Assigning..."
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelfAssign(caseItem.id);
+                      }}
+                    >
+                      Assign to Me
+                    </LoadingButton>
+                  )}
                   
-                  {!isAssignedToMe && !isClickable && (
+                  {user?.role !== 'owner' && !isClickable && (
                     <div style={{ 
                       marginTop: '8px', 
                       padding: '6px 10px', 
-                      background: '#e5e7eb', 
+                      background: 'rgba(0,0,0,0.05)', 
                       borderRadius: '4px',
                       fontSize: '0.85rem',
-                      color: '#6b7280'
+                      color: '#6b7280',
+                      pointerEvents: 'none'
                     }}>
-                      🔒 Not accessible - {caseItem.status === 'closed' ? 'case closed' : 'assigned to another admin'}
+                      {caseItem.status === 'closed' ? '🔒 Case closed' : '🔒 Assigned to another admin'}
                     </div>
                   )}
                 </div>

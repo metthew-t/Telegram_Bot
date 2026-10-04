@@ -578,7 +578,9 @@ class CaseViewSet(viewsets.ModelViewSet):
         if user.role == 'owner':
             return Case.objects.all()
         if user.role == 'admin':
-            return Case.objects.filter(Q(assigned_admin=user) | Q(status='open'))
+            # Admins can see all cases (for visibility in "All Available")
+            # But they can only interact with assigned cases or request open cases
+            return Case.objects.all()
         return Case.objects.filter(user=user)
 
     def get_serializer_context(self):
@@ -604,7 +606,7 @@ class CaseViewSet(viewsets.ModelViewSet):
             # ── Email ──
             try:
                 subject, html_body, text_body = render_new_case_email(case, frontend_url)
-                send_email_to_staff(subject, html_body, text_body)
+                send_email_to_owners(subject, html_body, text_body)  # Only notify owners
             except Exception as exc:
                 print(f"[Email] New-case email failed: {exc}")
 
