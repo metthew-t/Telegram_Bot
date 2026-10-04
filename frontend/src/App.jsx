@@ -13,6 +13,7 @@ import SystemChatPage from './pages/SystemChat.jsx';
 import EmailVerifiedPage from './pages/EmailVerified.jsx';
 import ForgotPasswordPage from './pages/ForgotPassword.jsx';
 import ResetPasswordPage from './pages/ResetPassword.jsx';
+import AnalyticsPage from './pages/Analytics.jsx';
 import { getUser, isAuthenticated, logoutUser } from './auth.js';
 
 function ProtectedRoute({ children, requiredRole }) {
@@ -200,6 +201,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <SystemChatPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute>
+                  <AnalyticsPage />
                 </ProtectedRoute>
               }
             />

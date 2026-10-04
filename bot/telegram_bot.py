@@ -459,6 +459,69 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ─── /cancel (global fallback) ───
 
+async def check_for_feedback_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Check if user's message is feedback for a recently closed case.
+    This runs on every message and detects if we're waiting for feedback.
+    """
+    if update.effective_user is None or update.message is None or not update.message.text:
+        return False
+    
+    # Check if user has a pending feedback case stored in context
+    feedback_case_id = context.user_data.get('feedback_case_id')
+    
+    if feedback_case_id:
+        # User is providing feedback
+        feedback_text = update.message.text.strip()
+        
+        token = get_access_token(update)
+        if not token:
+            return False
+        
+        # Create feedback via API
+        feedback_resp = backend_request(
+            '/api/feedbacks/',
+            method='post',
+            token=token,
+            json={
+                'case': feedback_case_id,
+                'content': feedback_text,
+                'user': update.effective_user.id
+            }
+        )
+        
+        if feedback_resp.ok:
+            await update.message.reply_text(
+                '✅ Thank you for your feedback! Your input helps us improve our service.\n\n'
+                'Your feedback has been recorded and shared with your counselor.',
+                reply_markup=MAIN_MENU_KEYBOARD
+            )
+            # Clear the pending feedback flag
+            context.user_data.pop('feedback_case_id', None)
+            return True
+        else:
+            print(f"DEBUG: Failed to submit feedback: {feedback_resp.text}")
+            await update.message.reply_text(
+                '⚠️ There was an issue saving your feedback. Please try again later.',
+                reply_markup=MAIN_MENU_KEYBOARD
+            )
+            context.user_data.pop('feedback_case_id', None)
+            return True
+    
+    return False
+
+
+async def handle_message_with_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Enhanced message handler that checks for feedback requests first"""
+    # First check if this is feedback
+    is_feedback = await check_for_feedback_request(update, context)
+    if is_feedback:
+        return
+    
+    # Otherwise, proceed with normal message handling
+    await handle_message(update, context)
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Seamlessly route plain text messages to the user's active case with simplified case selection."""
     if update.effective_user is None or update.message is None or not update.message.text:
@@ -812,8 +875,8 @@ def main():
     # Voice message handler
     application.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
-    # General text handler for seamless chat
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # General text handler for seamless chat (with feedback support)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message_with_feedback))
 
     # Legacy single-line /message command (backward compat)
     application.add_handler(CommandHandler('message', legacy_message))

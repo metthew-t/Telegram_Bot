@@ -334,70 +334,89 @@ export default function CaseDetailPage() {
           {/* Send Message Form */}
           {caseData.status !== 'closed' && (
             <div>
-              {/* Voice Recorder (for admin/owner only) */}
-              {(user?.role === 'admin' || user?.role === 'owner') && showVoiceRecorder ? (
-                <div style={{ marginBottom: '12px' }}>
-                  <VoiceRecorder 
-                    onRecordingComplete={(voiceData) => handleSendMessage(null, voiceData)} 
-                  />
-                  <button
-                    onClick={() => setShowVoiceRecorder(false)}
-                    className="button"
-                    style={{ marginTop: '8px', fontSize: '13px', padding: '6px 12px' }}
-                  >
-                    ← Back to Text
-                  </button>
+              {/* Check if admin can reply */}
+              {user?.role === 'admin' && caseData.assigned_admin?.id !== user?.id && caseData.assigned_admin?.label !== user?.username ? (
+                <div style={{
+                  padding: '16px',
+                  background: '#fef3c7',
+                  borderRadius: '8px',
+                  color: '#92400e',
+                  textAlign: 'center',
+                  border: '1px solid #fde68a'
+                }}>
+                  <strong>⚠️ This case is not assigned to you</strong>
+                  <p style={{ marginTop: '8px', fontSize: '0.9rem' }}>
+                    You can only reply to cases that are assigned to you by the owner.
+                  </p>
                 </div>
               ) : (
-                <form className="form-inline" onSubmit={handleSendMessage}>
-                  <div className="input-with-emoji">
-                    <input
-                      ref={messageInputRef}
-                      type="text"
-                      value={messageContent}
-                      onChange={(e) => setMessageContent(e.target.value)}
-                      placeholder="Type your message..."
-                      required={!showVoiceRecorder}
-                    />
-                    <EmojiPickerComponent
-                      onEmojiClick={(emoji) => {
-                        setMessageContent(prev => prev + emoji);
-                        if (messageInputRef.current) {
-                          messageInputRef.current.focus();
-                        }
-                      }}
-                      inputRef={messageInputRef}
-                    />
-                  </div>
-                  
-                  {/* Voice button for admin/owner */}
-                  {(user?.role === 'admin' || user?.role === 'owner') && (
-                    <button
-                      type="button"
-                      onClick={() => setShowVoiceRecorder(true)}
-                      className="button"
-                      style={{
-                        padding: '10px',
-                        fontSize: '18px',
-                        minWidth: 'auto',
-                        background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.1) 100%)',
-                        border: '1px solid rgba(255, 215, 0, 0.3)'
-                      }}
-                      title="Send voice message"
-                    >
-                      🎤
-                    </button>
+                <>
+                  {/* Voice Recorder (for admin/owner only) */}
+                  {(user?.role === 'admin' || user?.role === 'owner') && showVoiceRecorder ? (
+                    <div style={{ marginBottom: '12px' }}>
+                      <VoiceRecorder 
+                        onRecordingComplete={(voiceData) => handleSendMessage(null, voiceData)} 
+                      />
+                      <button
+                        onClick={() => setShowVoiceRecorder(false)}
+                        className="button"
+                        style={{ marginTop: '8px', fontSize: '13px', padding: '6px 12px' }}
+                      >
+                        ← Back to Text
+                      </button>
+                    </div>
+                  ) : (
+                    <form className="form-inline" onSubmit={handleSendMessage}>
+                      <div className="input-with-emoji">
+                        <input
+                          ref={messageInputRef}
+                          type="text"
+                          value={messageContent}
+                          onChange={(e) => setMessageContent(e.target.value)}
+                          placeholder="Type your message..."
+                          required={!showVoiceRecorder}
+                        />
+                        <EmojiPickerComponent
+                          onEmojiClick={(emoji) => {
+                            setMessageContent(prev => prev + emoji);
+                            if (messageInputRef.current) {
+                              messageInputRef.current.focus();
+                            }
+                          }}
+                          inputRef={messageInputRef}
+                        />
+                      </div>
+                      
+                      {/* Voice button for admin/owner */}
+                      {(user?.role === 'admin' || user?.role === 'owner') && (
+                        <button
+                          type="button"
+                          onClick={() => setShowVoiceRecorder(true)}
+                          className="button"
+                          style={{
+                            padding: '10px',
+                            fontSize: '18px',
+                            minWidth: 'auto',
+                            background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.1) 100%)',
+                            border: '1px solid rgba(255, 215, 0, 0.3)'
+                          }}
+                          title="Send voice message"
+                        >
+                          🎤
+                        </button>
+                      )}
+                      
+                      <LoadingButton
+                        className="button button-primary"
+                        type="submit"
+                        loading={isSending}
+                        loadingText="Sending..."
+                      >
+                        Send
+                      </LoadingButton>
+                    </form>
                   )}
-                  
-                  <LoadingButton
-                    className="button button-primary"
-                    type="submit"
-                    loading={isSending}
-                    loadingText="Sending..."
-                  >
-                    Send
-                  </LoadingButton>
-                </form>
+                </>
               )}
             </div>
           )}

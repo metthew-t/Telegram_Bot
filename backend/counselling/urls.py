@@ -14,6 +14,9 @@ from .views import (
     EmailVerifyView,
     ForgotPasswordView,
     ResetPasswordView,
+    AssignmentRequestViewSet,
+    FeedbackViewSet,
+    AnalyticsViewSet,
     api_root,
 )
 
@@ -23,6 +26,9 @@ router.register(r'cases', CaseViewSet)
 router.register(r'messages', MessageViewSet)
 router.register(r'audit-logs', AuditLogViewSet)
 router.register(r'internal-messages', InternalMessageViewSet)
+router.register(r'assignment-requests', AssignmentRequestViewSet)
+router.register(r'feedbacks', FeedbackViewSet)
+router.register(r'analytics', AnalyticsViewSet, basename='analytics')
 
 urlpatterns = [
     path('api/', include(router.urls)),

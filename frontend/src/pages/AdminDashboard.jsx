@@ -7,16 +7,18 @@ import LoadingButton from '../components/LoadingButton.jsx';
 export default function AdminDashboardPage() {
   const [cases, setCases] = useState([]);
   const [allCases, setAllCases] = useState([]);
+  const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [assigningId, setAssigningId] = useState(null);
+  const [requestingId, setRequestingId] = useState(null);
   const user = getUser();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchCases();
+    fetchFeedbacks();
   }, []);
 
   useEffect(() => {
@@ -35,6 +37,15 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const fetchFeedbacks = async () => {
+    try {
+      const data = await apiCall('/api/feedbacks/', 'GET');
+      setFeedbacks(data || []);
+    } catch (err) {
+      console.error('Failed to load feedbacks:', err);
+    }
+  };
+
   const applyFilters = () => {
     let filtered = [...allCases];
 
@@ -49,6 +60,8 @@ export default function AdminDashboardPage() {
       filtered = filtered.filter((c) => c.status === 'open');
     } else if (filter === 'assigned') {
       filtered = filtered.filter((c) => c.status === 'assigned');
+    } else if (filter === 'resolved') {
+      filtered = filtered.filter((c) => c.status === 'resolved');
     } else if (filter === 'closed') {
       filtered = filtered.filter((c) => c.status === 'closed');
     }
@@ -67,24 +80,41 @@ export default function AdminDashboardPage() {
     setCases(filtered);
   };
 
-  const handleSelfAssign = async (caseId) => {
-    setAssigningId(caseId);
+  const handleRequestAssignment = async (caseId) => {
+    setRequestingId(caseId);
     try {
-      await apiCall(`/api/cases/${caseId}/assign/`, 'POST', {
-        admin_id: user?.id,
+      await apiCall('/api/assignment-requests/', 'POST', {
+        case_id: caseId,
       });
+      alert('Assignment request sent to owner for approval');
       fetchCases();
     } catch (err) {
-      alert('Failed to assign case');
+      alert(err.message || 'Failed to request assignment');
     } finally {
-      setAssigningId(null);
+      setRequestingId(null);
     }
+  };
+
+  const getTimeElapsed = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const now = new Date();
+    const then = new Date(timestamp);
+    const diffMs = now - then;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) return `${diffDays}d ago`;
+    if (diffHours > 0) return `${diffHours}h ago`;
+    if (diffMins > 0) return `${diffMins}m ago`;
+    return 'Just now';
   };
 
   const stats = {
     total: allCases.length,
     open: allCases.filter((c) => c.status === 'open').length,
     assigned: allCases.filter((c) => c.status === 'assigned').length,
+    resolved: allCases.filter((c) => c.status === 'resolved').length,
     closed: allCases.filter((c) => c.status === 'closed').length,
   };
 
@@ -93,6 +123,18 @@ export default function AdminDashboardPage() {
       <div className="panel-header">
         <h1>Admin Support Desk</h1>
         <p>Manage your assigned cases and assist new users</p>
+        <div style={{ marginTop: '12px' }}>
+          <button 
+            className="button button-sm"
+            onClick={() => navigate('/analytics')}
+            style={{ 
+              background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+              color: 'white'
+            }}
+          >
+            📊 View Analytics
+          </button>
+        </div>
       </div>
 
       {/* Stats Row */}
@@ -104,6 +146,10 @@ export default function AdminDashboardPage() {
         <div className="stat-card">
           <span className="stat-value">{stats.open}</span>
           <span className="stat-label">Available (Open)</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-value">{feedbacks.length}</span>
+          <span className="stat-label">Feedbacks</span>
         </div>
       </div>
 
@@ -138,6 +184,12 @@ export default function AdminDashboardPage() {
         >
           Take New (Open)
         </button>
+        <button
+          className={`tab ${filter === 'closed' ? 'active' : ''}`}
+          onClick={() => setFilter('closed')}
+        >
+          Closed Cases
+        </button>
       </div>
 
       {/* Cases List */}
@@ -148,41 +200,89 @@ export default function AdminDashboardPage() {
           <p className="empty-state">No matching cases found</p>
         ) : (
           <div className="cases-grid">
-            {cases.map((caseItem) => (
-              <div
-                key={caseItem.id}
-                className="case-card"
-                onClick={() => navigate(`/cases/${caseItem.id}`)}
-              >
-                <div className="case-header">
-                  <h3><span className="case-id-badge">Case #{caseItem.user_case_number || caseItem.id}</span> - {caseItem.user?.username || 'User'}</h3>
-                  <span className={`status-badge status-${caseItem.status}`}>
-                    {caseItem.status}
-                  </span>
-                </div>
-                <h4>{caseItem.title}</h4>
-                <p>{caseItem.description?.substring(0, 80)}...</p>
+            {cases.map((caseItem) => {
+              const isAssignedToMe = caseItem.assigned_admin?.id === user?.id || 
+                                     caseItem.assigned_admin?.label === user?.username;
+              const caseFeedback = feedbacks.find(f => f.case === caseItem.id);
+              
+              return (
+                <div
+                  key={caseItem.id}
+                  className="case-card"
+                  onClick={() => navigate(`/cases/${caseItem.id}`)}
+                >
+                  <div className="case-header">
+                    <h3>
+                      <span className="case-id-badge">Case #{caseItem.user_case_number || caseItem.id}</span>
+                      {caseItem.assigned_admin && (
+                        <span style={{ fontSize: '0.9rem', color: '#64748b', marginLeft: '8px' }}>
+                          → {caseItem.assigned_admin.label || caseItem.assigned_admin.username}
+                        </span>
+                      )}
+                    </h3>
+                    <span className={`status-badge status-${caseItem.status}`}>
+                      {caseItem.status}
+                    </span>
+                  </div>
+                  <h4>{caseItem.title}</h4>
+                  <p>{caseItem.description?.substring(0, 80)}...</p>
 
-                <div className="case-meta">
-                  <span>Database ID: #{caseItem.id}</span>
-                </div>
+                  <div className="case-meta">
+                    <span>Created: {getTimeElapsed(caseItem.created_at)}</span>
+                    {caseItem.assigned_at && (
+                      <span> • Assigned: {getTimeElapsed(caseItem.assigned_at)}</span>
+                    )}
+                    {caseItem.resolved_at && (
+                      <span> • Resolved: {getTimeElapsed(caseItem.resolved_at)}</span>
+                    )}
+                    {caseItem.closed_at && (
+                      <span> • Closed: {getTimeElapsed(caseItem.closed_at)}</span>
+                    )}
+                  </div>
 
-                {caseItem.status === 'open' && (
-                  <LoadingButton
-                    className="button button-primary button-sm"
-                    style={{ marginTop: '0.75rem' }}
-                    loading={assigningId === caseItem.id}
-                    loadingText="Assigning..."
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSelfAssign(caseItem.id);
-                    }}
-                  >
-                    Assign to Me
-                  </LoadingButton>
-                )}
-              </div>
-            ))}
+                  {caseFeedback && (
+                    <div style={{ 
+                      marginTop: '8px', 
+                      padding: '8px', 
+                      background: '#f0fdf4', 
+                      borderRadius: '6px',
+                      fontSize: '0.85rem'
+                    }}>
+                      <strong>📝 Feedback:</strong> {caseFeedback.content.substring(0, 60)}...
+                      {caseFeedback.rating && <span> ⭐ {caseFeedback.rating}/5</span>}
+                    </div>
+                  )}
+
+                  {caseItem.status === 'open' && (
+                    <LoadingButton
+                      className="button button-primary button-sm"
+                      style={{ marginTop: '0.75rem' }}
+                      loading={requestingId === caseItem.id}
+                      loadingText="Requesting..."
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRequestAssignment(caseItem.id);
+                      }}
+                    >
+                      Request Assignment
+                    </LoadingButton>
+                  )}
+                  
+                  {!isAssignedToMe && caseItem.status === 'assigned' && (
+                    <div style={{ 
+                      marginTop: '8px', 
+                      padding: '6px 10px', 
+                      background: '#fef3c7', 
+                      borderRadius: '4px',
+                      fontSize: '0.85rem',
+                      color: '#92400e'
+                    }}>
+                      ⚠️ Not assigned to you - cannot reply
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

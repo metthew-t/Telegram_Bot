@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Case, Message, AuditLog, InternalMessage
+from .models import User, Case, Message, AuditLog, InternalMessage, AssignmentRequest, Feedback
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, min_length=8)
@@ -73,8 +73,11 @@ class CaseSerializer(serializers.ModelSerializer):
             'user_case_number',
             'created_at',
             'updated_at',
+            'assigned_at',
+            'resolved_at',
+            'closed_at',
         ]
-        read_only_fields = ['id', 'user_case_number', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user_case_number', 'created_at', 'updated_at', 'assigned_at', 'resolved_at', 'closed_at']
 
     def get_user(self, obj):
         request = self.context.get('request')
@@ -155,3 +158,32 @@ class InternalMessageSerializer(serializers.ModelSerializer):
         model = InternalMessage
         fields = ['id', 'sender', 'sender_name', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'message_format', 'voice_data', 'voice_duration', 'timestamp', 'file_name', 'file_content']
         read_only_fields = ['id', 'timestamp', 'sender']
+
+
+class AssignmentRequestSerializer(serializers.ModelSerializer):
+    admin_name = serializers.ReadOnlyField(source='admin.username')
+    case_title = serializers.ReadOnlyField(source='case.title')
+    case_id = serializers.ReadOnlyField(source='case.id')
+    reviewed_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AssignmentRequest
+        fields = ['id', 'case', 'case_id', 'case_title', 'admin', 'admin_name', 'status', 'created_at', 'reviewed_at', 'reviewed_by', 'reviewed_by_name']
+        read_only_fields = ['id', 'created_at', 'reviewed_at', 'reviewed_by']
+
+    def get_reviewed_by_name(self, obj):
+        return obj.reviewed_by.username if obj.reviewed_by else None
+
+
+class FeedbackSerializer(serializers.ModelSerializer):
+    case_title = serializers.ReadOnlyField(source='case.title')
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Feedback
+        fields = ['id', 'case', 'case_title', 'user', 'user_name', 'content', 'rating', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def get_user_name(self, obj):
+        """Protect user privacy - show as anonymous"""
+        return 'Anonymous User'

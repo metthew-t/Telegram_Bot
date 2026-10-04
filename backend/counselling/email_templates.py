@@ -249,7 +249,7 @@ def render_new_case_email(case, frontend_url: str):
 
 Title:       {case.title}
 Status:      {case.status.capitalize()}
-Submitted:   {case.user.username}
+Submitted:   Anonymous User
 Created:     {case.created_at.strftime('%d %B %Y, %H:%M UTC')}
 
 Description:

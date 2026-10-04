@@ -610,6 +610,8 @@ class CaseViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrOwner])
     def assign(self, request, pk=None):
+        from django.utils import timezone
+        
         case = self.get_object()
         admin_id = request.data.get('admin_id')
         try:
@@ -619,6 +621,7 @@ class CaseViewSet(viewsets.ModelViewSet):
 
         case.assigned_admin = admin
         case.status = 'assigned'
+        case.assigned_at = timezone.now()  # Track when assigned
         case.save()
         AuditLog.objects.create(
             case=case,
@@ -650,9 +653,12 @@ class CaseViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def close(self, request, pk=None):
+        from django.utils import timezone
+        
         case = self.get_object()
         if request.user.role == 'owner' or (request.user.role == 'admin' and case.assigned_admin == request.user) or case.user == request.user:
             case.status = 'closed'
+            case.closed_at = timezone.now()  # Track when closed
             case.save()
             AuditLog.objects.create(
                 case=case,
@@ -660,7 +666,15 @@ class CaseViewSet(viewsets.ModelViewSet):
                 action='closed',
                 details=f'Case closed by {request.user.username}',
             )
-            notify_case_user(case, f'Your case #{case.id} has been closed.')
+            
+            # Send feedback request to user via Telegram
+            feedback_message = (
+                f"Your case #{case.id} ({case.title}) has been closed.\n\n"
+                f"📝 Please share your feedback about your counselor and experience.\n"
+                f"Your feedback helps us improve our service.\n\n"
+                f"Reply to this message with your feedback."
+            )
+            notify_case_user(case, feedback_message)
 
             frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
@@ -672,6 +686,26 @@ class CaseViewSet(viewsets.ModelViewSet):
                 print(f"[Email] Case-closed email failed: {exc}")
 
             return Response({'status': 'closed'})
+        raise PermissionDenied('Permission denied')
+    
+    @action(detail=True, methods=['post'])
+    def resolve(self, request, pk=None):
+        """Mark case as resolved (before closing)"""
+        from django.utils import timezone
+        
+        case = self.get_object()
+        if request.user.role == 'owner' or (request.user.role == 'admin' and case.assigned_admin == request.user):
+            case.status = 'resolved'
+            case.resolved_at = timezone.now()  # Track when resolved
+            case.save()
+            AuditLog.objects.create(
+                case=case,
+                performer=request.user,
+                action='resolved',
+                details=f'Case marked as resolved by {request.user.username}',
+            )
+            notify_case_user(case, f'Your case #{case.id} has been resolved.')
+            return Response({'status': 'resolved'})
         raise PermissionDenied('Permission denied')
 
 
@@ -1145,3 +1179,351 @@ class InternalMessageViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(f"[EMAIL NOTIFICATION] Error sending internal message notification: {e}")
 
+
+
+# ─── Assignment Request ViewSet ───────────────────────────────────────────────
+
+class AssignmentRequestViewSet(viewsets.ModelViewSet):
+    """Handle assignment requests from admins"""
+    from .models import AssignmentRequest
+    from .serializers import AssignmentRequestSerializer
+    
+    queryset = AssignmentRequest.objects.all().order_by('-created_at')
+    serializer_class = AssignmentRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'owner':
+            # Owner sees all requests
+            return self.queryset
+        elif user.role == 'admin':
+            # Admin sees only their own requests
+            return self.queryset.filter(admin=user)
+        return self.queryset.none()
+
+    def create(self, request):
+        """Admin creates assignment request"""
+        from .models import AssignmentRequest, Case
+        
+        if request.user.role != 'admin':
+            return Response(
+                {'error': 'Only admins can request assignments'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        case_id = request.data.get('case_id')
+        if not case_id:
+            return Response(
+                {'error': 'case_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            case = Case.objects.get(id=case_id)
+        except Case.DoesNotExist:
+            return Response(
+                {'error': 'Case not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if case is already assigned
+        if case.status == 'assigned' and case.assigned_admin:
+            return Response(
+                {'error': 'Case is already assigned'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if admin already has pending request for this case
+        existing_request = AssignmentRequest.objects.filter(
+            case=case,
+            admin=request.user,
+            status='pending'
+        ).first()
+        
+        if existing_request:
+            return Response(
+                {'error': 'You already have a pending request for this case'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create the assignment request
+        assignment_request = AssignmentRequest.objects.create(
+            case=case,
+            admin=request.user,
+            status='pending'
+        )
+        
+        serializer = self.serializer_class(assignment_request)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsOwner])
+    def approve(self, request, pk=None):
+        """Owner approves assignment request"""
+        from .models import Case
+        from django.utils import timezone
+        
+        assignment_request = self.get_object()
+        
+        if assignment_request.status != 'pending':
+            return Response(
+                {'error': 'Request has already been reviewed'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Approve the request
+        assignment_request.status = 'approved'
+        assignment_request.reviewed_at = timezone.now()
+        assignment_request.reviewed_by = request.user
+        assignment_request.save()
+        
+        # Assign the case
+        case = assignment_request.case
+        case.assigned_admin = assignment_request.admin
+        case.status = 'assigned'
+        case.assigned_at = timezone.now()
+        case.save()
+        
+        # Create audit log
+        AuditLog.objects.create(
+            case=case,
+            performer=request.user,
+            action='assigned',
+            details=f'Approved assignment request - assigned case to admin {assignment_request.admin.username}',
+        )
+        
+        # Notify user
+        notify_case_user(case, f'Your case #{case.id} has been assigned to support.')
+        
+        serializer = self.serializer_class(assignment_request)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsOwner])
+    def reject(self, request, pk=None):
+        """Owner rejects assignment request"""
+        from django.utils import timezone
+        
+        assignment_request = self.get_object()
+        
+        if assignment_request.status != 'pending':
+            return Response(
+                {'error': 'Request has already been reviewed'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Reject the request
+        assignment_request.status = 'rejected'
+        assignment_request.reviewed_at = timezone.now()
+        assignment_request.reviewed_by = request.user
+        assignment_request.save()
+        
+        serializer = self.serializer_class(assignment_request)
+        return Response(serializer.data)
+
+
+# ─── Feedback ViewSet ─────────────────────────────────────────────────────────
+
+class FeedbackViewSet(viewsets.ModelViewSet):
+    """Feedback management - users can create, staff can view"""
+    from .models import Feedback
+    from .serializers import FeedbackSerializer
+    
+    queryset = Feedback.objects.all().order_by('-created_at')
+    serializer_class = FeedbackSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'owner':
+            # Owner sees all feedback
+            return self.queryset
+        elif user.role == 'admin':
+            # Admin sees feedback only for cases assigned to them
+            return self.queryset.filter(case__assigned_admin=user)
+        elif user.role == 'user':
+            # Users see their own feedback
+            return self.queryset.filter(user=user)
+        return self.queryset.none()
+    
+    def create(self, request):
+        """Create feedback for a closed case"""
+        from .models import Case, Feedback
+        
+        case_id = request.data.get('case')
+        content = request.data.get('content', '').strip()
+        rating = request.data.get('rating')
+        
+        if not case_id or not content:
+            return Response(
+                {'error': 'case and content are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            case = Case.objects.get(id=case_id)
+        except Case.DoesNotExist:
+            return Response(
+                {'error': 'Case not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Only the case owner can leave feedback
+        if request.user != case.user:
+            return Response(
+                {'error': 'You can only leave feedback on your own cases'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if case is closed
+        if case.status != 'closed':
+            return Response(
+                {'error': 'Feedback can only be provided for closed cases'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if feedback already exists
+        if hasattr(case, 'feedback'):
+            return Response(
+                {'error': 'Feedback already submitted for this case'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create feedback
+        feedback = Feedback.objects.create(
+            case=case,
+            user=request.user,
+            content=content,
+            rating=rating if rating else None
+        )
+        
+        serializer = self.serializer_class(feedback)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+# ─── Analytics ViewSet ────────────────────────────────────────────────────────
+
+class AnalyticsViewSet(viewsets.ViewSet):
+    """Analytics and reports for admins and owners"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        """Get analytics dashboard data"""
+        from .models import Case, Feedback
+        from django.db.models import Count, Avg, Q
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        user = request.user
+        
+        if user.role not in ['admin', 'owner']:
+            return Response(
+                {'error': 'Only admins and owners can access analytics'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Filter cases based on role
+        if user.role == 'owner':
+            cases = Case.objects.all()
+        else:
+            cases = Case.objects.filter(assigned_admin=user)
+        
+        # Total cases by status
+        total_cases = cases.count()
+        open_cases = cases.filter(status='open').count()
+        assigned_cases = cases.filter(status='assigned').count()
+        resolved_cases = cases.filter(status='resolved').count()
+        closed_cases = cases.filter(status='closed').count()
+        
+        # Cases per admin (owner only)
+        cases_per_admin = []
+        if user.role == 'owner':
+            from .models import User
+            admins = User.objects.filter(role='admin')
+            for admin in admins:
+                admin_cases = Case.objects.filter(assigned_admin=admin)
+                cases_per_admin.append({
+                    'admin_name': admin.username,
+                    'total': admin_cases.count(),
+                    'open': admin_cases.filter(status='open').count(),
+                    'assigned': admin_cases.filter(status='assigned').count(),
+                    'resolved': admin_cases.filter(status='resolved').count(),
+                    'closed': admin_cases.filter(status='closed').count(),
+                })
+        
+        # Average resolution time (for closed cases with timestamps)
+        closed_with_times = cases.filter(
+            status='closed',
+            assigned_at__isnull=False,
+            closed_at__isnull=False
+        )
+        
+        avg_resolution_seconds = None
+        avg_resolution_hours = None
+        if closed_with_times.exists():
+            total_seconds = sum([
+                (case.closed_at - case.assigned_at).total_seconds()
+                for case in closed_with_times
+            ])
+            avg_resolution_seconds = total_seconds / closed_with_times.count()
+            avg_resolution_hours = round(avg_resolution_seconds / 3600, 2)
+        
+        # Cases per day/week/month
+        now = timezone.now()
+        last_30_days = now - timedelta(days=30)
+        last_7_days = now - timedelta(days=7)
+        today = now.date()
+        
+        cases_today = cases.filter(created_at__date=today).count()
+        cases_last_7_days = cases.filter(created_at__gte=last_7_days).count()
+        cases_last_30_days = cases.filter(created_at__gte=last_30_days).count()
+        
+        # Daily cases for last 30 days (for charts)
+        daily_cases = []
+        for i in range(30):
+            day = (now - timedelta(days=i)).date()
+            count = cases.filter(created_at__date=day).count()
+            daily_cases.append({
+                'date': day.isoformat(),
+                'count': count
+            })
+        daily_cases.reverse()
+        
+        # User satisfaction from feedback ratings
+        feedbacks = Feedback.objects.filter(case__in=cases, rating__isnull=False)
+        avg_rating = feedbacks.aggregate(Avg('rating'))['rating__avg']
+        total_feedbacks = feedbacks.count()
+        
+        # Rating distribution
+        rating_distribution = []
+        for rating in range(1, 6):
+            count = feedbacks.filter(rating=rating).count()
+            rating_distribution.append({
+                'rating': rating,
+                'count': count
+            })
+        
+        return Response({
+            'total_cases': total_cases,
+            'cases_by_status': {
+                'open': open_cases,
+                'assigned': assigned_cases,
+                'resolved': resolved_cases,
+                'closed': closed_cases,
+            },
+            'cases_per_admin': cases_per_admin,
+            'resolution_time': {
+                'average_hours': avg_resolution_hours,
+                'total_closed_cases': closed_with_times.count(),
+            },
+            'cases_timeline': {
+                'today': cases_today,
+                'last_7_days': cases_last_7_days,
+                'last_30_days': cases_last_30_days,
+                'daily': daily_cases,
+            },
+            'user_satisfaction': {
+                'average_rating': round(avg_rating, 2) if avg_rating else None,
+                'total_feedbacks': total_feedbacks,
+                'rating_distribution': rating_distribution,
+            }
+        })

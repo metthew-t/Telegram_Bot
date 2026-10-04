@@ -24,6 +24,7 @@ class Case(models.Model):
     STATUS_CHOICES = [
         ('open', 'Open'),
         ('assigned', 'Assigned'),
+        ('resolved', 'Resolved'),
         ('closed', 'Closed'),
     ]
     title = models.CharField(max_length=200)
@@ -34,6 +35,9 @@ class Case(models.Model):
     user_case_number = models.IntegerField(default=1)  # Per-user case numbering
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+    assigned_at = models.DateTimeField(null=True, blank=True)  # Time when case was assigned
+    resolved_at = models.DateTimeField(null=True, blank=True)  # Time when case was resolved
+    closed_at = models.DateTimeField(null=True, blank=True)  # Time when case was closed
 
     class Meta:
         ordering = ['-created_at']
@@ -127,3 +131,31 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return f"Password reset for {self.user.username} - {'Valid' if self.is_valid() else 'Invalid'}"
+
+
+class AssignmentRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='assignment_requests')
+    admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assignment_requests')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(default=timezone.now)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_assignment_requests')
+
+    def __str__(self):
+        return f"Assignment request for case {self.case.id} by {self.admin.username} - {self.status}"
+
+
+class Feedback(models.Model):
+    case = models.OneToOneField(Case, on_delete=models.CASCADE, related_name='feedback')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='feedbacks')
+    content = models.TextField()
+    rating = models.IntegerField(null=True, blank=True)  # Optional rating 1-5
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Feedback for case {self.case.id} from {self.user.username}"
