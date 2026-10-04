@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 # Load .env file
 load_dotenv()
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -13,6 +13,7 @@ from telegram.ext import (
     MessageHandler,
     ContextTypes,
     filters,
+    CallbackQueryHandler,
 )
 
 # On Render, gunicorn listens on $PORT, not 8000
@@ -816,6 +817,34 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+# ─── Feedback Inline Button Handler ───
+
+async def handle_feedback_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline button click for feedback submission"""
+    query = update.callback_query
+    await query.answer()
+    
+    # Extract case ID from callback data (format: "feedback_123")
+    callback_data = query.data
+    if not callback_data.startswith('feedback_'):
+        return
+    
+    try:
+        case_id = int(callback_data.split('_')[1])
+    except (IndexError, ValueError):
+        await query.edit_message_text("Error processing feedback request.")
+        return
+    
+    # Store case ID in user context for next message
+    context.user_data['feedback_case_id'] = case_id
+    
+    # Edit the message to show feedback is being collected
+    await query.edit_message_text(
+        text=f"{query.message.text}\n\n✍️ Please type your feedback now and send it:",
+        parse_mode='Markdown'
+    )
+
+
 # ─── Main ───
 
 def main():
@@ -862,6 +891,9 @@ def main():
 
     application.add_handler(CommandHandler('start', start))
     application.add_handler(newcase_handler)
+    
+    # Feedback inline button handler (must be before text handler)
+    application.add_handler(CallbackQueryHandler(handle_feedback_button, pattern='^feedback_'))
     
     application.add_handler(CommandHandler('mycases', list_cases))
     application.add_handler(MessageHandler(filters.Regex('^(📋 My Cases|My Cases)$'), list_cases))

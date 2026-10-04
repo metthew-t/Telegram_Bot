@@ -617,9 +617,10 @@ class CaseViewSet(viewsets.ModelViewSet):
         case = self.get_object()
         admin_id = request.data.get('admin_id')
         try:
-            admin = User.objects.get(id=admin_id, role='admin')
+            # Allow assignment to both admins and owners
+            admin = User.objects.get(id=admin_id, role__in=['admin', 'owner'])
         except User.DoesNotExist:
-            return Response({'error': 'Admin not found'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'User not found or invalid role'}, status=status.HTTP_400_BAD_REQUEST)
 
         case.assigned_admin = admin
         case.status = 'assigned'
@@ -669,14 +670,39 @@ class CaseViewSet(viewsets.ModelViewSet):
                 details=f'Case closed by {request.user.username}',
             )
             
-            # Send feedback request to user via Telegram
+            # Send feedback request to user via Telegram with inline button
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            
+            # Store the case ID in bot context for feedback collection
             feedback_message = (
                 f"Your case #{case.user_case_number} ({case.title}) has been closed.\n\n"
                 f"📝 Please share your feedback about your counselor and experience.\n"
                 f"Your feedback helps us improve our service.\n\n"
-                f"Reply to this message with your feedback."
+                f"Click the button below to submit your feedback."
             )
-            notify_case_user(case, feedback_message)
+            
+            # Create inline keyboard with feedback button
+            keyboard = [[InlineKeyboardButton("📝 Submit Feedback", callback_data=f"feedback_{case.id}")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Send message with inline button
+            if case.user.telegram_id:
+                try:
+                    import requests
+                    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+                    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                    payload = {
+                        "chat_id": case.user.telegram_id,
+                        "text": feedback_message,
+                        "reply_markup": {
+                            "inline_keyboard": keyboard
+                        }
+                    }
+                    requests.post(url, json=payload, timeout=10)
+                except Exception as e:
+                    print(f"Failed to send feedback button: {e}")
+                    # Fallback to simple message
+                    notify_case_user(case, feedback_message)
 
             frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 

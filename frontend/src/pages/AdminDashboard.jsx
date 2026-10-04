@@ -206,24 +206,23 @@ export default function AdminDashboardPage() {
               const isAssignedToMe = caseItem.assigned_admin?.id === user?.id || 
                                      caseItem.assigned_admin?.label === user?.username;
               const caseFeedback = feedbacks.find(f => f.case === caseItem.id);
-              // For admins: only open cases and assigned cases are clickable
+              
+              // For admins: only assigned cases are fully clickable and bright
               // For owners: all cases are clickable
-              const isClickable = user?.role === 'owner' || 
-                                  (caseItem.status === 'open' && !caseItem.assigned_admin) ||
-                                  isAssignedToMe;
+              const isFullyAccessible = user?.role === 'owner' || isAssignedToMe;
               
               return (
                 <div
                   key={caseItem.id}
                   className="case-card"
-                  onClick={() => isClickable && navigate(`/cases/${caseItem.id}`)}
+                  onClick={() => isFullyAccessible && navigate(`/cases/${caseItem.id}`)}
                   style={{
-                    opacity: isClickable ? 1 : 0.5,
-                    cursor: isClickable ? 'pointer' : 'not-allowed',
-                    background: isClickable 
+                    opacity: isFullyAccessible ? 1 : 0.5,
+                    cursor: isFullyAccessible ? 'pointer' : 'not-allowed',
+                    background: isFullyAccessible 
                       ? undefined 
                       : 'linear-gradient(135deg, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.08) 100%)',
-                    filter: isClickable ? undefined : 'blur(0.3px)',
+                    filter: isFullyAccessible ? undefined : 'blur(0.3px)',
                   }}
                 >
                   <div className="case-header">
@@ -298,7 +297,7 @@ export default function AdminDashboardPage() {
                     </LoadingButton>
                   )}
                   
-                  {user?.role !== 'owner' && !isClickable && (
+                  {user?.role !== 'owner' && !isFullyAccessible && (
                     <div style={{ 
                       marginTop: '8px', 
                       padding: '6px 10px', 
@@ -308,7 +307,11 @@ export default function AdminDashboardPage() {
                       color: '#6b7280',
                       pointerEvents: 'none'
                     }}>
-                      {caseItem.status === 'closed' ? '🔒 Case closed' : '🔒 Assigned to another admin'}
+                      {caseItem.status === 'closed' 
+                        ? '🔒 Case closed' 
+                        : caseItem.assigned_admin 
+                          ? `🔒 Assigned to ${caseItem.assigned_admin.label || caseItem.assigned_admin.username}`
+                          : '🔒 Not assigned to you'}
                     </div>
                   )}
                 </div>
