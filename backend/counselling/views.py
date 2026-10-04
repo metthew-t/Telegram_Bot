@@ -806,59 +806,58 @@ class CaseViewSet(viewsets.ModelViewSet):
         
         case.status = 'closed'
         case.closed_at = timezone.now()  # Track when closed
-            case.save()
-            AuditLog.objects.create(
-                case=case,
-                performer=request.user,
-                action='closed',
-                details=f'Case closed by {request.user.username}',
-            )
-            
-            # Send feedback request to user via Telegram with inline button
-            feedback_message = (
-                f"Your case #{case.user_case_number} ({case.title}) has been closed.\n\n"
-                f"📝 Please share your feedback about your counselor and experience.\n"
-                f"Your feedback helps us improve our service.\n\n"
-                f"Click the button below to submit your feedback."
-            )
-            
-            # Create inline keyboard with feedback button (JSON format for Telegram API)
-            inline_keyboard = [[{"text": "📝 Submit Feedback", "callback_data": f"feedback_{case.id}"}]]
-            
-            # Send message with inline button via Telegram API
-            if case.user.telegram_id:
-                try:
-                    import requests
-                    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-                    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-                    payload = {
-                        "chat_id": str(case.user.telegram_id),
-                        "text": feedback_message,
-                        "reply_markup": {
-                            "inline_keyboard": inline_keyboard
-                        }
+        case.save()
+        AuditLog.objects.create(
+            case=case,
+            performer=request.user,
+            action='closed',
+            details=f'Case closed by {request.user.username}',
+        )
+        
+        # Send feedback request to user via Telegram with inline button
+        feedback_message = (
+            f"Your case #{case.user_case_number} ({case.title}) has been closed.\n\n"
+            f"📝 Please share your feedback about your counselor and experience.\n"
+            f"Your feedback helps us improve our service.\n\n"
+            f"Click the button below to submit your feedback."
+        )
+        
+        # Create inline keyboard with feedback button (JSON format for Telegram API)
+        inline_keyboard = [[{"text": "📝 Submit Feedback", "callback_data": f"feedback_{case.id}"}]]
+        
+        # Send message with inline button via Telegram API
+        if case.user.telegram_id:
+            try:
+                import requests
+                bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+                url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                payload = {
+                    "chat_id": str(case.user.telegram_id),
+                    "text": feedback_message,
+                    "reply_markup": {
+                        "inline_keyboard": inline_keyboard
                     }
-                    response = requests.post(url, json=payload, timeout=10)
-                    if response.status_code != 200:
-                        print(f"Failed to send feedback button: {response.text}")
-                        # Fallback to simple message
-                        notify_case_user(case, feedback_message)
-                except Exception as e:
-                    print(f"Failed to send feedback button: {e}")
+                }
+                response = requests.post(url, json=payload, timeout=10)
+                if response.status_code != 200:
+                    print(f"Failed to send feedback button: {response.text}")
                     # Fallback to simple message
                     notify_case_user(case, feedback_message)
+            except Exception as e:
+                print(f"Failed to send feedback button: {e}")
+                # Fallback to simple message
+                notify_case_user(case, feedback_message)
 
-            frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
+        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
-            # ── Email ──
-            try:
-                subject, html_body, text_body = render_case_closed_email(case, request.user.username, frontend_url)
-                send_email_to_staff(subject, html_body, text_body)
-            except Exception as exc:
-                print(f"[Email] Case-closed email failed: {exc}")
+        # ── Email ──
+        try:
+            subject, html_body, text_body = render_case_closed_email(case, request.user.username, frontend_url)
+            send_email_to_staff(subject, html_body, text_body)
+        except Exception as exc:
+            print(f"[Email] Case-closed email failed: {exc}")
 
-            return Response({'status': 'closed'})
-        raise PermissionDenied('Permission denied')
+        return Response({'status': 'closed'})
     
     @action(detail=True, methods=['post'])
     def resolve(self, request, pk=None):
