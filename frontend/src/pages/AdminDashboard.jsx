@@ -123,18 +123,6 @@ export default function AdminDashboardPage() {
       <div className="panel-header">
         <h1>Admin Support Desk</h1>
         <p>Manage your assigned cases and assist new users</p>
-        <div style={{ marginTop: '12px' }}>
-          <button 
-            className="button button-sm"
-            onClick={() => navigate('/analytics')}
-            style={{ 
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
-              color: 'white'
-            }}
-          >
-            📊 View Analytics
-          </button>
-        </div>
       </div>
 
       {/* Stats Row */}
@@ -204,12 +192,20 @@ export default function AdminDashboardPage() {
               const isAssignedToMe = caseItem.assigned_admin?.id === user?.id || 
                                      caseItem.assigned_admin?.label === user?.username;
               const caseFeedback = feedbacks.find(f => f.case === caseItem.id);
+              const isClickable = user?.role === 'owner' || isAssignedToMe || caseItem.status === 'open';
               
               return (
                 <div
                   key={caseItem.id}
                   className="case-card"
-                  onClick={() => navigate(`/cases/${caseItem.id}`)}
+                  onClick={() => isClickable && navigate(`/cases/${caseItem.id}`)}
+                  style={{
+                    opacity: isClickable ? 1 : 0.6,
+                    cursor: isClickable ? 'pointer' : 'not-allowed',
+                    background: isClickable 
+                      ? undefined 
+                      : 'linear-gradient(135deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.05) 100%)',
+                  }}
                 >
                   <div className="case-header">
                     <h3>
@@ -253,7 +249,7 @@ export default function AdminDashboardPage() {
                     </div>
                   )}
 
-                  {caseItem.status === 'open' && (
+                  {caseItem.status === 'open' && !caseItem.assigned_admin && (
                     <LoadingButton
                       className="button button-primary button-sm"
                       style={{ marginTop: '0.75rem' }}
@@ -268,16 +264,16 @@ export default function AdminDashboardPage() {
                     </LoadingButton>
                   )}
                   
-                  {!isAssignedToMe && caseItem.status === 'assigned' && (
+                  {!isAssignedToMe && !isClickable && (
                     <div style={{ 
                       marginTop: '8px', 
                       padding: '6px 10px', 
-                      background: '#fef3c7', 
+                      background: '#e5e7eb', 
                       borderRadius: '4px',
                       fontSize: '0.85rem',
-                      color: '#92400e'
+                      color: '#6b7280'
                     }}>
-                      ⚠️ Not assigned to you - cannot reply
+                      🔒 Not accessible - {caseItem.status === 'closed' ? 'case closed' : 'assigned to another admin'}
                     </div>
                   )}
                 </div>

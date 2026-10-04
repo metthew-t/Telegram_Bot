@@ -629,7 +629,7 @@ class CaseViewSet(viewsets.ModelViewSet):
             action='assigned',
             details=f'Assigned case to admin {admin.username}',
         )
-        notify_case_user(case, f'Your case #{case.id} has been assigned to support.')
+        notify_case_user(case, f'Your case #{case.user_case_number} has been assigned to support.')
 
         frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
@@ -669,7 +669,7 @@ class CaseViewSet(viewsets.ModelViewSet):
             
             # Send feedback request to user via Telegram
             feedback_message = (
-                f"Your case #{case.id} ({case.title}) has been closed.\n\n"
+                f"Your case #{case.user_case_number} ({case.title}) has been closed.\n\n"
                 f"📝 Please share your feedback about your counselor and experience.\n"
                 f"Your feedback helps us improve our service.\n\n"
                 f"Reply to this message with your feedback."
@@ -704,7 +704,7 @@ class CaseViewSet(viewsets.ModelViewSet):
                 action='resolved',
                 details=f'Case marked as resolved by {request.user.username}',
             )
-            notify_case_user(case, f'Your case #{case.id} has been resolved.')
+            notify_case_user(case, f'Your case #{case.user_case_number} has been resolved.')
             return Response({'status': 'resolved'})
         raise PermissionDenied('Permission denied')
 
@@ -1293,7 +1293,7 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         )
         
         # Notify user
-        notify_case_user(case, f'Your case #{case.id} has been assigned to support.')
+        notify_case_user(case, f'Your case #{case.user_case_number} has been assigned to support.')
         
         serializer = self.serializer_class(assignment_request)
         return Response(serializer.data)

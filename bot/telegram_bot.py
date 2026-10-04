@@ -685,7 +685,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # No case selected - ask user to select and store the message for later
         context.user_data['pending_message'] = message_text
-        case_list = '\n'.join([f"• *{c.get('user_case_number', c['id'])}* - {c['title']}" for c in cases[:10]])
+        case_list = '\n'.join([f"• Case *#{c.get('user_case_number', c['id'])}*: {c['title']}" for c in cases[:10]])
         await update.message.reply_text(
             f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'
             f'Please send just the case number (e.g., "1") to send your message.',
@@ -754,7 +754,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'file_id': voice.file_id,
             'duration': voice.duration
         }
-        case_list = '\n'.join([f"• Case #{c.get('user_case_number', c['id'])}: {c['title']}" for c in cases[:5]])
+        case_list = '\n'.join([f"• Case *#{c.get('user_case_number', c['id'])}*: {c['title']}" for c in cases[:5]])
         await update.message.reply_text(
             f'🎤 Voice message received!\n\n'
             f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'

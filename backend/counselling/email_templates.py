@@ -153,7 +153,7 @@ def _case_info_card(case) -> str:
       </div>
       <div class="info-row">
         <span class="info-label">Submitted by</span>
-        <span class="info-value">{case.user.username}</span>
+        <span class="info-value">Anonymous User</span>
       </div>
       <div class="info-row">
         <span class="info-label">Assigned to</span>

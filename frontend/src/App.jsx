@@ -75,6 +75,11 @@ function Header({ user, onLogout, selectedRole }) {
             System Chat
           </Link>
         )}
+        {isAdminOrOwner && (
+          <Link className={location.pathname === '/analytics' ? 'active' : ''} to="/analytics">
+            📊 Analytics
+          </Link>
+        )}
         {user ? (
           <button className="button button-danger logout-btn" onClick={onLogout}>
             LOGOUT
