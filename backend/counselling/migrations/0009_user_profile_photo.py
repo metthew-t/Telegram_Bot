@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('counselling', '0006_user_email_verification_token_user_email_verified'),
+        ('counselling', '0008_user_email_approved_by_owner_and_more'),
     ]
 
     operations = [

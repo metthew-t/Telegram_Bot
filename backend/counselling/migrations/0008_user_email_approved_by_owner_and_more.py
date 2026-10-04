@@ -10,7 +10,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('counselling', '0007_merge_20260927_0000'),
+        ('counselling', '0007_voice_and_case_numbering'),
     ]
 
     operations = [
