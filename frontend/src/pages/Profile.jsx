@@ -71,6 +71,7 @@ export default function ProfilePage() {
 
         setUploadingPhoto(true);
         setError('');
+        setMessage('');
 
         try {
             const reader = new FileReader();
@@ -82,6 +83,7 @@ export default function ProfilePage() {
                     profile_photo: base64Photo
                 });
 
+                // Update local state immediately
                 setProfilePhoto(base64Photo);
                 setMessage('Profile photo updated successfully!');
                 
@@ -92,12 +94,14 @@ export default function ProfilePage() {
                     localStorage.setItem('telegram_counselling_auth', JSON.stringify(authData));
                 }
                 
-                setTimeout(() => setMessage(''), 3000);
+                // Force page refresh to update all instances
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
             };
             reader.readAsDataURL(file);
         } catch (err) {
-            setError('Failed to upload photo');
-        } finally {
+            setError('Failed to upload photo: ' + (err.message || 'Unknown error'));
             setUploadingPhoto(false);
         }
     };
@@ -106,6 +110,9 @@ export default function ProfilePage() {
         if (!window.confirm('Remove your profile photo?')) return;
 
         setUploadingPhoto(true);
+        setError('');
+        setMessage('');
+        
         try {
             await apiCall('/api/profile/', 'PATCH', {
                 profile_photo: null
@@ -121,10 +128,12 @@ export default function ProfilePage() {
                 localStorage.setItem('telegram_counselling_auth', JSON.stringify(authData));
             }
             
-            setTimeout(() => setMessage(''), 3000);
+            // Force page refresh
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         } catch (err) {
-            setError('Failed to remove photo');
-        } finally {
+            setError('Failed to remove photo: ' + (err.message || 'Unknown error'));
             setUploadingPhoto(false);
         }
     };
@@ -287,25 +296,44 @@ export default function ProfilePage() {
                             : 'linear-gradient(90deg, #6366f1, #8b5cf6)'
                     }} />
 
-                    {/* Glowing Circular Avatar */}
-                    <div style={{
-                        width: '90px',
-                        height: '90px',
-                        borderRadius: 'var(--radius-full)',
-                        background: profilePhoto ? `url(${profilePhoto})` : 'rgba(255, 255, 255, 0.03)',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        border: `2px solid ${roleIsOwner ? 'rgba(245, 158, 11, 0.35)' : 'rgba(99, 102, 241, 0.35)'}`,
-                        boxShadow: roleIsOwner 
-                            ? '0 0 25px rgba(245, 158, 11, 0.15)' 
-                            : '0 0 25px rgba(99, 102, 241, 0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: 'var(--space-md)',
-                        position: 'relative',
-                        marginTop: 'var(--space-sm)'
-                    }}>
+                    {/* Glowing Circular Avatar - Clickable to Upload */}
+                    <div 
+                        onClick={() => (user?.role === 'admin' || user?.role === 'owner') && document.getElementById('profile-photo-upload')?.click()}
+                        style={{
+                            width: '90px',
+                            height: '90px',
+                            borderRadius: '50%',
+                            background: profilePhoto ? `url(${profilePhoto})` : 'rgba(255, 255, 255, 0.03)',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            border: `2px solid ${roleIsOwner ? 'rgba(245, 158, 11, 0.35)' : 'rgba(99, 102, 241, 0.35)'}`,
+                            boxShadow: roleIsOwner 
+                                ? '0 0 25px rgba(245, 158, 11, 0.15)' 
+                                : '0 0 25px rgba(99, 102, 241, 0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: 'var(--space-md)',
+                            position: 'relative',
+                            marginTop: 'var(--space-sm)',
+                            cursor: (user?.role === 'admin' || user?.role === 'owner') ? 'pointer' : 'default',
+                            transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            if (user?.role === 'admin' || user?.role === 'owner') {
+                                e.currentTarget.style.transform = 'scale(1.05)';
+                                e.currentTarget.style.boxShadow = roleIsOwner 
+                                    ? '0 0 35px rgba(245, 158, 11, 0.3)' 
+                                    : '0 0 35px rgba(99, 102, 241, 0.3)';
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.boxShadow = roleIsOwner 
+                                ? '0 0 25px rgba(245, 158, 11, 0.15)' 
+                                : '0 0 25px rgba(99, 102, 241, 0.15)';
+                        }}
+                    >
                         {!profilePhoto && (
                             <span style={{
                                 fontSize: 'var(--font-xl)',
@@ -320,6 +348,33 @@ export default function ProfilePage() {
                             }}>
                                 {getInitials()}
                             </span>
+                        )}
+                        
+                        {/* Camera overlay on hover for admin/owner */}
+                        {(user?.role === 'admin' || user?.role === 'owner') && (
+                            <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                borderRadius: '50%',
+                                background: 'rgba(0, 0, 0, 0)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '24px',
+                                opacity: 0,
+                                transition: 'all 0.2s ease',
+                                pointerEvents: 'none'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.opacity = '1';
+                                e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)';
+                            }}
+                            >
+                                📷
+                            </div>
                         )}
                         
                         {/* Dynamic Active Indicator Badge */}

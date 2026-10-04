@@ -1226,6 +1226,24 @@ textarea {
   box-shadow: 0 6px 30px rgba(16, 185, 129, 0.6) !important;
 }
 
+/* Password inputs in Profile page - Dark text on light background */
+input[type="password"] {
+  background: #f5f5f5 !important;
+  color: #000000 !important;
+  border: 2px solid #d1d5db !important;
+}
+
+input[type="password"]:focus {
+  background: #ffffff !important;
+  border-color: var(--gold) !important;
+  color: #000000 !important;
+}
+
+input[type="password"]::placeholder {
+  color: #6b7280 !important;
+  opacity: 1 !important;
+}
+
 /* Role selector buttons */
 .role-selector {
   display: flex;
