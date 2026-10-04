@@ -1437,9 +1437,15 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         
         assignment_request = self.get_object()
         
+        print(f"[APPROVE] Assignment request ID: {assignment_request.id}")
+        print(f"[APPROVE] Current status: {assignment_request.status}")
+        print(f"[APPROVE] Case ID: {assignment_request.case.id}")
+        
         if assignment_request.status != 'pending':
+            error_msg = f'Request has already been reviewed (current status: {assignment_request.status})'
+            print(f"[APPROVE] ERROR: {error_msg}")
             return Response(
-                {'error': 'Request has already been reviewed'},
+                {'error': error_msg},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1455,6 +1461,8 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         case.status = 'assigned'
         case.assigned_at = timezone.now()
         case.save()
+        
+        print(f"[APPROVE] ✅ Case assigned to {assignment_request.admin.username}")
         
         # Create audit log
         AuditLog.objects.create(
