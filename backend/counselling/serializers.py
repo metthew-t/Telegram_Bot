@@ -6,7 +6,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'telegram_id', 'email_verified', 'email_notifications_enabled', 'email_approved_by_owner', 'password']
+        fields = ['id', 'username', 'email', 'role', 'telegram_id', 'email_verified', 'email_notifications_enabled', 'email_approved_by_owner', 'profile_photo', 'password']
         read_only_fields = ['id', 'email_verified']
 
     def validate_role(self, value):
@@ -104,10 +104,11 @@ class CaseSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     sender = serializers.SerializerMethodField()
     sender_role = serializers.SerializerMethodField()
+    sender_profile_photo = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ['id', 'case', 'sender', 'sender_role', 'content', 'message_type', 'voice_data', 'voice_duration', 'timestamp']
+        fields = ['id', 'case', 'sender', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'voice_data', 'voice_duration', 'timestamp']
         read_only_fields = ['id', 'timestamp']
 
     def get_sender(self, obj):
@@ -122,6 +123,13 @@ class MessageSerializer(serializers.ModelSerializer):
 
     def get_sender_role(self, obj):
         return obj.sender.role
+    
+    def get_sender_profile_photo(self, obj):
+        """Only show profile photo to staff (admin/owner), not to users"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and request.user.role in ['admin', 'owner']:
+            return obj.sender.profile_photo
+        return None
 
 class AuditLogSerializer(serializers.ModelSerializer):
     performer = serializers.SerializerMethodField()
@@ -141,8 +149,9 @@ class AuditLogSerializer(serializers.ModelSerializer):
 class InternalMessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.ReadOnlyField(source='sender.username')
     sender_role = serializers.ReadOnlyField(source='sender.role')
+    sender_profile_photo = serializers.ReadOnlyField(source='sender.profile_photo')
 
     class Meta:
         model = InternalMessage
-        fields = ['id', 'sender', 'sender_name', 'sender_role', 'content', 'message_type', 'message_format', 'voice_data', 'voice_duration', 'timestamp', 'file_name', 'file_content']
+        fields = ['id', 'sender', 'sender_name', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'message_format', 'voice_data', 'voice_duration', 'timestamp', 'file_name', 'file_content']
         read_only_fields = ['id', 'timestamp', 'sender']

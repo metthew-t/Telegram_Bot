@@ -15,6 +15,7 @@ class User(AbstractUser):
     email_verification_token = models.UUIDField(null=True, blank=True, default=None)
     email_notifications_enabled = models.BooleanField(default=True)  # Allow admins to toggle notifications
     email_approved_by_owner = models.BooleanField(default=False)  # Owner must approve admin emails for notifications
+    profile_photo = models.TextField(null=True, blank=True)  # Base64 encoded image
 
     def __str__(self):
         return f"{self.username} ({self.role})"

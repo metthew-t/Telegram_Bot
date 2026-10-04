@@ -289,15 +289,31 @@ export default function CaseDetailPage() {
                   key={msg.id}
                   className={`message-item ${isOwnMessage(msg) ? 'own-message' : 'other-message'}`}
                 >
-                  <strong>{getSenderLabel(msg)}</strong>
-                  {msg.sender_role && (
-                    <span
-                      className={`role-badge role-${msg.sender_role}`}
-                      style={{ marginLeft: '8px' }}
-                    >
-                      {msg.sender_role}
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                    {/* Show profile photo only to staff (admin/owner) */}
+                    {(user?.role === 'admin' || user?.role === 'owner') && msg.sender_profile_photo && (
+                      <img 
+                        src={msg.sender_profile_photo} 
+                        alt="Profile" 
+                        style={{ 
+                          width: '28px', 
+                          height: '28px', 
+                          borderRadius: '50%', 
+                          objectFit: 'cover',
+                          border: '2px solid rgba(255, 215, 0, 0.3)'
+                        }} 
+                      />
+                    )}
+                    <strong>{getSenderLabel(msg)}</strong>
+                    {msg.sender_role && (
+                      <span
+                        className={`role-badge role-${msg.sender_role}`}
+                        style={{ marginLeft: '4px' }}
+                      >
+                        {msg.sender_role}
+                      </span>
+                    )}
+                  </div>
                   
                   {/* Voice Message */}
                   {msg.message_type === 'voice' && msg.voice_data ? (

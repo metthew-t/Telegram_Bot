@@ -906,8 +906,28 @@ class ProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        serializer = UserSerializer(request.user)
+        serializer = UserSerializer(request.user, context={'request': request})
         return Response(serializer.data)
+
+    def patch(self, request):
+        """Update profile including profile photo"""
+        user = request.user
+        
+        # Only allow admins and owners to upload profile photos
+        if 'profile_photo' in request.data:
+            if user.role not in ['admin', 'owner']:
+                return Response(
+                    {'error': 'Only admins and owners can upload profile photos'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            user.profile_photo = request.data.get('profile_photo')
+        
+        # Allow other profile updates
+        serializer = UserSerializer(user, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ServerInfoView(APIView):

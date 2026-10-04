@@ -198,6 +198,35 @@ export default function SystemChatPage() {
                                             className={`message-item ${isOwnMessage(msg) ? 'own-message' : 'other-message'}`}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                                {/* Profile Photo */}
+                                                {msg.sender_profile_photo ? (
+                                                    <img 
+                                                        src={msg.sender_profile_photo} 
+                                                        alt="Profile" 
+                                                        style={{ 
+                                                            width: '32px', 
+                                                            height: '32px', 
+                                                            borderRadius: '50%', 
+                                                            objectFit: 'cover',
+                                                            border: '2px solid rgba(255, 215, 0, 0.3)'
+                                                        }} 
+                                                    />
+                                                ) : (
+                                                    <div style={{ 
+                                                        width: '32px', 
+                                                        height: '32px', 
+                                                        borderRadius: '50%', 
+                                                        background: 'linear-gradient(135deg, #6366f1, #818cf8)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '14px',
+                                                        fontWeight: 700,
+                                                        color: '#fff'
+                                                    }}>
+                                                        {getSenderLabel(msg).charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
                                                 <strong style={{ color: 'var(--accent-primary-hover)', fontSize: '15px', fontWeight: 700 }}>{getSenderLabel(msg)}</strong>
                                                 {msg.sender_role && (
                                                     <span className={`role-badge role-${msg.sender_role}`} style={{ fontSize: '11px', padding: '4px 10px' }}>

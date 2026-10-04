@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getUser } from '../auth.js';
-import { updateProfile } from '../api.js';
+import { updateProfile, apiCall } from '../api.js';
 import LoadingButton from '../components/LoadingButton.jsx';
 
 export default function ProfilePage() {
@@ -14,6 +14,8 @@ export default function ProfilePage() {
     const [activeSubTab, setActiveSubTab] = useState('security'); // 'security' | 'clearance' | 'notifications'
     const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.email_notifications_enabled ?? true);
     const [updatingEmailNotifs, setUpdatingEmailNotifs] = useState(false);
+    const [profilePhoto, setProfilePhoto] = useState(user?.profile_photo || null);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
     // Notification Toggles saved in localStorage
     const [notifs, setNotifs] = useState(() => {
@@ -49,6 +51,82 @@ export default function ProfilePage() {
         navigator.clipboard.writeText(text);
         setCopiedState(true);
         setTimeout(() => setCopiedState(false), 2000);
+    };
+
+    const handlePhotoUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Check file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            setError('Photo size must be less than 2MB');
+            return;
+        }
+
+        // Check file type
+        if (!file.type.startsWith('image/')) {
+            setError('Please upload an image file');
+            return;
+        }
+
+        setUploadingPhoto(true);
+        setError('');
+
+        try {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const base64Photo = event.target.result;
+                
+                // Update profile with photo
+                const response = await apiCall('/api/profile/', 'PATCH', {
+                    profile_photo: base64Photo
+                });
+
+                setProfilePhoto(base64Photo);
+                setMessage('Profile photo updated successfully!');
+                
+                // Update user in localStorage
+                const authData = JSON.parse(localStorage.getItem('telegram_counselling_auth') || '{}');
+                if (authData.user) {
+                    authData.user.profile_photo = base64Photo;
+                    localStorage.setItem('telegram_counselling_auth', JSON.stringify(authData));
+                }
+                
+                setTimeout(() => setMessage(''), 3000);
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            setError('Failed to upload photo');
+        } finally {
+            setUploadingPhoto(false);
+        }
+    };
+
+    const handleRemovePhoto = async () => {
+        if (!window.confirm('Remove your profile photo?')) return;
+
+        setUploadingPhoto(true);
+        try {
+            await apiCall('/api/profile/', 'PATCH', {
+                profile_photo: null
+            });
+
+            setProfilePhoto(null);
+            setMessage('Profile photo removed');
+            
+            // Update user in localStorage
+            const authData = JSON.parse(localStorage.getItem('telegram_counselling_auth') || '{}');
+            if (authData.user) {
+                authData.user.profile_photo = null;
+                localStorage.setItem('telegram_counselling_auth', JSON.stringify(authData));
+            }
+            
+            setTimeout(() => setMessage(''), 3000);
+        } catch (err) {
+            setError('Failed to remove photo');
+        } finally {
+            setUploadingPhoto(false);
+        }
     };
 
     const handleToggleEmailNotifications = async () => {
@@ -214,7 +292,9 @@ export default function ProfilePage() {
                         width: '90px',
                         height: '90px',
                         borderRadius: 'var(--radius-full)',
-                        background: 'rgba(255, 255, 255, 0.03)',
+                        background: profilePhoto ? `url(${profilePhoto})` : 'rgba(255, 255, 255, 0.03)',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
                         border: `2px solid ${roleIsOwner ? 'rgba(245, 158, 11, 0.35)' : 'rgba(99, 102, 241, 0.35)'}`,
                         boxShadow: roleIsOwner 
                             ? '0 0 25px rgba(245, 158, 11, 0.15)' 
@@ -226,19 +306,21 @@ export default function ProfilePage() {
                         position: 'relative',
                         marginTop: 'var(--space-sm)'
                     }}>
-                        <span style={{
-                            fontSize: 'var(--font-xl)',
-                            fontWeight: 800,
-                            letterSpacing: '0.05em',
-                            background: roleIsOwner
-                                ? 'linear-gradient(135deg, #f59e0b, #fbbf24)'
-                                : 'linear-gradient(135deg, #6366f1, #818cf8)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            backgroundClip: 'text'
-                        }}>
-                            {getInitials()}
-                        </span>
+                        {!profilePhoto && (
+                            <span style={{
+                                fontSize: 'var(--font-xl)',
+                                fontWeight: 800,
+                                letterSpacing: '0.05em',
+                                background: roleIsOwner
+                                    ? 'linear-gradient(135deg, #f59e0b, #fbbf24)'
+                                    : 'linear-gradient(135deg, #6366f1, #818cf8)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text'
+                            }}>
+                                {getInitials()}
+                            </span>
+                        )}
                         
                         {/* Dynamic Active Indicator Badge */}
                         <div style={{
@@ -267,7 +349,7 @@ export default function ProfilePage() {
                         fontWeight: 700,
                         textTransform: 'uppercase',
                         letterSpacing: '0.08em',
-                        marginBottom: 'var(--space-lg)',
+                        marginBottom: 'var(--space-md)',
                         background: roleIsOwner ? 'rgba(245, 158, 11, 0.1)' : 'rgba(99, 102, 241, 0.1)',
                         color: roleIsOwner ? '#fbbf24' : '#818cf8',
                         border: `1px solid ${roleIsOwner ? 'rgba(245, 158, 11, 0.2)' : 'rgba(99, 102, 241, 0.2)'}`,
@@ -277,6 +359,58 @@ export default function ProfilePage() {
                     }}>
                         🛡️ {user?.role}
                     </span>
+
+                    {/* Photo Upload Buttons (Admin/Owner only) */}
+                    {(user?.role === 'admin' || user?.role === 'owner') && (
+                        <div style={{ width: '100%', marginBottom: 'var(--space-md)' }}>
+                            <input
+                                type="file"
+                                id="profile-photo-upload"
+                                accept="image/*"
+                                onChange={handlePhotoUpload}
+                                style={{ display: 'none' }}
+                            />
+                            <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                                <button
+                                    onClick={() => document.getElementById('profile-photo-upload').click()}
+                                    disabled={uploadingPhoto}
+                                    className="button button-secondary"
+                                    style={{
+                                        fontSize: '12px',
+                                        padding: '8px 16px',
+                                        width: '100%'
+                                    }}
+                                >
+                                    {uploadingPhoto ? '⏳ Uploading...' : profilePhoto ? '📷 Change Photo' : '📷 Upload Photo'}
+                                </button>
+                                {profilePhoto && (
+                                    <button
+                                        onClick={handleRemovePhoto}
+                                        disabled={uploadingPhoto}
+                                        className="button"
+                                        style={{
+                                            fontSize: '12px',
+                                            padding: '8px 16px',
+                                            width: '100%',
+                                            background: 'rgba(239, 68, 68, 0.1)',
+                                            color: '#ef4444',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)'
+                                        }}
+                                    >
+                                        🗑️ Remove Photo
+                                    </button>
+                                )}
+                            </div>
+                            <p style={{ 
+                                fontSize: '11px', 
+                                color: 'var(--text-muted)', 
+                                marginTop: '8px',
+                                textAlign: 'center'
+                            }}>
+                                Photo visible to staff only
+                            </p>
+                        </div>
+                    )}
 
                     <hr style={{ width: '100%', margin: '0 0 var(--space-md) 0', border: 'none', borderTop: '1px solid var(--border-subtle)' }} />
 
