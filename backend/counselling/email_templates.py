@@ -458,3 +458,83 @@ def render_password_reset_email(user, reset_url: str):
     </p>"""
 
     return _html_wrap("🔐 Password Reset", "red", body_html)
+
+
+# ─── Template: New Owner Created ─────────────────────────────────────────────
+
+def render_new_owner_created_email(new_owner, creator_username: str, frontend_url: str):
+    """Email notification when a new owner is added to the platform"""
+    subject = f"👑 New Owner Account Created — {new_owner.username}"
+    login_url = f"{frontend_url}/login"
+
+    body_html = f"""
+    <div class="alert-icon">👑</div>
+    <h2 class="greeting">New Owner Account Created</h2>
+    <p class="intro">
+      <strong style="color:#818cf8;">{creator_username}</strong> has created a new owner account on the
+      <strong>Counselling Platform</strong>. The new owner can now access the platform with full administrative privileges.
+    </p>
+    
+    <!-- Owner Details Card -->
+    <div class="info-card">
+      <div class="info-row">
+        <span class="info-label">Username</span>
+        <span class="info-value mono">{new_owner.username}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Email</span>
+        <span class="info-value">{new_owner.email or 'Not provided'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Role</span>
+        <span class="info-value"><span class="status-badge" style="background:rgba(245,158,11,0.15);color:#f59e0b;">Owner</span></span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Created</span>
+        <span class="info-value">{new_owner.date_joined.strftime('%d %B %Y, %H:%M UTC')}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Email Status</span>
+        <span class="info-value">{'✅ Verified' if new_owner.email_verified else '⚠️ Pending Verification'}</span>
+      </div>
+    </div>
+    
+    <div class="info-card" style="background:#13151f;border-left-color:#f59e0b;padding:16px 20px;margin-top:16px;">
+      <p class="note" style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
+        <strong style="color:#f59e0b;">👥 Owner Privileges:</strong><br>
+        Owners act as a single administrative entity. All owners share the same permissions and responsibilities:
+        <ul style="margin:8px 0 0 20px;padding:0;color:#cbd5e1;">
+          <li>Assign and manage all cases</li>
+          <li>Create and manage admin accounts</li>
+          <li>Access system analytics and audit logs</li>
+          <li>Manage platform settings</li>
+        </ul>
+      </p>
+    </div>
+    
+    {_cta_button("🔐 Access Platform", login_url)}
+    
+    <hr class="divider"/>
+    
+    <p class="note"><strong style="color:#94a3b8;">Note for {new_owner.username}:</strong></p>
+    <p class="note">
+      {'You will receive a separate verification email to activate your account.' if not new_owner.email_verified else 'Your account has been auto-verified and is ready to use.'}
+      You can log in using your credentials and change your password from the profile page.
+    </p>"""
+
+    text_body = f"""New Owner Account Created — {new_owner.username}
+
+Created by:     {creator_username}
+Username:       {new_owner.username}
+Email:          {new_owner.email or 'Not provided'}
+Role:           Owner
+Email Status:   {'Verified' if new_owner.email_verified else 'Pending Verification'}
+Created:        {new_owner.date_joined.strftime('%d %B %Y, %H:%M UTC')}
+
+Owner Privileges:
+All owners share the same permissions and act as a single administrative entity.
+
+Access the platform: {login_url}
+"""
+
+    return subject, _html_wrap("👑 New Owner", "amber", body_html), text_body

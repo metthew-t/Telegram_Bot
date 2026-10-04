@@ -16,6 +16,12 @@ export default function ProfilePage() {
     const [updatingEmailNotifs, setUpdatingEmailNotifs] = useState(false);
     const [profilePhoto, setProfilePhoto] = useState(user?.profile_photo || null);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    
+    // Email change states
+    const [newEmail, setNewEmail] = useState('');
+    const [emailLoading, setEmailLoading] = useState(false);
+    const [emailMessage, setEmailMessage] = useState('');
+    const [emailError, setEmailError] = useState('');
 
     // Notification Toggles saved in localStorage
     const [notifs, setNotifs] = useState(() => {
@@ -249,6 +255,70 @@ export default function ProfilePage() {
             setError(err.message || 'Failed to update password.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleEmailChange = async (e) => {
+        e.preventDefault();
+        setEmailMessage('');
+        setEmailError('');
+
+        if (!newEmail || !newEmail.trim()) {
+            setEmailError('Email is required');
+            return;
+        }
+
+        // Validate email format
+        const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!emailPattern.test(newEmail)) {
+            setEmailError('Invalid email format');
+            return;
+        }
+
+        setEmailLoading(true);
+        try {
+            const response = await fetch(`https://telegram-bot-backend-bwu4.onrender.com/api/users/${user.id}/change_email/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('telegram_counselling_auth') ? JSON.parse(localStorage.getItem('telegram_counselling_auth')).access : ''}`
+                },
+                body: JSON.stringify({
+                    email: newEmail.trim().toLowerCase()
+                })
+            });
+
+            const contentType = response.headers.get('content-type');
+            
+            if (!response.ok) {
+                if (contentType && contentType.includes('text/html')) {
+                    throw new Error('Failed to update email. Please try again.');
+                }
+                
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to update email');
+            }
+
+            const data = await response.json();
+            setEmailMessage(data.message || 'Email updated successfully!');
+            setNewEmail('');
+            
+            // Update user in localStorage
+            const authData = JSON.parse(localStorage.getItem('telegram_counselling_auth') || '{}');
+            if (authData.user) {
+                authData.user.email = data.email;
+                authData.user.email_verified = data.email_verified;
+                localStorage.setItem('telegram_counselling_auth', JSON.stringify(authData));
+            }
+            
+            // Refresh page after 2 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } catch (err) {
+            setEmailError(err.message || 'Failed to update email.');
+        } finally {
+            setEmailLoading(false);
         }
     };
 
@@ -572,7 +642,120 @@ export default function ProfilePage() {
                     {/* ──── TAB CONTENT: SECURITY ──── */}
                     {activeSubTab === 'security' && (
                         <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                            
+                            {/* ── EMAIL CHANGE SECTION ── */}
                             <h3 style={{ fontSize: 'var(--font-lg)', marginBottom: 'var(--space-sm)', color: 'var(--text-primary)' }}>
+                                Change Email Address
+                            </h3>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', marginBottom: 'var(--space-md)' }}>
+                                Update your email address for notifications and account recovery.
+                            </p>
+
+                            <div style={{ 
+                                background: 'rgba(99, 102, 241, 0.1)', 
+                                border: '1px solid rgba(99, 102, 241, 0.3)',
+                                borderRadius: 'var(--radius-md)',
+                                padding: 'var(--space-md)',
+                                marginBottom: 'var(--space-lg)'
+                            }}>
+                                <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-sm)' }}>
+                                    <strong>Current Email:</strong> {user?.email || 'Not set'}
+                                    {user?.email_verified && (
+                                        <span style={{ 
+                                            marginLeft: 'var(--space-sm)', 
+                                            color: 'var(--success)', 
+                                            fontSize: '12px',
+                                            fontWeight: 600
+                                        }}>
+                                            ✓ Verified
+                                        </span>
+                                    )}
+                                    {user?.email && !user?.email_verified && (
+                                        <span style={{ 
+                                            marginLeft: 'var(--space-sm)', 
+                                            color: 'var(--warning)', 
+                                            fontSize: '12px',
+                                            fontWeight: 600
+                                        }}>
+                                            ⚠ Not Verified
+                                        </span>
+                                    )}
+                                </div>
+
+                                <form onSubmit={handleEmailChange} style={{ marginTop: 'var(--space-md)' }}>
+                                    <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>
+                                        <span style={{ display: 'block', fontSize: 'var(--font-sm)', fontWeight: 500, marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                                            New Email Address
+                                        </span>
+                                        <input
+                                            type="email"
+                                            value={newEmail}
+                                            onChange={(e) => setNewEmail(e.target.value)}
+                                            placeholder="Enter your new email"
+                                            disabled={emailLoading}
+                                            style={{ 
+                                                width: '100%', 
+                                                padding: '12px 16px', 
+                                                background: 'rgba(255, 255, 255, 0.03)',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: 'var(--radius-md)',
+                                                color: '#ffffff',
+                                                fontSize: '14px'
+                                            }}
+                                        />
+                                    </label>
+
+                                    {emailMessage && (
+                                        <div style={{ 
+                                            background: 'rgba(34, 197, 94, 0.1)', 
+                                            border: '1px solid rgba(34, 197, 94, 0.3)',
+                                            borderRadius: 'var(--radius-md)',
+                                            padding: 'var(--space-sm)',
+                                            marginTop: 'var(--space-sm)',
+                                            color: 'var(--success)',
+                                            fontSize: 'var(--font-sm)'
+                                        }}>
+                                            {emailMessage}
+                                        </div>
+                                    )}
+
+                                    {emailError && (
+                                        <div style={{ 
+                                            background: 'rgba(239, 68, 68, 0.1)', 
+                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            borderRadius: 'var(--radius-md)',
+                                            padding: 'var(--space-sm)',
+                                            marginTop: 'var(--space-sm)',
+                                            color: 'var(--danger)',
+                                            fontSize: 'var(--font-sm)'
+                                        }}>
+                                            {emailError}
+                                        </div>
+                                    )}
+
+                                    <LoadingButton
+                                        type="submit"
+                                        loading={emailLoading}
+                                        style={{
+                                            marginTop: 'var(--space-md)',
+                                            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                            color: '#ffffff',
+                                            padding: '12px 24px',
+                                            borderRadius: 'var(--radius-md)',
+                                            fontSize: 'var(--font-sm)',
+                                            fontWeight: 600,
+                                            border: 'none',
+                                            cursor: emailLoading ? 'not-allowed' : 'pointer',
+                                            opacity: emailLoading ? 0.6 : 1
+                                        }}
+                                    >
+                                        {emailLoading ? 'Updating...' : 'Update Email'}
+                                    </LoadingButton>
+                                </form>
+                            </div>
+
+                            {/* ── PASSWORD CHANGE SECTION ── */}
+                            <h3 style={{ fontSize: 'var(--font-lg)', marginBottom: 'var(--space-sm)', color: 'var(--text-primary)', marginTop: 'var(--space-xl)' }}>
                                 Change Password
                             </h3>
                             <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', marginBottom: 'var(--space-lg)' }}>

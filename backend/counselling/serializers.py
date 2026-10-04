@@ -92,9 +92,20 @@ class CaseSerializer(serializers.ModelSerializer):
     def get_assigned_admin(self, obj):
         if obj.assigned_admin is None:
             return None
+        
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return {'label': 'Assigned admin'}
+        
+        # ── OWNERS AS ONE ENTITY: Show "All Owners" when assigned to any owner ──
+        if obj.assigned_admin.role == 'owner':
+            return {
+                'id': obj.assigned_admin.id,
+                'username': obj.assigned_admin.username,
+                'label': 'All Owners',
+                'role': 'owner'
+            }
+        
         if request.user.role == 'owner':
             return UserSerializer(obj.assigned_admin, context=self.context).data
         if request.user.role == 'admin':

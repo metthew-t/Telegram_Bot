@@ -342,6 +342,32 @@ def _owner_email_recipients():
     )
 
 
+def _user_can_access_case(user, case):
+    """
+    Check if a user can access/modify a case.
+    
+    Rules:
+    - Owners can access any case
+    - Admins can only access cases assigned to them
+    - OWNERS AS ONE ENTITY: Any owner can access cases assigned to any owner
+    - Users can only access their own cases
+    """
+    if user.role == 'owner':
+        return True
+    
+    if user.role == 'admin' and case.assigned_admin == user:
+        return True
+    
+    # Allow any owner to access cases assigned to any owner
+    if user.role == 'owner' and case.assigned_admin and case.assigned_admin.role == 'owner':
+        return True
+    
+    if case.user == user:
+        return True
+    
+    return False
+
+
 def send_email_to_staff(subject: str, html_body: str, text_body: str):
     _send_email(subject, html_body, text_body, _staff_email_recipients())
 
@@ -487,6 +513,36 @@ class UserViewSet(viewsets.ModelViewSet):
                 send_verification_email(user, self.request)
             except Exception as exc:
                 print(f"[Email] Verification email failed for {user.username}: {exc}")
+        
+        # ── Notify all existing owners when a new owner is created ──
+        if user.role == 'owner' and self.request.user.is_authenticated:
+            try:
+                from .email_templates import render_new_owner_created_email
+                frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
+                
+                subject, html_body, text_body = render_new_owner_created_email(
+                    user, 
+                    self.request.user.username, 
+                    frontend_url
+                )
+                
+                # Collect all owner emails (existing owners + new owner)
+                owner_emails = []
+                existing_owners = User.objects.filter(role='owner', email_verified=True).exclude(id=user.id)
+                for owner in existing_owners:
+                    if owner.email:
+                        owner_emails.append(owner.email)
+                
+                # Add new owner's email if verified
+                if user.email and user.email_verified:
+                    owner_emails.append(user.email)
+                
+                if owner_emails:
+                    _send_email(subject, html_body, text_body, owner_emails)
+                    print(f"[Email] ✅ New owner notification sent to {len(owner_emails)} owner(s)")
+            except Exception as exc:
+                print(f"[Email] Failed to send new owner notification: {exc}")
+
 
     @action(detail=True, methods=['post'], permission_classes=[IsOwner])
     def verify(self, request, pk=None):
@@ -532,6 +588,72 @@ class UserViewSet(viewsets.ModelViewSet):
         print(f"[PasswordChange] ✅ Password changed successfully for user: {user.username}")
         
         return Response({'status': 'success', 'message': 'Password changed successfully'})
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def change_email(self, request, pk=None):
+        """Allow user to change their email (owners only or self)"""
+        user = self.get_object()
+        
+        # Users can only change their own email (unless owner)
+        if request.user.id != user.id and request.user.role != 'owner':
+            return Response(
+                {'error': 'You can only change your own email'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        new_email = request.data.get('email', '').strip().lower()
+        
+        if not new_email:
+            return Response(
+                {'error': 'Email is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate email format
+        import re
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, new_email):
+            return Response(
+                {'error': 'Invalid email format'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if email already exists (excluding current user)
+        if User.objects.filter(email=new_email).exclude(id=user.id).exists():
+            return Response(
+                {'error': 'This email is already in use'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update email and mark as unverified if email changed
+        if user.email != new_email:
+            user.email = new_email
+            user.email_verified = False
+            user.save(update_fields=['email', 'email_verified'])
+            
+            # Send verification email for new email
+            try:
+                send_verification_email(user, request)
+                print(f"[EmailChange] ✅ Email changed for user {user.username}: {new_email}")
+                return Response({
+                    'status': 'success',
+                    'message': 'Email updated successfully. Please check your inbox for verification email.',
+                    'email': new_email,
+                    'email_verified': False
+                })
+            except Exception as exc:
+                print(f"[Email] Verification email failed: {exc}")
+                return Response({
+                    'status': 'success',
+                    'message': 'Email updated but verification email failed to send. Contact support.',
+                    'email': new_email,
+                    'email_verified': False
+                })
+        
+        return Response({
+            'status': 'no_change',
+            'message': 'Email is already set to this address'
+        })
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny], url_path='resend-verification')
     def resend_verification(self, request):
@@ -622,7 +744,16 @@ class CaseViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({'error': 'User not found or invalid role'}, status=status.HTTP_400_BAD_REQUEST)
 
-        case.assigned_admin = admin
+        # ── OWNERS AS ONE ENTITY: When assigning to any owner, assign to first owner (representative) ──
+        actual_assigned_admin = admin
+        if admin.role == 'owner':
+            # Get the first owner as the representative for all owners
+            first_owner = User.objects.filter(role='owner').order_by('id').first()
+            if first_owner:
+                actual_assigned_admin = first_owner
+                print(f"[Assignment] Owner assignment: Assigning to first owner {first_owner.username} (represents all owners)")
+        
+        case.assigned_admin = actual_assigned_admin
         case.status = 'assigned'
         case.assigned_at = timezone.now()  # Track when assigned
         case.save()
@@ -630,23 +761,31 @@ class CaseViewSet(viewsets.ModelViewSet):
             case=case,
             performer=request.user,
             action='assigned',
-            details=f'Assigned case to admin {admin.username}',
+            details=f'Assigned case to {"all owners" if actual_assigned_admin.role == "owner" else "admin " + actual_assigned_admin.username}',
         )
         notify_case_user(case, f'Your case #{case.user_case_number} has been assigned to support.')
 
         frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
-        # ── Email: notify the assigned admin + owners ──
+        # ── Email: notify the assigned admin/owner + all owners ──
         try:
+            display_name = "All Owners" if actual_assigned_admin.role == 'owner' else actual_assigned_admin.username
             subject, html_body, text_body = render_case_assigned_email(
-                case, admin.username, request.user.username, frontend_url
+                case, display_name, request.user.username, frontend_url
             )
             # Collect verified emails: assigned admin + all owners
             recipients = []
-            if admin.email and admin.email_verified:
-                recipients.append(admin.email)
-            owner_emails = _owner_email_recipients()
-            recipients.extend(e for e in owner_emails if e not in recipients)
+            if actual_assigned_admin.role == 'admin' and actual_assigned_admin.email and actual_assigned_admin.email_verified:
+                recipients.append(actual_assigned_admin.email)
+            elif actual_assigned_admin.role == 'owner':
+                # Notify all owners
+                owner_emails = _owner_email_recipients()
+                recipients.extend(owner_emails)
+            else:
+                # Also include owner emails for visibility
+                owner_emails = _owner_email_recipients()
+                recipients.extend(e for e in owner_emails if e not in recipients)
+            
             if recipients:
                 _send_email(subject, html_body, text_body, recipients)
         except Exception as exc:
@@ -659,9 +798,14 @@ class CaseViewSet(viewsets.ModelViewSet):
         from django.utils import timezone
         
         case = self.get_object()
-        if request.user.role == 'owner' or (request.user.role == 'admin' and case.assigned_admin == request.user) or case.user == request.user:
-            case.status = 'closed'
-            case.closed_at = timezone.now()  # Track when closed
+        if not _user_can_access_case(request.user, case):
+            return Response(
+                {'error': 'You do not have permission to close this case'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        case.status = 'closed'
+        case.closed_at = timezone.now()  # Track when closed
             case.save()
             AuditLog.objects.create(
                 case=case,
@@ -671,9 +815,6 @@ class CaseViewSet(viewsets.ModelViewSet):
             )
             
             # Send feedback request to user via Telegram with inline button
-            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-            
-            # Store the case ID in bot context for feedback collection
             feedback_message = (
                 f"Your case #{case.user_case_number} ({case.title}) has been closed.\n\n"
                 f"📝 Please share your feedback about your counselor and experience.\n"
@@ -681,24 +822,27 @@ class CaseViewSet(viewsets.ModelViewSet):
                 f"Click the button below to submit your feedback."
             )
             
-            # Create inline keyboard with feedback button
-            keyboard = [[InlineKeyboardButton("📝 Submit Feedback", callback_data=f"feedback_{case.id}")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
+            # Create inline keyboard with feedback button (JSON format for Telegram API)
+            inline_keyboard = [[{"text": "📝 Submit Feedback", "callback_data": f"feedback_{case.id}"}]]
             
-            # Send message with inline button
+            # Send message with inline button via Telegram API
             if case.user.telegram_id:
                 try:
                     import requests
                     bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
                     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
                     payload = {
-                        "chat_id": case.user.telegram_id,
+                        "chat_id": str(case.user.telegram_id),
                         "text": feedback_message,
                         "reply_markup": {
-                            "inline_keyboard": keyboard
+                            "inline_keyboard": inline_keyboard
                         }
                     }
-                    requests.post(url, json=payload, timeout=10)
+                    response = requests.post(url, json=payload, timeout=10)
+                    if response.status_code != 200:
+                        print(f"Failed to send feedback button: {response.text}")
+                        # Fallback to simple message
+                        notify_case_user(case, feedback_message)
                 except Exception as e:
                     print(f"Failed to send feedback button: {e}")
                     # Fallback to simple message
@@ -722,9 +866,14 @@ class CaseViewSet(viewsets.ModelViewSet):
         from django.utils import timezone
         
         case = self.get_object()
-        if request.user.role == 'owner' or (request.user.role == 'admin' and case.assigned_admin == request.user):
-            case.status = 'resolved'
-            case.resolved_at = timezone.now()  # Track when resolved
+        if not _user_can_access_case(request.user, case):
+            return Response(
+                {'error': 'You do not have permission to resolve this case'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        case.status = 'resolved'
+        case.resolved_at = timezone.now()  # Track when resolved
             case.save()
             AuditLog.objects.create(
                 case=case,
@@ -778,11 +927,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         print(f"[MESSAGE CREATE] Case assigned_admin: {case.assigned_admin}")
         print(f"{'='*80}\n")
         
-        allowed = (
-            user.role == 'owner' or
-            user.role == 'admin' or   # Any admin can reply to any case they can view
-            case.user == user
-        )
+        allowed = _user_can_access_case(user, case)
         
         print(f"[PERMISSION CHECK] User role: {user.role}")
         print(f"[PERMISSION CHECK] Is owner: {user.role == 'owner'}")
