@@ -277,6 +277,9 @@ export default function ProfilePage() {
 
         setEmailLoading(true);
         try {
+            console.log('[EmailChange] Sending request to:', `https://telegram-bot-backend-bwu4.onrender.com/api/users/${user.id}/change_email/`);
+            console.log('[EmailChange] Payload:', { email: newEmail.trim().toLowerCase() });
+            
             const response = await fetch(`https://telegram-bot-backend-bwu4.onrender.com/api/users/${user.id}/change_email/`, {
                 method: 'POST',
                 headers: {
@@ -288,6 +291,8 @@ export default function ProfilePage() {
                 })
             });
 
+            console.log('[EmailChange] Response status:', response.status);
+
             const contentType = response.headers.get('content-type');
             
             if (!response.ok) {
@@ -296,10 +301,12 @@ export default function ProfilePage() {
                 }
                 
                 const data = await response.json();
+                console.error('[EmailChange] Error response:', data);
                 throw new Error(data.error || 'Failed to update email');
             }
 
             const data = await response.json();
+            console.log('[EmailChange] Success response:', data);
             setEmailMessage(data.message || 'Email updated successfully!');
             setNewEmail('');
             
@@ -316,6 +323,7 @@ export default function ProfilePage() {
                 window.location.reload();
             }, 2000);
         } catch (err) {
+            console.error('[EmailChange] Exception:', err);
             setEmailError(err.message || 'Failed to update email.');
         } finally {
             setEmailLoading(false);
