@@ -277,10 +277,10 @@ export default function ProfilePage() {
 
         setEmailLoading(true);
         try {
-            console.log('[EmailChange] Sending request to:', `https://telegram-bot-backend-bwu4.onrender.com/api/users/${user.id}/change_email/`);
+            console.log('[EmailChange] Sending request to:', `https://telegram-bot-backend-bwu4.onrender.com/api/users/${user.id}/change-email/`);
             console.log('[EmailChange] Payload:', { email: newEmail.trim().toLowerCase() });
             
-            const response = await fetch(`https://telegram-bot-backend-bwu4.onrender.com/api/users/${user.id}/change_email/`, {
+            const response = await fetch(`https://telegram-bot-backend-bwu4.onrender.com/api/users/${user.id}/change-email/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -664,7 +664,9 @@ export default function ProfilePage() {
                                 border: '1px solid rgba(99, 102, 241, 0.3)',
                                 borderRadius: 'var(--radius-md)',
                                 padding: 'var(--space-md)',
-                                marginBottom: 'var(--space-lg)'
+                                marginBottom: 'var(--space-lg)',
+                                marginLeft: '0',
+                                marginRight: '0'
                             }}>
                                 <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-sm)' }}>
                                     <strong>Current Email:</strong> {user?.email || 'Not set'}

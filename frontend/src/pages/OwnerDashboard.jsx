@@ -42,12 +42,15 @@ export default function OwnerDashboardPage() {
     const handleApproveRequest = async (requestId) => {
         setProcessingRequestId(requestId);
         try {
-            await apiCall(`/api/assignment-requests/${requestId}/approve/`, 'POST');
+            const response = await apiCall(`/api/assignment-requests/${requestId}/approve/`, 'POST');
+            console.log('[ApproveRequest] Success:', response);
             await fetchAssignmentRequests();
             await fetchCases();
             alert('Assignment request approved!');
         } catch (err) {
-            alert('Failed to approve request: ' + (err.message || 'Unknown error'));
+            console.error('[ApproveRequest] Error:', err);
+            const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
+            alert('Failed to approve request: ' + errorMsg);
         } finally {
             setProcessingRequestId(null);
         }

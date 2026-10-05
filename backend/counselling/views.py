@@ -838,22 +838,43 @@ class CaseViewSet(viewsets.ModelViewSet):
                         "inline_keyboard": inline_keyboard
                     }
                 }
+                print(f"[Feedback] Sending feedback button to Telegram user {case.user.telegram_id}")
+                print(f"[Feedback] Payload: {payload}")
                 response = requests.post(url, json=payload, timeout=10)
+                print(f"[Feedback] Telegram API response: {response.status_code}")
+                print(f"[Feedback] Response body: {response.text}")
                 if response.status_code != 200:
-                    print(f"Failed to send feedback button: {response.text}")
+                    print(f"[Feedback] ❌ Failed to send feedback button: {response.text}")
                     # Fallback to simple message
                     notify_case_user(case, feedback_message)
+                else:
+                    print(f"[Feedback] ✅ Feedback button sent successfully")
             except Exception as e:
-                print(f"Failed to send feedback button: {e}")
+                print(f"[Feedback] ❌ Exception while sending feedback button: {e}")
                 # Fallback to simple message
                 notify_case_user(case, feedback_message)
 
         frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
-        # ── Email ──
+        # ── Email: notify only assigned admin + owners ──
         try:
             subject, html_body, text_body = render_case_closed_email(case, request.user.username, frontend_url)
-            send_email_to_staff(subject, html_body, text_body)
+            
+            # Collect recipients: only assigned admin (if exists) + all owners
+            recipients = []
+            
+            # Add assigned admin's email if verified
+            if case.assigned_admin and case.assigned_admin.email and case.assigned_admin.email_verified:
+                if case.assigned_admin.role == 'admin':  # Don't duplicate if admin is also owner
+                    recipients.append(case.assigned_admin.email)
+            
+            # Add all owner emails
+            owner_emails = _owner_email_recipients()
+            recipients.extend(e for e in owner_emails if e not in recipients)
+            
+            if recipients:
+                _send_email(subject, html_body, text_body, recipients)
+                print(f"[Email] Case closed notification sent to {len(recipients)} recipient(s)")
         except Exception as exc:
             print(f"[Email] Case-closed email failed: {exc}")
 
