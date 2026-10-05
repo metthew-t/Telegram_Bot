@@ -381,9 +381,15 @@ Privacy Notice: User identities are protected in email notifications.
 
 # ─── Template: Case Assigned ─────────────────────────────────────────────────
 
-def render_case_assigned_email(case, assigned_admin_username: str, performer_username: str, frontend_url: str):
+def render_case_assigned_email(case, assigned_admin_username: str, performer_username: str, frontend_url: str, recipient_role='admin'):
     subject = f"📋 Case #{case.id} Assigned to {assigned_admin_username}"
     case_url = f"{frontend_url}/cases/{case.id}"
+    
+    # Show full user info for owners
+    if recipient_role == 'owner' and case.user:
+        submitted_by_html = f'<span class="info-value">{case.user.username}</span>'
+    else:
+        submitted_by_html = '<span class="info-value">Anonymous User</span>'
 
     body_html = f"""
     <div class="alert-icon">📋</div>
@@ -393,7 +399,7 @@ def render_case_assigned_email(case, assigned_admin_username: str, performer_use
       <strong style="color:#10b981;">{assigned_admin_username}</strong>.
       The assigned admin should now take ownership and follow up with the client.
     </p>
-    {_case_info_card(case)}
+    {_case_info_card(case, submitted_by_html)}
     {_cta_button("📋 View Assigned Case", case_url)}
     <hr class="divider"/>
     <p class="note">This notification was sent to the assigned administrator and the platform owner.</p>"""
@@ -413,9 +419,15 @@ View the case: {case_url}
 
 # ─── Template: Case Closed ────────────────────────────────────────────────────
 
-def render_case_closed_email(case, performer_username: str, frontend_url: str):
+def render_case_closed_email(case, performer_username: str, frontend_url: str, recipient_role='admin'):
     subject = f"✅ Case #{case.id} Closed — {case.title}"
     case_url = f"{frontend_url}/cases/{case.id}"
+    
+    # Show full user info for owners
+    if recipient_role == 'owner' and case.user:
+        submitted_by_html = f'<span class="info-value">{case.user.username}</span>'
+    else:
+        submitted_by_html = '<span class="info-value">Anonymous User</span>'
 
     body_html = f"""
     <div class="alert-icon">✅</div>
@@ -425,7 +437,7 @@ def render_case_closed_email(case, performer_username: str, frontend_url: str):
       <strong style="color:#10b981;">Closed</strong>. No further action is required unless the client
       re-opens the case.
     </p>
-    {_case_info_card(case)}
+    {_case_info_card(case, submitted_by_html)}
     {_cta_button("✅ View Closed Case", case_url)}
     <hr class="divider"/>
     <p class="note">This notification was sent to all verified administrators and the platform owner.</p>"""
