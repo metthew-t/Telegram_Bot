@@ -151,7 +151,16 @@ export default function AdminDashboardPage() {
           <span className="stat-label">Available (Open)</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">{feedbacks.length}</span>
+          <span className="stat-value">
+            {user?.role === 'owner' 
+              ? feedbacks.length // Owners see all feedback
+              : feedbacks.filter(f => {
+                  // Admins only see feedback for their assigned cases
+                  const feedbackCase = allCases.find(c => c.id === f.case);
+                  return feedbackCase?.assigned_admin?.id === user?.id;
+                }).length
+            }
+          </span>
           <span className="stat-label">Feedbacks</span>
         </div>
       </div>
@@ -258,31 +267,39 @@ export default function AdminDashboardPage() {
                   {/* Only show feedback for cases assigned to this admin */}
                   {caseFeedback && isAssignedToMe && (
                     <button
-                      onClick={() => setSelectedFeedback(caseFeedback)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent navigation to case detail
+                        setSelectedFeedback(caseFeedback);
+                      }}
                       style={{ 
                         marginTop: '8px', 
-                        padding: '8px 12px', 
-                        background: '#f0fdf4', 
-                        border: '1px solid #86efac',
-                        borderRadius: '6px',
+                        padding: '10px 14px', 
+                        background: 'linear-gradient(135deg, #10b981, #059669)', 
+                        border: 'none',
+                        borderRadius: '8px',
                         fontSize: '0.85rem',
+                        color: '#ffffff',
+                        fontWeight: 600,
                         cursor: 'pointer',
                         width: '100%',
                         textAlign: 'left',
-                        transition: 'all 0.2s'
+                        transition: 'all 0.2s',
+                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#dcfce7';
-                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = '#f0fdf4';
                         e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3)';
                       }}
                     >
-                      <strong>📝 Feedback Received</strong>
-                      {caseFeedback.rating && <span> ⭐ {caseFeedback.rating}/5</span>}
-                      <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>📝 Feedback Received</span>
+                        {caseFeedback.rating && <span>⭐ {caseFeedback.rating}/5</span>}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.9, marginTop: '4px' }}>
                         Click to view full feedback
                       </div>
                     </button>
