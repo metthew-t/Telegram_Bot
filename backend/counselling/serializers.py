@@ -120,7 +120,8 @@ class CaseSerializer(serializers.ModelSerializer):
     def get_feedback(self, obj):
         """Return feedback for this case if it exists"""
         try:
-            feedback = obj.feedbacks.first()
+            # feedback is OneToOneField, access directly (not with .first())
+            feedback = obj.feedback
             if feedback:
                 return {
                     'id': feedback.id,
@@ -129,6 +130,7 @@ class CaseSerializer(serializers.ModelSerializer):
                     'created_at': feedback.created_at,
                 }
         except Exception:
+            # No feedback exists for this case
             pass
         return None
 

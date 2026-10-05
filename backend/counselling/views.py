@@ -703,7 +703,7 @@ class UserViewSet(viewsets.ModelViewSet):
 # ─── Case ViewSet ─────────────────────────────────────────────────────────────
 
 class CaseViewSet(viewsets.ModelViewSet):
-    queryset = Case.objects.select_related('user', 'assigned_admin').prefetch_related('feedbacks').all()
+    queryset = Case.objects.select_related('user', 'assigned_admin').all()
     serializer_class = CaseSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -714,8 +714,8 @@ class CaseViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Optimize query with select_related and prefetch_related
-        queryset = Case.objects.select_related('user', 'assigned_admin').prefetch_related('feedbacks')
+        # Optimize query with select_related (feedback is OneToOne, will be fetched automatically)
+        queryset = Case.objects.select_related('user', 'assigned_admin')
         
         if user.role == 'owner':
             return queryset.all()
