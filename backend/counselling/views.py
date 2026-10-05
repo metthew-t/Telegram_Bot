@@ -889,21 +889,20 @@ class CaseViewSet(viewsets.ModelViewSet):
         if not _user_can_access_case(request.user, case):
             return Response(
                 {'error': 'You do not have permission to resolve this case'},
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_FORBIDDEN
             )
         
         case.status = 'resolved'
         case.resolved_at = timezone.now()  # Track when resolved
-            case.save()
-            AuditLog.objects.create(
-                case=case,
-                performer=request.user,
-                action='resolved',
-                details=f'Case marked as resolved by {request.user.username}',
-            )
-            notify_case_user(case, f'Your case #{case.user_case_number} has been resolved.')
-            return Response({'status': 'resolved'})
-        raise PermissionDenied('Permission denied')
+        case.save()
+        AuditLog.objects.create(
+            case=case,
+            performer=request.user,
+            action='resolved',
+            details=f'Case marked as resolved by {request.user.username}',
+        )
+        notify_case_user(case, f'Your case #{case.user_case_number} has been resolved.')
+        return Response({'status': 'resolved'})
 
 
 # ─── Message ViewSet ──────────────────────────────────────────────────────────
