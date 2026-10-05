@@ -463,23 +463,25 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_for_feedback_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Check if user's message is feedback for a recently closed case.
-    This runs on every message and detects if we're waiting for feedback.
+    This runs on every message and detects if we're waiting for feedback text.
     """
     if update.effective_user is None or update.message is None or not update.message.text:
         return False
     
     # Check if user has a pending feedback case stored in context
     feedback_case_id = context.user_data.get('feedback_case_id')
+    feedback_step = context.user_data.get('feedback_step')
     
-    if feedback_case_id:
-        # User is providing feedback
+    if feedback_case_id and feedback_step == 'text':
+        # User is providing text feedback (after selecting rating)
         feedback_text = update.message.text.strip()
+        feedback_rating = context.user_data.get('feedback_rating')
         
         token = get_access_token(update)
         if not token:
             return False
         
-        # Create feedback via API
+        # Create feedback via API with both text and rating
         feedback_resp = backend_request(
             '/api/feedbacks/',
             method='post',
@@ -487,18 +489,25 @@ async def check_for_feedback_request(update: Update, context: ContextTypes.DEFAU
             json={
                 'case': feedback_case_id,
                 'content': feedback_text,
-                'user': update.effective_user.id
+                'rating': feedback_rating  # Can be None if skipped
             }
         )
         
         if feedback_resp.ok:
+            rating_text = f"⭐ {feedback_rating}/5" if feedback_rating else "No rating"
             await update.message.reply_text(
-                '✅ Thank you for your feedback! Your input helps us improve our service.\n\n'
-                'Your feedback has been recorded and shared with your counselor.',
+                f'✅ *Thank You for Your Detailed Feedback!*\n\n'
+                f'🌟 Rating: {rating_text}\n'
+                f'💬 Written feedback: Received\n\n'
+                f'Your feedback has been successfully recorded and will help us improve our service.\n\n'
+                f'We appreciate you taking the time to share your detailed experience!',
+                parse_mode='Markdown',
                 reply_markup=MAIN_MENU_KEYBOARD
             )
-            # Clear the pending feedback flag
+            # Clear the pending feedback flags
             context.user_data.pop('feedback_case_id', None)
+            context.user_data.pop('feedback_rating', None)
+            context.user_data.pop('feedback_step', None)
             return True
         else:
             print(f"DEBUG: Failed to submit feedback: {feedback_resp.text}")
@@ -507,6 +516,8 @@ async def check_for_feedback_request(update: Update, context: ContextTypes.DEFAU
                 reply_markup=MAIN_MENU_KEYBOARD
             )
             context.user_data.pop('feedback_case_id', None)
+            context.user_data.pop('feedback_rating', None)
+            context.user_data.pop('feedback_step', None)
             return True
     
     return False
@@ -820,29 +831,141 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ─── Feedback Inline Button Handler ───
 
 async def handle_feedback_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle inline button click for feedback submission"""
+    """Handle inline button click for feedback submission with rating system"""
     query = update.callback_query
     await query.answer()
     
     # Extract case ID from callback data (format: "feedback_123")
     callback_data = query.data
-    if not callback_data.startswith('feedback_'):
-        return
     
-    try:
-        case_id = int(callback_data.split('_')[1])
-    except (IndexError, ValueError):
-        await query.edit_message_text("Error processing feedback request.")
-        return
+    # Handle initial feedback button click
+    if callback_data.startswith('feedback_'):
+        try:
+            case_id = int(callback_data.split('_')[1])
+        except (IndexError, ValueError):
+            await query.edit_message_text("❌ Error processing feedback request.")
+            return
+        
+        # Store case ID in user context
+        context.user_data['feedback_case_id'] = case_id
+        context.user_data['feedback_step'] = 'rating'  # First ask for rating
+        
+        # Show rating selection keyboard
+        keyboard = [
+            [
+                InlineKeyboardButton("⭐ 1", callback_data=f"rating_{case_id}_1"),
+                InlineKeyboardButton("⭐⭐ 2", callback_data=f"rating_{case_id}_2"),
+                InlineKeyboardButton("⭐⭐⭐ 3", callback_data=f"rating_{case_id}_3"),
+            ],
+            [
+                InlineKeyboardButton("⭐⭐⭐⭐ 4", callback_data=f"rating_{case_id}_4"),
+                InlineKeyboardButton("⭐⭐⭐⭐⭐ 5", callback_data=f"rating_{case_id}_5"),
+            ],
+            [
+                InlineKeyboardButton("⏭️ Skip Rating", callback_data=f"rating_{case_id}_skip")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            text=(
+                "📝 *Feedback for Your Case*\n\n"
+                "🌟 *Step 1 of 2: Rate Your Experience*\n\n"
+                "How would you rate your counselor and overall experience?\n"
+                "Choose from 1 star (poor) to 5 stars (excellent).\n\n"
+                "_You can also skip the rating if you prefer._"
+            ),
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
     
-    # Store case ID in user context for next message
-    context.user_data['feedback_case_id'] = case_id
+    # Handle rating selection
+    elif callback_data.startswith('rating_'):
+        try:
+            parts = callback_data.split('_')
+            case_id = int(parts[1])
+            rating_value = parts[2]
+            
+            if rating_value == 'skip':
+                context.user_data['feedback_rating'] = None
+                rating_text = "No rating"
+            else:
+                context.user_data['feedback_rating'] = int(rating_value)
+                rating_text = "⭐" * int(rating_value)
+        except (IndexError, ValueError):
+            await query.edit_message_text("❌ Error processing rating.")
+            return
+        
+        # Move to text feedback step
+        context.user_data['feedback_step'] = 'text'
+        
+        # Show option to submit with rating only or add text
+        keyboard = [
+            [InlineKeyboardButton("✅ Submit (Rating Only)", callback_data=f"submit_rating_only_{case_id}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            text=(
+                "📝 *Feedback for Your Case*\n\n"
+                f"✅ *Rating Saved:* {rating_text}\n\n"
+                "💬 *Step 2 of 2: Written Feedback (Optional)*\n\n"
+                "Please type your detailed feedback about:\n"
+                "• Your counselor's helpfulness\n"
+                "• What went well\n"
+                "• What could be improved\n"
+                "• Any other comments\n\n"
+                "_Or click the button below to submit your rating without text._"
+            ),
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
     
-    # Edit the message to show feedback is being collected
-    await query.edit_message_text(
-        text=f"{query.message.text}\n\n✍️ Please type your feedback now and send it:",
-        parse_mode='Markdown'
-    )
+    # Handle submit rating only (no text)
+    elif callback_data.startswith('submit_rating_only_'):
+        try:
+            case_id = int(callback_data.split('_')[-1])
+            rating = context.user_data.get('feedback_rating')
+            
+            token = get_access_token(update)
+            if not token:
+                await query.edit_message_text("❌ Authentication error. Please try /start.")
+                return
+            
+            # Submit feedback with rating only, no text
+            feedback_resp = backend_request(
+                '/api/feedbacks/',
+                method='post',
+                token=token,
+                json={
+                    'case': case_id,
+                    'content': '(No written feedback provided)',
+                    'rating': rating
+                }
+            )
+            
+            if feedback_resp.ok:
+                rating_text = "⭐" * rating if rating else "No rating"
+                await query.edit_message_text(
+                    f"✅ *Thank You for Your Feedback!*\n\n"
+                    f"🌟 Rating: {rating_text}\n\n"
+                    f"Your feedback has been successfully recorded and will help us improve our service.\n\n"
+                    f"We appreciate you taking the time to share your experience!",
+                    parse_mode='Markdown'
+                )
+            else:
+                await query.edit_message_text(
+                    "❌ Failed to submit feedback. Please try again later."
+                )
+            
+            # Clear feedback data
+            context.user_data.pop('feedback_case_id', None)
+            context.user_data.pop('feedback_rating', None)
+            context.user_data.pop('feedback_step', None)
+            
+        except Exception as e:
+            print(f"ERROR: Failed to submit rating-only feedback: {str(e)}")
+            await query.edit_message_text("❌ Error submitting feedback.")
 
 
 # ─── Main ───
@@ -892,8 +1015,9 @@ def main():
     application.add_handler(CommandHandler('start', start))
     application.add_handler(newcase_handler)
     
-    # Feedback inline button handler (must be before text handler)
-    application.add_handler(CallbackQueryHandler(handle_feedback_button, pattern='^feedback_'))
+    # Feedback inline button handlers (must be before text handler)
+    # Handle all feedback-related callbacks: feedback_, rating_, submit_rating_only_
+    application.add_handler(CallbackQueryHandler(handle_feedback_button, pattern='^(feedback_|rating_|submit_rating_only_)'))
     
     application.add_handler(CommandHandler('mycases', list_cases))
     application.add_handler(MessageHandler(filters.Regex('^(📋 My Cases|My Cases)$'), list_cases))

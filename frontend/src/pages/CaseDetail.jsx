@@ -160,6 +160,22 @@ export default function CaseDetailPage() {
     }
   };
 
+  const handleDeleteCase = async () => {
+    if (!window.confirm('⚠️ DELETE THIS CASE PERMANENTLY?\n\nThis action cannot be undone!\nAll messages and data for this case will be permanently deleted.')) return;
+    
+    if (!window.confirm('Are you absolutely sure? This is your final warning!')) return;
+    
+    setLoading(true);
+    try {
+      await apiCall(`/api/cases/${id}/delete_case/`, 'DELETE');
+      alert('✅ Case deleted successfully');
+      navigate('/dashboard');
+    } catch (err) {
+      alert(`Failed to delete case: ${err.message || 'Unknown error'}`);
+      setLoading(false);
+    }
+  };
+
   const getSenderLabel = (msg) => {
     if (msg.sender?.label) return msg.sender.label;
     if (msg.sender?.username) return msg.sender.username;
@@ -435,6 +451,24 @@ export default function CaseDetailPage() {
             >
               Close Case
             </LoadingButton>
+          </div>
+        )}
+
+        {/* Delete Case Button (Owner Only) */}
+        {user?.role === 'owner' && (
+          <div className="case-actions" style={{ marginTop: '10px' }}>
+            <button
+              className="button"
+              onClick={handleDeleteCase}
+              style={{
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                border: 'none',
+                color: 'white',
+                fontWeight: 600
+              }}
+            >
+              🗑️ Delete Case Permanently
+            </button>
           </div>
         )}
 

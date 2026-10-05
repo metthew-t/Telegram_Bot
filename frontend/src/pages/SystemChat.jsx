@@ -134,6 +134,37 @@ export default function SystemChatPage() {
         }
     };
 
+    const handleDeleteMessage = async (messageId) => {
+        if (user?.role !== 'owner') {
+            alert('Only owners can delete messages');
+            return;
+        }
+        
+        if (!window.confirm('Delete this message permanently?')) return;
+        
+        try {
+            const authData = JSON.parse(localStorage.getItem('telegram_counselling_auth'));
+            const token = authData?.access;
+            
+            const response = await fetch(`https://telegram-bot-backend-bwu4.onrender.com/api/internal-messages/${messageId}/`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                // Remove message from list
+                setMessages(prevMessages => prevMessages.filter(m => m.id !== messageId));
+            } else {
+                alert('Failed to delete message');
+            }
+        } catch (err) {
+            console.error('Delete error:', err);
+            alert('Failed to delete message');
+        }
+    };
+
     const getSenderLabel = (msg) => {
         if (msg.sender === user?.id) return 'You';
         return msg.sender_name || 'Staff';
@@ -197,41 +228,69 @@ export default function SystemChatPage() {
                                             key={msg.id}
                                             className={`message-item ${isOwnMessage(msg) ? 'own-message' : 'other-message'}`}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                                                {/* Profile Photo */}
-                                                {msg.sender_profile_photo ? (
-                                                    <img 
-                                                        src={msg.sender_profile_photo} 
-                                                        alt="Profile" 
-                                                        style={{ 
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    {/* Profile Photo */}
+                                                    {msg.sender_profile_photo ? (
+                                                        <img 
+                                                            src={msg.sender_profile_photo} 
+                                                            alt="Profile" 
+                                                            style={{ 
+                                                                width: '32px', 
+                                                                height: '32px', 
+                                                                borderRadius: '50%', 
+                                                                objectFit: 'cover',
+                                                                border: '2px solid rgba(255, 215, 0, 0.3)'
+                                                            }} 
+                                                        />
+                                                    ) : (
+                                                        <div style={{ 
                                                             width: '32px', 
                                                             height: '32px', 
                                                             borderRadius: '50%', 
-                                                            objectFit: 'cover',
-                                                            border: '2px solid rgba(255, 215, 0, 0.3)'
-                                                        }} 
-                                                    />
-                                                ) : (
-                                                    <div style={{ 
-                                                        width: '32px', 
-                                                        height: '32px', 
-                                                        borderRadius: '50%', 
-                                                        background: 'linear-gradient(135deg, #6366f1, #818cf8)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontSize: '14px',
-                                                        fontWeight: 700,
-                                                        color: '#fff'
-                                                    }}>
-                                                        {getSenderLabel(msg).charAt(0).toUpperCase()}
-                                                    </div>
-                                                )}
-                                                <strong style={{ color: 'var(--accent-primary-hover)', fontSize: '15px', fontWeight: 700 }}>{getSenderLabel(msg)}</strong>
-                                                {msg.sender_role && (
-                                                    <span className={`role-badge role-${msg.sender_role}`} style={{ fontSize: '11px', padding: '4px 10px' }}>
-                                                        {msg.sender_role}
-                                                    </span>
+                                                            background: 'linear-gradient(135deg, #6366f1, #818cf8)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            fontSize: '14px',
+                                                            fontWeight: 700,
+                                                            color: '#fff'
+                                                        }}>
+                                                            {getSenderLabel(msg).charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                    <strong style={{ color: 'var(--accent-primary-hover)', fontSize: '15px', fontWeight: 700 }}>{getSenderLabel(msg)}</strong>
+                                                    {msg.sender_role && (
+                                                        <span className={`role-badge role-${msg.sender_role}`} style={{ fontSize: '11px', padding: '4px 10px' }}>
+                                                            {msg.sender_role}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* Delete Button (Owner Only) */}
+                                                {user?.role === 'owner' && (
+                                                    <button
+                                                        onClick={() => handleDeleteMessage(msg.id)}
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.1)',
+                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                            color: '#ef4444',
+                                                            padding: '4px 10px',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '12px',
+                                                            fontWeight: 600,
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                                        }}
+                                                    >
+                                                        🗑️ Delete
+                                                    </button>
                                                 )}
                                             </div>
                                             
