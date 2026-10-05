@@ -334,12 +334,14 @@ def _staff_email_recipients():
 
 def _owner_email_recipients():
     """Return list of email addresses for verified owners only."""
-    return list(
+    owner_emails = list(
         User.objects.filter(
             role='owner',
             email_verified=True,
         ).exclude(email='').values_list('email', flat=True)
     )
+    print(f"[EmailRecipients] Found {len(owner_emails)} verified owner email(s): {owner_emails}")
+    return owner_emails
 
 
 def _user_can_access_case(user, case):
@@ -742,11 +744,20 @@ class CaseViewSet(viewsets.ModelViewSet):
 
             # ── Email: Send different versions to owners (with username) vs admins (anonymous) ──
             try:
+                print(f"[Email] Preparing new case email for case #{case.id}")
                 # Email for owners (shows username)
                 subject_owner, html_owner, text_owner = render_new_case_email(case, frontend_url, recipient_role='owner')
+                print(f"[Email] Rendered email with subject: {subject_owner}")
+                
                 owner_emails = _owner_email_recipients()
+                print(f"[Email] Owner emails retrieved: {owner_emails}")
+                
                 if owner_emails:
+                    print(f"[Email] Sending to {len(owner_emails)} owner(s)...")
                     _send_email(subject_owner, html_owner, text_owner, owner_emails)
+                    print(f"[Email] ✅ New case email sent successfully")
+                else:
+                    print(f"[Email] ⚠️ No verified owner emails found - email not sent")
                 
                 # Email for admins (shows anonymous)
                 # Currently only owners get new case notifications, but keeping this for future
@@ -754,7 +765,9 @@ class CaseViewSet(viewsets.ModelViewSet):
                 # admin_emails = [list of admin emails]
                 # _send_email(subject_admin, html_admin, text_admin, admin_emails)
             except Exception as exc:
-                print(f"[Email] New-case email failed: {exc}")
+                print(f"[Email] ❌ New-case email failed: {exc}")
+                import traceback
+                traceback.print_exc()
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrOwner])
     def assign(self, request, pk=None):
@@ -882,7 +895,9 @@ class CaseViewSet(viewsets.ModelViewSet):
 
         # ── Email: notify only assigned admin + owners ──
         try:
+            print(f"[Email] Preparing case closed email for case #{case.id}")
             subject, html_body, text_body = render_case_closed_email(case, request.user.username, frontend_url)
+            print(f"[Email] Rendered email with subject: {subject}")
             
             # Collect recipients: only assigned admin (if exists) + all owners
             recipients = []
@@ -891,16 +906,24 @@ class CaseViewSet(viewsets.ModelViewSet):
             if case.assigned_admin and case.assigned_admin.email and case.assigned_admin.email_verified:
                 if case.assigned_admin.role == 'admin':  # Don't duplicate if admin is also owner
                     recipients.append(case.assigned_admin.email)
+                    print(f"[Email] Added assigned admin: {case.assigned_admin.email}")
             
             # Add all owner emails
             owner_emails = _owner_email_recipients()
+            print(f"[Email] Owner emails retrieved: {owner_emails}")
             recipients.extend(e for e in owner_emails if e not in recipients)
+            
+            print(f"[Email] Total recipients: {recipients}")
             
             if recipients:
                 _send_email(subject, html_body, text_body, recipients)
-                print(f"[Email] Case closed notification sent to {len(recipients)} recipient(s)")
+                print(f"[Email] ✅ Case closed notification sent to {len(recipients)} recipient(s)")
+            else:
+                print(f"[Email] ⚠️ No verified recipients found - email not sent")
         except Exception as exc:
-            print(f"[Email] Case-closed email failed: {exc}")
+            print(f"[Email] ❌ Case-closed email failed: {exc}")
+            import traceback
+            traceback.print_exc()
 
         return Response({'status': 'closed'})
     
