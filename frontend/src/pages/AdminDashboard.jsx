@@ -254,7 +254,8 @@ export default function AdminDashboardPage() {
                     )}
                   </div>
 
-                  {caseFeedback && (
+                  {/* Only show feedback for cases assigned to this admin */}
+                  {caseFeedback && isAssignedToMe && (
                     <div style={{ 
                       marginTop: '8px', 
                       padding: '8px', 
