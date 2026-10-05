@@ -41,8 +41,12 @@ export default function AdminDashboardPage() {
   const fetchFeedbacks = async () => {
     try {
       const data = await apiCall('/api/feedbacks/', 'GET');
-      console.log('Feedbacks received:', data); // Debug log
-      console.log('Feedbacks count:', data?.length); // Debug log
+      console.log('Feedbacks received:', data);
+      console.log('Feedbacks count:', data?.length);
+      if (data && data.length > 0) {
+        console.log('First feedback case ID:', data[0].case);
+        console.log('First feedback rating:', data[0].rating);
+      }
       setFeedbacks(data || []);
     } catch (err) {
       console.error('Failed to load feedbacks:', err);
@@ -154,14 +158,19 @@ export default function AdminDashboardPage() {
         </div>
         <div className="stat-card">
           <span className="stat-value">
-            {user?.role === 'owner' 
-              ? feedbacks.length // Owners see all feedback
-              : feedbacks.filter(f => {
-                  // Admins only see feedback for their assigned cases
-                  const feedbackCase = allCases.find(c => c.id === f.case);
-                  return feedbackCase?.assigned_admin?.id === user?.id;
-                }).length
-            }
+            {(() => {
+              const count = user?.role === 'owner' 
+                ? feedbacks.length
+                : feedbacks.filter(f => {
+                    const feedbackCase = allCases.find(c => c.id === f.case);
+                    const matches = feedbackCase?.assigned_admin?.id === user?.id;
+                    console.log(`Feedback ${f.id} case ${f.case}: found case=${!!feedbackCase}, matches admin=${matches}`);
+                    return matches;
+                  }).length;
+              console.log(`Total feedbacks displayed: ${count}`);
+              console.log(`All cases IDs:`, allCases.map(c => c.id));
+              return count;
+            })()}
           </span>
           <span className="stat-label">Feedbacks</span>
         </div>
