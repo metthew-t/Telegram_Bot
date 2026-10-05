@@ -30,7 +30,7 @@ class Case(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cases')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cases')
     assigned_admin = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_cases')
     user_case_number = models.IntegerField(default=1)  # Per-user case numbering
     created_at = models.DateTimeField(default=timezone.now)

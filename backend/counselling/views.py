@@ -740,10 +740,19 @@ class CaseViewSet(viewsets.ModelViewSet):
                 f"👤 User: {self.request.user.username}"
             )
 
-            # ── Email ──
+            # ── Email: Send different versions to owners (with username) vs admins (anonymous) ──
             try:
-                subject, html_body, text_body = render_new_case_email(case, frontend_url)
-                send_email_to_owners(subject, html_body, text_body)  # Only notify owners
+                # Email for owners (shows username)
+                subject_owner, html_owner, text_owner = render_new_case_email(case, frontend_url, recipient_role='owner')
+                owner_emails = _owner_email_recipients()
+                if owner_emails:
+                    _send_email(subject_owner, html_owner, text_owner, owner_emails)
+                
+                # Email for admins (shows anonymous)
+                # Currently only owners get new case notifications, but keeping this for future
+                # subject_admin, html_admin, text_admin = render_new_case_email(case, frontend_url, recipient_role='admin')
+                # admin_emails = [list of admin emails]
+                # _send_email(subject_admin, html_admin, text_admin, admin_emails)
             except Exception as exc:
                 print(f"[Email] New-case email failed: {exc}")
 
@@ -918,6 +927,31 @@ class CaseViewSet(viewsets.ModelViewSet):
         )
         notify_case_user(case, f'Your case #{case.user_case_number} has been resolved.')
         return Response({'status': 'resolved'})
+    
+    @action(detail=True, methods=['delete'], permission_classes=[IsOwner])
+    def delete_case(self, request, pk=None):
+        """Owner can delete a case by ID"""
+        case = self.get_object()
+        case_id = case.id
+        case_title = case.title
+        
+        # Log the deletion
+        AuditLog.objects.create(
+            case=None,  # Case will be deleted
+            performer=request.user,
+            action='deleted',
+            details=f'Case #{case_id} "{case_title}" deleted by owner {request.user.username}',
+        )
+        
+        # Delete the case (this will cascade delete messages, but not the user)
+        case.delete()
+        
+        print(f"[CaseDelete] ✅ Case #{case_id} deleted by owner {request.user.username}")
+        
+        return Response({
+            'status': 'deleted',
+            'message': f'Case #{case_id} has been permanently deleted'
+        })
 
 
 # ─── Message ViewSet ──────────────────────────────────────────────────────────
@@ -1385,7 +1419,27 @@ class InternalMessageViewSet(viewsets.ModelViewSet):
             send_internal_message_notification(internal_message, self.request.user)
         except Exception as e:
             print(f"[EMAIL NOTIFICATION] Error sending internal message notification: {e}")
-
+    
+    def destroy(self, request, *args, **kwargs):
+        """Allow owner to delete internal messages"""
+        if request.user.role != 'owner':
+            return Response(
+                {'error': 'Only owners can delete internal messages'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        instance = self.get_object()
+        message_id = instance.id
+        message_preview = instance.content[:50] if instance.content else 'File message'
+        
+        self.perform_destroy(instance)
+        
+        print(f"[InternalMessageDelete] ✅ Message #{message_id} deleted by owner {request.user.username}")
+        
+        return Response({
+            'status': 'deleted',
+            'message': f'Internal message deleted successfully'
+        }, status=status.HTTP_200_OK)
 
 
 # ─── Assignment Request ViewSet ───────────────────────────────────────────────

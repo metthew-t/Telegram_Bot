@@ -153,7 +153,7 @@ def _case_info_card(case) -> str:
       </div>
       <div class="info-row">
         <span class="info-label">Submitted by</span>
-        <span class="info-value">Anonymous User</span>
+        {submitted_by_html}
       </div>
       <div class="info-row">
         <span class="info-label">Assigned to</span>
@@ -223,9 +223,24 @@ If you did not register, please ignore this email.
 
 # ─── Template: New Case Created ───────────────────────────────────────────────
 
-def render_new_case_email(case, frontend_url: str):
+def render_new_case_email(case, frontend_url: str, recipient_role: str = 'admin'):
+    """
+    Generate email for new case creation.
+    
+    Privacy Rules:
+    - For admins: Hide user identity (show "Anonymous User")
+    - For owners: Show full user identity (username)
+    """
     subject = f"🆕 New Case #{case.id} Submitted — Action Required"
     case_url = f"{frontend_url}/cases/{case.id}"
+    
+    # Determine what to show for submitter based on recipient role
+    if recipient_role == 'owner' and case.user:
+        submitted_by = case.user.username
+        submitted_by_html = f'<span class="info-value">{case.user.username}</span>'
+    else:
+        submitted_by = "Anonymous User"
+        submitted_by_html = '<span class="info-value">Anonymous User</span>'
 
     body_html = f"""
     <div class="alert-icon">🆕</div>
@@ -249,7 +264,7 @@ def render_new_case_email(case, frontend_url: str):
 
 Title:       {case.title}
 Status:      {case.status.capitalize()}
-Submitted:   Anonymous User
+Submitted:   {submitted_by}
 Created:     {case.created_at.strftime('%d %B %Y, %H:%M UTC')}
 
 Description:
