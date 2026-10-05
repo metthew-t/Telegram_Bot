@@ -369,37 +369,72 @@ export default function AdminDashboardPage() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.7)',
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
-            padding: '20px'
+            padding: '20px',
+            animation: 'fadeIn 0.2s ease'
           }}
           onClick={() => setSelectedFeedback(null)}
         >
           <div 
             style={{
-              background: '#ffffff',
-              borderRadius: '12px',
-              padding: '24px',
-              maxWidth: '500px',
+              background: 'linear-gradient(145deg, #ffffff, #f8f9fa)',
+              borderRadius: '16px',
+              padding: '32px',
+              maxWidth: '650px',
               width: '100%',
-              maxHeight: '80vh',
-              overflow: 'auto'
+              maxHeight: '85vh',
+              overflow: 'auto',
+              boxShadow: '0 24px 80px rgba(0, 0, 0, 0.4), 0 0 1px rgba(99, 102, 241, 0.5)',
+              border: '1px solid rgba(99, 102, 241, 0.1)',
+              animation: 'slideUp 0.3s ease'
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0, color: '#111827' }}>📝 User Feedback</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '2px solid #e5e7eb' }}>
+              <h3 style={{ 
+                margin: 0, 
+                color: '#111827',
+                fontSize: '24px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <span style={{ 
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}>📝 User Feedback</span>
+              </h3>
               <button 
                 onClick={() => setSelectedFeedback(null)}
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                  borderRadius: '8px',
+                  width: '36px',
+                  height: '36px',
+                  fontSize: '20px',
                   cursor: 'pointer',
-                  color: '#6b7280'
+                  color: '#ef4444',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                  e.currentTarget.style.transform = 'rotate(90deg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                  e.currentTarget.style.transform = 'rotate(0deg)';
                 }}
               >
                 ×
@@ -407,35 +442,68 @@ export default function AdminDashboardPage() {
             </div>
             
             {selectedFeedback.rating && (
-              <div style={{ marginBottom: '16px' }}>
-                <strong style={{ color: '#374151' }}>Rating:</strong>
-                <span style={{ marginLeft: '8px', fontSize: '18px' }}>
-                  {'⭐'.repeat(selectedFeedback.rating)}
-                </span>
-                <span style={{ color: '#6b7280', marginLeft: '4px' }}>
-                  {selectedFeedback.rating}/5
-                </span>
+              <div style={{ 
+                marginBottom: '20px',
+                padding: '16px',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(139, 92, 246, 0.05))',
+                borderRadius: '12px',
+                border: '1px solid rgba(99, 102, 241, 0.1)'
+              }}>
+                <strong style={{ color: '#374151', fontSize: '15px', display: 'block', marginBottom: '8px' }}>⭐ Rating:</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '24px', letterSpacing: '2px' }}>
+                    {'⭐'.repeat(selectedFeedback.rating)}
+                  </span>
+                  <span style={{ 
+                    color: '#6366f1',
+                    fontWeight: '600',
+                    fontSize: '18px'
+                  }}>
+                    {selectedFeedback.rating}/5
+                  </span>
+                </div>
               </div>
             )}
             
             <div>
-              <strong style={{ color: '#374151' }}>Feedback:</strong>
+              <strong style={{ 
+                color: '#374151', 
+                fontSize: '15px',
+                display: 'block',
+                marginBottom: '12px'
+              }}>💬 Feedback Message:</strong>
               <p style={{ 
-                marginTop: '8px',
-                color: '#111827',
-                lineHeight: '1.6',
+                marginTop: '0',
+                color: '#1f2937',
+                lineHeight: '1.7',
                 whiteSpace: 'pre-wrap',
-                background: '#f9fafb',
-                padding: '12px',
-                borderRadius: '8px'
+                padding: '20px',
+                background: '#ffffff',
+                borderLeft: '4px solid #6366f1',
+                borderRadius: '12px',
+                fontSize: '15px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                border: '1px solid #e5e7eb',
+                minHeight: '80px',
+                wordBreak: 'break-word'
               }}>
                 {selectedFeedback.content}
               </p>
             </div>
             
             {selectedFeedback.created_at && (
-              <div style={{ marginTop: '16px', fontSize: '0.875rem', color: '#6b7280' }}>
-                Submitted: {new Date(selectedFeedback.created_at).toLocaleString()}
+              <div style={{ 
+                marginTop: '20px', 
+                paddingTop: '16px',
+                borderTop: '1px solid #e5e7eb',
+                fontSize: '13px', 
+                color: '#6b7280',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span>🕐</span>
+                <span>Submitted: {new Date(selectedFeedback.created_at).toLocaleString()}</span>
               </div>
             )}
           </div>

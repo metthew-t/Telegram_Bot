@@ -80,7 +80,7 @@ class AuditLog(models.Model):
         ('reply', 'Reply'),
         ('submitted', 'Submitted'),
     ]
-    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='audit_logs')
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, null=True, blank=True, related_name='audit_logs')
     performer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='performed_actions')
     action = models.CharField(max_length=50, choices=ACTION_CHOICES)
     details = models.TextField(blank=True)

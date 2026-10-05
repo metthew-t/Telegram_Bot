@@ -46,6 +46,7 @@ class UserSerializer(serializers.ModelSerializer):
 class CaseSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
     assigned_admin = serializers.SerializerMethodField()
+    feedback = serializers.SerializerMethodField()
     user_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role='user'),
         source='user',
@@ -76,8 +77,9 @@ class CaseSerializer(serializers.ModelSerializer):
             'assigned_at',
             'resolved_at',
             'closed_at',
+            'feedback',
         ]
-        read_only_fields = ['id', 'user_case_number', 'created_at', 'updated_at', 'assigned_at', 'resolved_at', 'closed_at']
+        read_only_fields = ['id', 'user_case_number', 'created_at', 'updated_at', 'assigned_at', 'resolved_at', 'closed_at', 'feedback']
 
     def get_user(self, obj):
         request = self.context.get('request')
@@ -114,6 +116,21 @@ class CaseSerializer(serializers.ModelSerializer):
                 'label': obj.assigned_admin.username,
             }
         return {'label': 'Assigned admin'}
+    
+    def get_feedback(self, obj):
+        """Return feedback for this case if it exists"""
+        try:
+            feedback = obj.feedbacks.first()
+            if feedback:
+                return {
+                    'id': feedback.id,
+                    'content': feedback.content,
+                    'rating': feedback.rating,
+                    'created_at': feedback.created_at,
+                }
+        except Exception:
+            pass
+        return None
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = serializers.SerializerMethodField()
