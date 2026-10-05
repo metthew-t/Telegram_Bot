@@ -41,6 +41,8 @@ export default function AdminDashboardPage() {
   const fetchFeedbacks = async () => {
     try {
       const data = await apiCall('/api/feedbacks/', 'GET');
+      console.log('Feedbacks received:', data); // Debug log
+      console.log('Feedbacks count:', data?.length); // Debug log
       setFeedbacks(data || []);
     } catch (err) {
       console.error('Failed to load feedbacks:', err);

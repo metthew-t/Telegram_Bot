@@ -1780,10 +1780,16 @@ class AnalyticsViewSet(viewsets.ViewSet):
         avg_rating = feedbacks.aggregate(Avg('rating'))['rating__avg']
         total_feedbacks = feedbacks.count()
         
+        # Debug logging
+        print(f"[Analytics] Total cases in scope: {cases.count()}")
+        print(f"[Analytics] Feedbacks with ratings: {total_feedbacks}")
+        print(f"[Analytics] All feedbacks (including null ratings): {Feedback.objects.filter(case__in=cases).count()}")
+        
         # Rating distribution
         rating_distribution = []
         for rating in range(1, 6):
             count = feedbacks.filter(rating=rating).count()
+            print(f"[Analytics] Rating {rating}: {count} feedbacks")
             rating_distribution.append({
                 'rating': rating,
                 'count': count
