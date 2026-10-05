@@ -701,6 +701,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 # ─── Case ViewSet ─────────────────────────────────────────────────────────────
+# Handles CRUD operations for support cases with optimized queries
 
 class CaseViewSet(viewsets.ModelViewSet):
     queryset = Case.objects.select_related('user', 'assigned_admin').all()
