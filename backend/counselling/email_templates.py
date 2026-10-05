@@ -128,7 +128,7 @@ def _html_wrap(badge_label: str, badge_color: str, body_html: str) -> str:
 </html>"""
 
 
-def _case_info_card(case) -> str:
+def _case_info_card(case, submitted_by_html='<span class="info-value">Anonymous User</span>') -> str:
     status_class = {
         'open': 'status-open',
         'assigned': 'status-assigned',
@@ -249,7 +249,7 @@ def render_new_case_email(case, frontend_url: str, recipient_role: str = 'admin'
       A new case has been submitted by a user and is awaiting assignment.
       Please review the details below and assign it to a support admin at your earliest convenience.
     </p>
-    {_case_info_card(case)}
+    {_case_info_card(case, submitted_by_html)}
     <div class="info-card" style="border-left-color:#7c3aed;margin-top:-10px;">
       <div class="info-row">
         <span class="info-label">Description</span>

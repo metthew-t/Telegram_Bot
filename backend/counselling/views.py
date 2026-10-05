@@ -1141,7 +1141,7 @@ class MessageViewSet(viewsets.ModelViewSet):
 # ─── Audit Log ViewSet ────────────────────────────────────────────────────────
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AuditLog.objects.all().order_by('-created_at')
+    queryset = AuditLog.objects.all().order_by('-created_at')[:500]  # Limit to last 500 entries
     serializer_class = AuditLogSerializer
     permission_classes = [IsOwner]
 
