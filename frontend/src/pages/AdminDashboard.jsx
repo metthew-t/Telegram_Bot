@@ -13,6 +13,7 @@ export default function AdminDashboardPage() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [requestingId, setRequestingId] = useState(null);
+  const [selectedFeedback, setSelectedFeedback] = useState(null); // For feedback modal
   const user = getUser();
   const navigate = useNavigate();
 
@@ -256,16 +257,35 @@ export default function AdminDashboardPage() {
 
                   {/* Only show feedback for cases assigned to this admin */}
                   {caseFeedback && isAssignedToMe && (
-                    <div style={{ 
-                      marginTop: '8px', 
-                      padding: '8px', 
-                      background: '#f0fdf4', 
-                      borderRadius: '6px',
-                      fontSize: '0.85rem'
-                    }}>
-                      <strong>📝 Feedback:</strong> {caseFeedback.content.substring(0, 60)}...
+                    <button
+                      onClick={() => setSelectedFeedback(caseFeedback)}
+                      style={{ 
+                        marginTop: '8px', 
+                        padding: '8px 12px', 
+                        background: '#f0fdf4', 
+                        border: '1px solid #86efac',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        width: '100%',
+                        textAlign: 'left',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#dcfce7';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = '#f0fdf4';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <strong>📝 Feedback Received</strong>
                       {caseFeedback.rating && <span> ⭐ {caseFeedback.rating}/5</span>}
-                    </div>
+                      <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '4px' }}>
+                        Click to view full feedback
+                      </div>
+                    </button>
                   )}
 
                   {caseItem.status === 'open' && !caseItem.assigned_admin && user?.role !== 'owner' && (
@@ -322,6 +342,88 @@ export default function AdminDashboardPage() {
         )}
       </div>
       {error && <div className="form-error" style={{ marginTop: '16px' }}>{error}</div>}
+
+      {/* Feedback Modal */}
+      {selectedFeedback && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}
+          onClick={() => setSelectedFeedback(null)}
+        >
+          <div 
+            style={{
+              background: '#ffffff',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '500px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflow: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, color: '#111827' }}>📝 User Feedback</h3>
+              <button 
+                onClick={() => setSelectedFeedback(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            {selectedFeedback.rating && (
+              <div style={{ marginBottom: '16px' }}>
+                <strong style={{ color: '#374151' }}>Rating:</strong>
+                <span style={{ marginLeft: '8px', fontSize: '18px' }}>
+                  {'⭐'.repeat(selectedFeedback.rating)}
+                </span>
+                <span style={{ color: '#6b7280', marginLeft: '4px' }}>
+                  {selectedFeedback.rating}/5
+                </span>
+              </div>
+            )}
+            
+            <div>
+              <strong style={{ color: '#374151' }}>Feedback:</strong>
+              <p style={{ 
+                marginTop: '8px',
+                color: '#111827',
+                lineHeight: '1.6',
+                whiteSpace: 'pre-wrap',
+                background: '#f9fafb',
+                padding: '12px',
+                borderRadius: '8px'
+              }}>
+                {selectedFeedback.content}
+              </p>
+            </div>
+            
+            {selectedFeedback.created_at && (
+              <div style={{ marginTop: '16px', fontSize: '0.875rem', color: '#6b7280' }}>
+                Submitted: {new Date(selectedFeedback.created_at).toLocaleString()}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

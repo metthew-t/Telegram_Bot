@@ -628,26 +628,41 @@ class UserViewSet(viewsets.ModelViewSet):
         # Update email and mark as unverified if email changed
         if user.email != new_email:
             user.email = new_email
-            user.email_verified = False
+            # Auto-verify for owners, require verification for others
+            if user.role == 'owner':
+                user.email_verified = True
+                print(f"[EmailChange] ✅ Email changed and auto-verified for owner {user.username}: {new_email}")
+            else:
+                user.email_verified = False
+                print(f"[EmailChange] ✅ Email changed for user {user.username}: {new_email}")
+            
             user.save(update_fields=['email', 'email_verified'])
             
-            # Send verification email for new email
-            try:
-                send_verification_email(user, request)
-                print(f"[EmailChange] ✅ Email changed for user {user.username}: {new_email}")
+            # Send verification email only for non-owners
+            if user.role != 'owner':
+                try:
+                    send_verification_email(user, request)
+                    return Response({
+                        'status': 'success',
+                        'message': 'Email updated successfully. Please check your inbox for verification email.',
+                        'email': new_email,
+                        'email_verified': False
+                    })
+                except Exception as exc:
+                    print(f"[Email] Verification email failed: {exc}")
+                    return Response({
+                        'status': 'success',
+                        'message': 'Email updated but verification email failed to send. Contact support.',
+                        'email': new_email,
+                        'email_verified': False
+                    })
+            else:
+                # Owner - no verification needed
                 return Response({
                     'status': 'success',
-                    'message': 'Email updated successfully. Please check your inbox for verification email.',
+                    'message': 'Email updated successfully.',
                     'email': new_email,
-                    'email_verified': False
-                })
-            except Exception as exc:
-                print(f"[Email] Verification email failed: {exc}")
-                return Response({
-                    'status': 'success',
-                    'message': 'Email updated but verification email failed to send. Contact support.',
-                    'email': new_email,
-                    'email_verified': False
+                    'email_verified': True
                 })
         
         return Response({

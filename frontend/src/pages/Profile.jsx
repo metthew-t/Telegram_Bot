@@ -692,7 +692,7 @@ export default function ProfilePage() {
                                     )}
                                 </div>
 
-                                <form onSubmit={handleEmailChange} style={{ marginTop: 'var(--space-md)' }}>
+                                <form onSubmit={handleEmailChange} style={{ marginTop: 'var(--space-md)', padding: '0 10px' }}>
                                     <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>
                                         <span style={{ display: 'block', fontSize: 'var(--font-sm)', fontWeight: 500, marginBottom: '6px', color: 'var(--text-secondary)' }}>
                                             New Email Address
@@ -704,13 +704,15 @@ export default function ProfilePage() {
                                             placeholder="Enter your new email"
                                             disabled={emailLoading}
                                             style={{ 
-                                                width: '100%', 
+                                                width: 'calc(100% - 20px)',
                                                 padding: '12px 16px', 
                                                 background: 'rgba(255, 255, 255, 0.03)',
                                                 border: '1px solid rgba(255, 255, 255, 0.1)',
                                                 borderRadius: 'var(--radius-md)',
                                                 color: '#ffffff',
-                                                fontSize: '14px'
+                                                fontSize: '14px',
+                                                marginLeft: '0',
+                                                marginRight: '0'
                                             }}
                                         />
                                     </label>
