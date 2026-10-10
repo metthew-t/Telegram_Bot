@@ -61,6 +61,7 @@ export default function OwnerDashboardPage() {
         try {
             await apiCall(`/api/assignment-requests/${requestId}/reject/`, 'POST');
             await fetchAssignmentRequests();
+            await fetchCases();
             alert('Assignment request rejected');
         } catch (err) {
             alert('Failed to reject request: ' + (err.message || 'Unknown error'));
@@ -72,6 +73,7 @@ export default function OwnerDashboardPage() {
     const pendingRequests = assignmentRequests.filter(r => r.status === 'pending');
     const recentProcessedRequests = assignmentRequests
         .filter(r => r.status === 'approved' || r.status === 'rejected')
+        .sort((a, b) => new Date(b.reviewed_at || b.created_at) - new Date(a.reviewed_at || a.created_at))
         .slice(0, 5); // Show last 5 processed requests
 
     const stats = {

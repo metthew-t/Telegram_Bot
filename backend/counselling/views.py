@@ -1684,9 +1684,6 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         )
         
         # Send email notification to owner
-        from django.core.mail import send_mail
-        from django.conf import settings
-        
         print(f"[REQUEST] Attempting to send assignment request email to owners...")
         try:
             owner_users = User.objects.filter(role='owner', email_verified=True, email_notifications_enabled=True)
@@ -1700,14 +1697,8 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
                     subject, html_body, text_body = render_assignment_request_email(assignment_request, frontend_url)
                     print(f"[REQUEST] Email subject: {subject}")
                     
-                    send_mail(
-                        subject,
-                        text_body,
-                        settings.DEFAULT_FROM_EMAIL,
-                        [owner.email],
-                        html_message=html_body,
-                        fail_silently=True
-                    )
+                    # Use _send_email() which handles Brevo API properly
+                    _send_email(subject, html_body, text_body, [owner.email])
                     print(f"[REQUEST] ✅ Assignment request email sent to owner: {owner.email}")
                 else:
                     print(f"[REQUEST] ⚠️ Owner {owner.username} has no email")
@@ -1766,9 +1757,6 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         notify_case_user(case, f'Your case #{case.user_case_number} has been assigned to support.')
         
         # Send email notification to the assigned admin
-        from django.core.mail import send_mail
-        from django.conf import settings
-        
         print(f"[APPROVE] Attempting to send email notification...")
         try:
             admin = assignment_request.admin
@@ -1782,14 +1770,8 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
                 subject, html_body, text_body = render_assignment_approved_email(assignment_request, frontend_url)
                 print(f"[APPROVE] Email subject: {subject}")
                 
-                send_mail(
-                    subject,
-                    text_body,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [admin.email],
-                    html_message=html_body,
-                    fail_silently=True
-                )
+                # Use _send_email() which handles Brevo API properly
+                _send_email(subject, html_body, text_body, [admin.email])
                 print(f"[APPROVE] ✅ Assignment approval email sent to admin: {admin.email}")
             else:
                 print(f"[APPROVE] ❌ Email not sent - requirements not met")
@@ -1808,9 +1790,15 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         
         assignment_request = self.get_object()
         
+        print(f"[REJECT] Assignment request ID: {assignment_request.id}")
+        print(f"[REJECT] Current status: {assignment_request.status}")
+        print(f"[REJECT] Case ID: {assignment_request.case.id}")
+        
         if assignment_request.status != 'pending':
+            error_msg = f'Request has already been reviewed (current status: {assignment_request.status})'
+            print(f"[REJECT] ERROR: {error_msg}")
             return Response(
-                {'error': 'Request has already been reviewed'},
+                {'error': error_msg},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1819,6 +1807,48 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         assignment_request.reviewed_at = timezone.now()
         assignment_request.reviewed_by = request.user
         assignment_request.save()
+        
+        print(f"[REJECT] ✅ Request rejected")
+        
+        # Send email notification to the admin
+        print(f"[REJECT] Attempting to send email notification...")
+        try:
+            admin = assignment_request.admin
+            print(f"[REJECT] Admin: {admin.username}, Email: {admin.email}")
+            print(f"[REJECT] Email verified: {admin.email_verified}, Notifications enabled: {admin.email_notifications_enabled}")
+            
+            if admin.email and admin.email_verified and admin.email_notifications_enabled:
+                subject = f"Assignment Request Rejected - Case #{assignment_request.case.user_case_number}"
+                text_body = f"""
+Hello {admin.first_name or admin.username},
+
+Your request to be assigned to Case #{assignment_request.case.user_case_number} ({assignment_request.case.title}) has been rejected by the owner.
+
+The case remains available for other requests.
+
+Best regards,
+ASTU Counselling Platform
+"""
+                html_body = f"""
+<html>
+<body>
+<p>Hello {admin.first_name or admin.username},</p>
+<p>Your request to be assigned to <strong>Case #{assignment_request.case.user_case_number}</strong> ({assignment_request.case.title}) has been rejected by the owner.</p>
+<p>The case remains available for other requests.</p>
+<p>Best regards,<br>ASTU Counselling Platform</p>
+</body>
+</html>
+"""
+                
+                # Use _send_email() which handles Brevo API properly
+                _send_email(subject, html_body, text_body, [admin.email])
+                print(f"[REJECT] ✅ Assignment rejection email sent to admin: {admin.email}")
+            else:
+                print(f"[REJECT] ❌ Email not sent - requirements not met")
+        except Exception as e:
+            print(f"[REJECT] ❌ Failed to send assignment rejection email: {str(e)}")
+            import traceback
+            traceback.print_exc()
         
         serializer = self.serializer_class(assignment_request)
         return Response(serializer.data)

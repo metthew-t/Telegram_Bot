@@ -95,20 +95,25 @@ export default function CaseDetailPage() {
   
   const markCaseAsViewed = async () => {
     try {
+      console.log('[Seen] Calling mark_viewed API for case', id);
       await apiCall(`/api/cases/${id}/mark_viewed/`, 'POST');
-      console.log('[Seen] Marked case as viewed');
+      console.log('[Seen] ✅ Marked case as viewed');
     } catch (err) {
-      console.error('[Seen] Failed to mark case as viewed:', err);
+      console.error('[Seen] ❌ Failed to mark case as viewed:', err);
     }
   };
   
   const fetchViewers = async () => {
     try {
+      console.log('[Seen] Fetching viewers for case', id);
       const data = await apiCall(`/api/cases/${id}/viewers/`, 'GET');
-      setViewers(data?.viewers || []);
-      console.log('[Seen] Fetched viewers:', data?.viewers?.length);
+      console.log('[Seen] ✅ Fetched viewers:', data);
+      // Filter out current user from viewers list (sender shouldn't see themselves)
+      const otherViewers = (data?.viewers || []).filter(v => v.user?.id !== user?.id);
+      setViewers(otherViewers);
+      console.log('[Seen] Viewers count (excluding self):', otherViewers.length);
     } catch (err) {
-      console.error('[Seen] Failed to fetch viewers:', err);
+      console.error('[Seen] ❌ Failed to fetch viewers:', err);
     }
   };
 

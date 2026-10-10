@@ -76,6 +76,7 @@ export default function SystemChatPage() {
     
     const markChatAsViewed = async () => {
         try {
+            console.log('[Seen] Calling mark_viewed API for internal chat');
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/internal-messages/mark_viewed/`, {
                 method: 'POST',
                 headers: {
@@ -84,15 +85,18 @@ export default function SystemChatPage() {
                 }
             });
             if (response.ok) {
-                console.log('[Seen] Marked internal chat as viewed');
+                console.log('[Seen] ✅ Marked internal chat as viewed');
+            } else {
+                console.error('[Seen] ❌ Failed to mark chat as viewed:', response.status);
             }
         } catch (err) {
-            console.error('[Seen] Failed to mark chat as viewed:', err);
+            console.error('[Seen] ❌ Failed to mark chat as viewed:', err);
         }
     };
     
     const fetchViewers = async () => {
         try {
+            console.log('[Seen] Fetching internal chat viewers');
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/internal-messages/viewers/`, {
                 method: 'GET',
                 headers: {
@@ -102,11 +106,14 @@ export default function SystemChatPage() {
             });
             if (response.ok) {
                 const data = await response.json();
-                setViewers(data?.viewers || []);
-                console.log('[Seen] Fetched viewers:', data?.viewers?.length);
+                console.log('[Seen] ✅ Fetched viewers:', data);
+                // Filter out current user from viewers list (sender shouldn't see themselves)
+                const otherViewers = (data?.viewers || []).filter(v => v.user?.id !== user?.id);
+                setViewers(otherViewers);
+                console.log('[Seen] Viewers count (excluding self):', otherViewers.length);
             }
         } catch (err) {
-            console.error('[Seen] Failed to fetch viewers:', err);
+            console.error('[Seen] ❌ Failed to fetch viewers:', err);
         }
     };
 
