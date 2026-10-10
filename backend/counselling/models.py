@@ -159,3 +159,31 @@ class Feedback(models.Model):
 
     def __str__(self):
         return f"Feedback for case {self.case.id} from {self.user.username}"
+
+
+class CaseView(models.Model):
+    """Track when users open a case chat page (for 'seen' status)"""
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='views')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='case_views')
+    viewed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        # Each user can only have one view record per case (updated each time they open)
+        unique_together = ['case', 'user']
+        ordering = ['-viewed_at']
+
+    def __str__(self):
+        return f"{self.user.username} viewed case {self.case.id} at {self.viewed_at}"
+
+
+class InternalChatView(models.Model):
+    """Track when users open the internal chat page (for 'seen' status)"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='internal_chat_views')
+    viewed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        # Each user can only have one view record (updated each time they open internal chat)
+        ordering = ['-viewed_at']
+
+    def __str__(self):
+        return f"{self.user.username} viewed internal chat at {self.viewed_at}"

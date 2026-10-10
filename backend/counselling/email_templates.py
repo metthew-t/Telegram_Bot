@@ -565,3 +565,212 @@ Access the platform: {login_url}
 """
 
     return subject, _html_wrap("👑 New Owner", "amber", body_html), text_body
+
+
+# ─── Template: Assignment Request Created ─────────────────────────────────────
+
+def render_assignment_request_email(assignment_request, frontend_url: str):
+    """Email notification when admin requests case assignment"""
+    subject = f"📋 Assignment Request for Case #{assignment_request.case.id} — {assignment_request.case.title}"
+    case_url = f"{frontend_url}/cases/{assignment_request.case.id}"
+    
+    body_html = f"""
+    <div class="alert-icon">📋</div>
+    <h2 class="greeting">New Assignment Request</h2>
+    <p class="intro">
+      <strong style="color:#818cf8;">{assignment_request.admin.username}</strong> has requested to be assigned to the following case.
+      Please review the case details and approve or reject this request from your dashboard.
+    </p>
+    
+    <!-- Case Information Card -->
+    <div class="info-card">
+      <div class="info-row">
+        <span class="info-label">Case ID</span>
+        <span class="info-value mono"># {assignment_request.case.id}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Title</span>
+        <span class="info-value">{assignment_request.case.title}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Status</span>
+        <span class="info-value"><span class="status-badge status-open">{assignment_request.case.status.capitalize()}</span></span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Submitted by</span>
+        <span class="info-value">{assignment_request.case.user.username if assignment_request.case.user else 'Anonymous User'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Created</span>
+        <span class="info-value">{assignment_request.case.created_at.strftime('%d %B %Y, %H:%M UTC')}</span>
+      </div>
+    </div>
+    
+    <!-- Request Details Card -->
+    <div class="info-card" style="border-left-color:#7c3aed;margin-top:16px;">
+      <div class="info-row">
+        <span class="info-label">Requested by</span>
+        <span class="info-value"><strong style="color:#818cf8;">{assignment_request.admin.username}</strong></span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Admin Email</span>
+        <span class="info-value">{assignment_request.admin.email or 'Not provided'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Request Date</span>
+        <span class="info-value">{assignment_request.created_at.strftime('%d %B %Y, %H:%M UTC')}</span>
+      </div>
+    </div>
+    
+    {_cta_button("📋 Review Request", case_url)}
+    
+    <hr class="divider"/>
+    
+    <p class="note">Navigate to your Owner Dashboard to approve or reject this assignment request.</p>"""
+
+    text_body = f"""New Assignment Request — Case #{assignment_request.case.id}
+
+Case:          {assignment_request.case.title}
+Requested by:  {assignment_request.admin.username}
+Admin Email:   {assignment_request.admin.email or 'Not provided'}
+Request Date:  {assignment_request.created_at.strftime('%d %B %Y, %H:%M UTC')}
+
+Review the request: {case_url}
+"""
+
+    return subject, _html_wrap("📋 Assignment Request", "purple", body_html), text_body
+
+
+# ─── Template: Assignment Approved ────────────────────────────────────────────
+
+def render_assignment_approved_email(assignment_request, frontend_url: str):
+    """Email notification when owner approves assignment request"""
+    subject = f"✅ Your Assignment Request Approved — Case #{assignment_request.case.id}"
+    case_url = f"{frontend_url}/cases/{assignment_request.case.id}"
+    
+    body_html = f"""
+    <div class="alert-icon">✅</div>
+    <h2 class="greeting">Assignment Request Approved!</h2>
+    <p class="intro">
+      Good news! <strong style="color:#10b981;">{assignment_request.reviewed_by.username}</strong> has approved your request to be assigned to Case #{assignment_request.case.id}.
+      You can now manage this case and communicate with the client.
+    </p>
+    
+    <!-- Case Information Card -->
+    <div class="info-card">
+      <div class="info-row">
+        <span class="info-label">Case ID</span>
+        <span class="info-value mono"># {assignment_request.case.id}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Title</span>
+        <span class="info-value">{assignment_request.case.title}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Status</span>
+        <span class="info-value"><span class="status-badge status-assigned">Assigned to You</span></span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Submitted by</span>
+        <span class="info-value">Anonymous User</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Approved by</span>
+        <span class="info-value">{assignment_request.reviewed_by.username}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Approved at</span>
+        <span class="info-value">{assignment_request.reviewed_at.strftime('%d %B %Y, %H:%M UTC')}</span>
+      </div>
+    </div>
+    
+    {_cta_button("💬 Start Managing Case", case_url)}
+    
+    <hr class="divider"/>
+    
+    <p class="note"><strong style="color:#94a3b8;">Next Steps:</strong></p>
+    <p class="note">
+      • Review the case details and any existing messages<br>
+      • Respond to the client through the case chat<br>
+      • Update the case status as you make progress<br>
+      • Close the case when the issue is resolved
+    </p>"""
+
+    text_body = f"""Assignment Request Approved — Case #{assignment_request.case.id}
+
+Case:        {assignment_request.case.title}
+Assigned to: {assignment_request.admin.username}
+Approved by: {assignment_request.reviewed_by.username}
+Approved at: {assignment_request.reviewed_at.strftime('%d %B %Y, %H:%M UTC')}
+
+Start managing the case: {case_url}
+"""
+
+    return subject, _html_wrap("✅ Request Approved", "green", body_html), text_body
+
+
+# ─── Template: Internal Message Notification ──────────────────────────────────
+
+def render_internal_message_email(message, frontend_url: str):
+    """Email notification for internal messages between admins/owner"""
+    subject = f"💬 New Internal Message from {message.sender.username}"
+    chat_url = f"{frontend_url}/system-chat"
+    
+    message_icon = {
+        'text': '💬',
+        'voice': '🎤',
+        'file': '📎'
+    }.get(message.message_format, '💬')
+    
+    message_type_label = {
+        'text': 'Text Message',
+        'voice': 'Voice Message',
+        'file': 'File Attachment'
+    }.get(message.message_format, 'Message')
+    
+    # Truncate message content for email
+    content_preview = message.content[:400] if message.message_format == 'text' else f"[{message_type_label}]"
+    
+    body_html = f"""
+    <div class="alert-icon">{message_icon}</div>
+    <h2 class="greeting">New Internal Message</h2>
+    <p class="intro">
+      <strong style="color:#818cf8;">{message.sender.username}</strong> has sent a new message in the internal chat system.
+      Log in to view the full conversation and respond.
+    </p>
+    
+    <!-- Message Details Card -->
+    <div class="info-card" style="border-left-color:#0ea5e9;">
+      <div class="info-row">
+        <span class="info-label">From</span>
+        <span class="info-value"><strong>{message.sender.username}</strong> ({message.sender.role.capitalize()})</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Type</span>
+        <span class="info-value">{message_type_label}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Sent at</span>
+        <span class="info-value">{message.timestamp.strftime('%d %B %Y, %H:%M UTC')}</span>
+      </div>
+      {'<div style="margin-top:16px;padding-top:16px;border-top:1px solid #2a2d3d;"><div class="info-label" style="margin-bottom:8px;">Message Preview</div><div style="background:#1a1d27;padding:12px 16px;border-radius:6px;line-height:1.6;color:#e2e8f0;font-size:14px;word-break:break-word;">' + content_preview + ('…' if len(message.content) > 400 else '') + '</div></div>' if message.message_format == 'text' else ''}
+    </div>
+    
+    {_cta_button("💬 Open Internal Chat", chat_url)}
+    
+    <hr class="divider"/>
+    
+    <p class="note">This is an internal communication between platform administrators and owners.</p>"""
+
+    text_body = f"""New Internal Message from {message.sender.username}
+
+From:    {message.sender.username} ({message.sender.role.capitalize()})
+Type:    {message_type_label}
+Sent at: {message.timestamp.strftime('%d %B %Y, %H:%M UTC')}
+
+{f'Message: {message.content}' if message.message_format == 'text' else f'[{message_type_label}]'}
+
+View in internal chat: {chat_url}
+"""
+
+    return subject, _html_wrap("💬 Internal Message", "purple", body_html), text_body

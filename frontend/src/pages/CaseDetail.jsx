@@ -22,6 +22,8 @@ export default function CaseDetailPage() {
   const [isSending, setIsSending] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [viewers, setViewers] = useState([]);
+  const [showViewersModal, setShowViewersModal] = useState(false);
   const messagesEndRef = useRef(null);
   const pollRef = useRef(null);
   const messageInputRef = useRef(null);
@@ -33,10 +35,17 @@ export default function CaseDetailPage() {
     if (user?.role === 'owner') {
       fetchAdmins();
     }
+    
+    // Mark this case as viewed
+    markCaseAsViewed();
+    
+    // Fetch viewers list
+    fetchViewers();
 
     // Start polling
     pollRef.current = setInterval(() => {
       fetchMessages();
+      fetchViewers(); // Also poll viewers
     }, POLL_INTERVAL);
 
     return () => {
@@ -81,6 +90,25 @@ export default function CaseDetailPage() {
       setAdmins((data || []).filter((u) => u.role === 'admin'));
     } catch (err) {
       console.error('Failed to fetch admins:', err);
+    }
+  };
+  
+  const markCaseAsViewed = async () => {
+    try {
+      await apiCall(`/api/cases/${id}/mark_viewed/`, 'POST');
+      console.log('[Seen] Marked case as viewed');
+    } catch (err) {
+      console.error('[Seen] Failed to mark case as viewed:', err);
+    }
+  };
+  
+  const fetchViewers = async () => {
+    try {
+      const data = await apiCall(`/api/cases/${id}/viewers/`, 'GET');
+      setViewers(data?.viewers || []);
+      console.log('[Seen] Fetched viewers:', data?.viewers?.length);
+    } catch (err) {
+      console.error('[Seen] Failed to fetch viewers:', err);
     }
   };
 
@@ -340,7 +368,29 @@ export default function CaseDetailPage() {
                     <p>{msg.content}</p>
                   )}
                   
-                  <small>{new Date(msg.timestamp).toLocaleString()}</small>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                    <small>{new Date(msg.timestamp).toLocaleString()}</small>
+                    
+                    {/* Seen indicator for messages sent by current user */}
+                    {isOwnMessage(msg) && viewers.length > 0 && (
+                      <span
+                        onClick={() => setShowViewersModal(true)}
+                        style={{
+                          fontSize: '11px',
+                          color: '#818cf8',
+                          cursor: 'pointer',
+                          padding: '2px 6px',
+                          background: 'rgba(129, 140, 248, 0.1)',
+                          borderRadius: '10px',
+                          fontWeight: 500,
+                          userSelect: 'none'
+                        }}
+                        title="Click to see who has viewed this chat"
+                      >
+                        👁️ Seen by {viewers.length}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))
             )}
@@ -484,6 +534,102 @@ export default function CaseDetailPage() {
             <p style={{ color: 'var(--success)', fontWeight: 600, margin: 0 }}>
               ✓ This case has been closed
             </p>
+          </div>
+        )}
+        
+        {/* Viewers Modal */}
+        {showViewersModal && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+            }}
+            onClick={() => setShowViewersModal(false)}
+          >
+            <div
+              style={{
+                background: 'var(--card-bg)',
+                borderRadius: '12px',
+                padding: '24px',
+                maxWidth: '500px',
+                width: '90%',
+                maxHeight: '70vh',
+                overflow: 'auto',
+                border: '1px solid rgba(129, 140, 248, 0.2)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: '0 0 16px 0', color: 'var(--text)' }}>
+                👁️ Viewed by {viewers.length} {viewers.length === 1 ? 'person' : 'people'}
+              </h3>
+              
+              {viewers.length === 0 ? (
+                <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
+                  No one has viewed this chat yet
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {viewers.map((viewer, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px',
+                        background: 'rgba(129, 140, 248, 0.05)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(129, 140, 248, 0.1)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {viewer.user?.profile_photo && (
+                          <img
+                            src={viewer.user.profile_photo}
+                            alt="Profile"
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              border: '2px solid rgba(129, 140, 248, 0.3)',
+                            }}
+                          />
+                        )}
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--text)' }}>
+                            {viewer.user?.username}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            {viewer.user?.role}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'right' }}>
+                        {new Date(viewer.viewed_at).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <button
+                onClick={() => setShowViewersModal(false)}
+                className="button"
+                style={{ marginTop: '16px', width: '100%' }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
       </div>

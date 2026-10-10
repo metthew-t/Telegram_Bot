@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Case, Message, AuditLog, PasswordResetToken
+from .models import User, Case, Message, AuditLog, PasswordResetToken, CaseView, InternalChatView
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -24,3 +24,15 @@ class PasswordResetTokenAdmin(admin.ModelAdmin):
     list_display = ['user', 'token', 'created_at', 'expires_at', 'used']
     list_filter = ['used', 'created_at']
     search_fields = ['user__username', 'token']
+
+@admin.register(CaseView)
+class CaseViewAdmin(admin.ModelAdmin):
+    list_display = ['case', 'user', 'viewed_at']
+    list_filter = ['viewed_at']
+    search_fields = ['case__id', 'user__username']
+
+@admin.register(InternalChatView)
+class InternalChatViewAdmin(admin.ModelAdmin):
+    list_display = ['user', 'viewed_at']
+    list_filter = ['viewed_at']
+    search_fields = ['user__username']

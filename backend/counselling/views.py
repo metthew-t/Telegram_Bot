@@ -386,6 +386,33 @@ def send_email_to_specific_users(subject: str, html_body: str, text_body: str, u
     _send_email(subject, html_body, text_body, emails)
 
 
+def send_internal_message_notification(internal_message, sender):
+    """Send email notification for new internal messages to all other admins/owners"""
+    from .email_templates import render_internal_message_email
+    from django.conf import settings
+    
+    try:
+        # Get all admins and owners except the sender
+        recipients = User.objects.filter(
+            role__in=['admin', 'owner'],
+            email_verified=True,
+            email_notifications_enabled=True
+        ).exclude(id=sender.id).exclude(email__isnull=True).exclude(email='')
+        
+        if not recipients:
+            print(f"[Email] No recipients for internal message notification")
+            return
+        
+        frontend_url = settings.FRONTEND_URL
+        subject, html_body, text_body = render_internal_message_email(internal_message, frontend_url)
+        
+        emails = [user.email for user in recipients]
+        _send_email(subject, html_body, text_body, emails)
+        print(f"[Email] Internal message notification sent to {len(emails)} recipient(s)")
+    except Exception as e:
+        print(f"[Email] Failed to send internal message notification: {str(e)}")
+
+
 def send_verification_email(user, request):
     """Generate a UUID token, save it, and dispatch the formal verification email."""
     print(f"\n[DEBUG] send_verification_email called for user: {user.username}, email: {user.email}")
@@ -970,6 +997,53 @@ class CaseViewSet(viewsets.ModelViewSet):
             'status': 'deleted',
             'message': f'Case #{case_id} has been permanently deleted'
         })
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrOwner])
+    def mark_viewed(self, request, pk=None):
+        """Record that the current user has viewed this case (for 'seen' status)"""
+        from .models import CaseView
+        from django.utils import timezone
+        
+        case = self.get_object()
+        
+        # Create or update the view record for this user
+        view, created = CaseView.objects.update_or_create(
+            case=case,
+            user=request.user,
+            defaults={'viewed_at': timezone.now()}
+        )
+        
+        action = "created" if created else "updated"
+        print(f"[CaseView] {action} view record for user {request.user.username} on case #{case.id}")
+        
+        return Response({
+            'status': 'viewed',
+            'viewed_at': view.viewed_at
+        })
+    
+    @action(detail=True, methods=['get'], permission_classes=[IsAdminOrOwner])
+    def viewers(self, request, pk=None):
+        """Get list of users who have viewed this case (for 'seen' status display)"""
+        from .models import CaseView
+        from .serializers import UserSerializer
+        
+        case = self.get_object()
+        
+        # Get all views for this case, ordered by most recent
+        views = CaseView.objects.filter(case=case).select_related('user').order_by('-viewed_at')
+        
+        viewers_data = []
+        for view in views:
+            viewers_data.append({
+                'user': UserSerializer(view.user).data,
+                'viewed_at': view.viewed_at
+            })
+        
+        return Response({
+            'case_id': case.id,
+            'viewers': viewers_data,
+            'total_viewers': len(viewers_data)
+        })
 
 
 # ─── Message ViewSet ──────────────────────────────────────────────────────────
@@ -1092,25 +1166,55 @@ class MessageViewSet(viewsets.ModelViewSet):
                 traceback.print_exc()
 
             # Email owners for oversight (admin replied)
+            # NEW RULE: Only send to owners if case is unassigned or assigned_admin is NULL
             try:
-                subject, html_body, text_body = render_new_message_email(
-                    case, message, user.username, frontend_url
-                )
-                send_email_to_owners(subject, html_body, text_body)
+                # Determine recipients based on case assignment status
+                email_recipients = []
+                
+                if case.status == 'assigned' and case.assigned_admin:
+                    # Case is assigned - DON'T send to owner
+                    print(f"[Email] Case is assigned to {case.assigned_admin.username}, skipping owner notification")
+                else:
+                    # Case is open or assigned without assigned_admin - send to owners
+                    email_recipients = list(User.objects.filter(
+                        role='owner',
+                        email_verified=True,
+                        email_notifications_enabled=True,
+                        email_approved_by_owner=True
+                    ).exclude(email__isnull=True).exclude(email=''))
+                    
+                    if email_recipients:
+                        subject, html_body, text_body = render_new_message_email(
+                            case, message, user.username, frontend_url, recipient_role='owner'
+                        )
+                        send_email_to_specific_users(subject, html_body, text_body, email_recipients)
+                        print(f"[Email] Admin-reply email sent to {len(email_recipients)} owner(s)")
             except Exception as exc:
                 print(f"[Email] Admin-reply email failed: {exc}")
         else:
-            # Client replied — determine who to notify
+            # Client replied — determine who to notify based on NEW RULES
+            email_recipients = []
+            telegram_recipients = []
+            
             if case.status == 'assigned' and case.assigned_admin:
-                # Notify only assigned admin and all owners
-                owners = list(User.objects.filter(role='owner'))
-                notified_users = list(set([case.assigned_admin] + owners))
+                # Case is assigned - notify ONLY the assigned admin (NOT owner)
+                email_recipients = [case.assigned_admin]
+                telegram_recipients = [case.assigned_admin]
+                print(f"[Notification] Case assigned to {case.assigned_admin.username}, notifying only that admin")
+            elif case.status == 'open' or (case.status == 'assigned' and not case.assigned_admin):
+                # Case is open or assigned without admin - notify owners
+                email_recipients = list(User.objects.filter(role='owner'))
+                telegram_recipients = list(User.objects.filter(role='owner'))
+                print(f"[Notification] Case is unassigned, notifying owner(s)")
             else:
-                # Notify all staff
-                notified_users = list(User.objects.filter(role__in=['admin', 'owner']))
+                # Fallback: notify all staff
+                email_recipients = list(User.objects.filter(role__in=['admin', 'owner']))
+                telegram_recipients = list(User.objects.filter(role__in=['admin', 'owner']))
+                print(f"[Notification] Fallback: notifying all staff")
 
+            # Send Telegram notifications
             notify_specific_users(
-                notified_users,
+                telegram_recipients,
                 f"💬 New message on case #{case.id}\n"
                 f"👤 From: {user.username}\n\n"
                 f"{message.content}"
@@ -1118,10 +1222,14 @@ class MessageViewSet(viewsets.ModelViewSet):
 
             # Email the selected staff members
             try:
+                # Determine recipient role for privacy
+                recipient_role = 'owner' if any(u.role == 'owner' for u in email_recipients) else 'admin'
+                
                 subject, html_body, text_body = render_new_message_email(
-                    case, message, user.username, frontend_url
+                    case, message, user.username, frontend_url, recipient_role=recipient_role
                 )
-                send_email_to_specific_users(subject, html_body, text_body, notified_users)
+                send_email_to_specific_users(subject, html_body, text_body, email_recipients)
+                print(f"[Email] Client message email sent to {len(email_recipients)} recipient(s)")
             except Exception as exc:
                 print(f"[Email] New-message email failed: {exc}")
 
@@ -1458,6 +1566,47 @@ class InternalMessageViewSet(viewsets.ModelViewSet):
             'status': 'deleted',
             'message': f'Internal message deleted successfully'
         }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAdminOrOwner])
+    def mark_viewed(self, request):
+        """Record that the current user has viewed the internal chat (for 'seen' status)"""
+        from .models import InternalChatView
+        from django.utils import timezone
+        
+        # Create or update the view record for this user
+        view, created = InternalChatView.objects.update_or_create(
+            user=request.user,
+            defaults={'viewed_at': timezone.now()}
+        )
+        
+        action = "created" if created else "updated"
+        print(f"[InternalChatView] {action} view record for user {request.user.username}")
+        
+        return Response({
+            'status': 'viewed',
+            'viewed_at': view.viewed_at
+        })
+    
+    @action(detail=False, methods=['get'], permission_classes=[IsAdminOrOwner])
+    def viewers(self, request):
+        """Get list of users who have viewed internal chat (for 'seen' status display)"""
+        from .models import InternalChatView
+        from .serializers import UserSerializer
+        
+        # Get all views, ordered by most recent
+        views = InternalChatView.objects.select_related('user').order_by('-viewed_at')
+        
+        viewers_data = []
+        for view in views:
+            viewers_data.append({
+                'user': UserSerializer(view.user).data,
+                'viewed_at': view.viewed_at
+            })
+        
+        return Response({
+            'viewers': viewers_data,
+            'total_viewers': len(viewers_data)
+        })
 
 
 # ─── Assignment Request ViewSet ───────────────────────────────────────────────
@@ -1533,6 +1682,30 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
             status='pending'
         )
         
+        # Send email notification to owner
+        from .email_templates import render_assignment_request_email
+        from django.core.mail import send_mail
+        from django.conf import settings
+        
+        try:
+            owner_users = User.objects.filter(role='owner', email_verified=True, email_notifications_enabled=True)
+            frontend_url = settings.FRONTEND_URL
+            
+            for owner in owner_users:
+                if owner.email:
+                    subject, html_body, text_body = render_assignment_request_email(assignment_request, frontend_url)
+                    send_mail(
+                        subject,
+                        text_body,
+                        settings.DEFAULT_FROM_EMAIL,
+                        [owner.email],
+                        html_message=html_body,
+                        fail_silently=True
+                    )
+                    print(f"✅ Assignment request email sent to owner: {owner.email}")
+        except Exception as e:
+            print(f"❌ Failed to send assignment request email: {str(e)}")
+        
         serializer = self.serializer_class(assignment_request)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -1581,6 +1754,28 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         
         # Notify user
         notify_case_user(case, f'Your case #{case.user_case_number} has been assigned to support.')
+        
+        # Send email notification to the assigned admin
+        from .email_templates import render_assignment_approved_email
+        from django.core.mail import send_mail
+        from django.conf import settings
+        
+        try:
+            admin = assignment_request.admin
+            if admin.email and admin.email_verified and admin.email_notifications_enabled:
+                frontend_url = settings.FRONTEND_URL
+                subject, html_body, text_body = render_assignment_approved_email(assignment_request, frontend_url)
+                send_mail(
+                    subject,
+                    text_body,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [admin.email],
+                    html_message=html_body,
+                    fail_silently=True
+                )
+                print(f"✅ Assignment approval email sent to admin: {admin.email}")
+        except Exception as e:
+            print(f"❌ Failed to send assignment approval email: {str(e)}")
         
         serializer = self.serializer_class(assignment_request)
         return Response(serializer.data)

@@ -70,6 +70,9 @@ export default function OwnerDashboardPage() {
     };
 
     const pendingRequests = assignmentRequests.filter(r => r.status === 'pending');
+    const recentProcessedRequests = assignmentRequests
+        .filter(r => r.status === 'approved' || r.status === 'rejected')
+        .slice(0, 5); // Show last 5 processed requests
 
     const stats = {
         total: allCases.length,
@@ -170,6 +173,76 @@ export default function OwnerDashboardPage() {
                                         View Case →
                                     </button>
                                 </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Recent Request History */}
+            {recentProcessedRequests.length > 0 && (
+                <div className="glass-panel" style={{ marginTop: '2rem' }}>
+                    <div className="panel-header" style={{ borderBottom: '1px solid var(--border-subtle)', marginBottom: '1rem' }}>
+                        <h2>📜 Recent Assignment History</h2>
+                        <p style={{ fontSize: 'var(--font-sm)', opacity: 0.8 }}>
+                            Recently processed assignment requests
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {recentProcessedRequests.map(request => (
+                            <div 
+                                key={request.id}
+                                style={{
+                                    padding: '16px',
+                                    background: request.status === 'approved' 
+                                        ? 'rgba(16, 185, 129, 0.05)' 
+                                        : 'rgba(239, 68, 68, 0.05)',
+                                    border: request.status === 'approved'
+                                        ? '1px solid rgba(16, 185, 129, 0.2)'
+                                        : '1px solid rgba(239, 68, 68, 0.2)',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    flexWrap: 'wrap',
+                                    gap: '12px',
+                                    opacity: 0.8
+                                }}
+                            >
+                                <div style={{ flex: 1, minWidth: '200px' }}>
+                                    <div style={{ fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span className="case-id-badge">Case #{request.case_id}</span>
+                                        <span style={{
+                                            padding: '2px 8px',
+                                            borderRadius: '12px',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            background: request.status === 'approved' ? '#10b981' : '#ef4444',
+                                            color: 'white'
+                                        }}>
+                                            {request.status === 'approved' ? '✓ APPROVED' : '✗ REJECTED'}
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
+                                        Admin: <strong>{request.admin_name}</strong>
+                                        {request.reviewed_by_name && (
+                                            <span> • Reviewed by: <strong>{request.reviewed_by_name}</strong></span>
+                                        )}
+                                    </div>
+                                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                        Requested: {new Date(request.created_at).toLocaleString()}
+                                        {request.reviewed_at && (
+                                            <span> • Reviewed: {new Date(request.reviewed_at).toLocaleString()}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <button
+                                    className="button button-sm"
+                                    onClick={() => navigate(`/cases/${request.case_id}`)}
+                                    style={{ minWidth: 'auto', padding: '8px 12px' }}
+                                >
+                                    View Case →
+                                </button>
                             </div>
                         ))}
                     </div>

@@ -18,6 +18,8 @@ export default function SystemChatPage() {
     const [isUploading, setIsUploading] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+    const [viewers, setViewers] = useState([]);
+    const [showViewersModal, setShowViewersModal] = useState(false);
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
     const chatInputRef = useRef(null);
@@ -31,11 +33,18 @@ export default function SystemChatPage() {
     // Fetch messages when the active tab changes
     useEffect(() => {
         fetchMessages(true);
+        
+        // Mark internal chat as viewed
+        markChatAsViewed();
+        
+        // Fetch viewers list
+        fetchViewers();
 
         // Reset and start polling for the active tab's message type
         if (pollRef.current) clearInterval(pollRef.current);
         pollRef.current = setInterval(() => {
             fetchMessages(false);
+            fetchViewers(); // Also poll viewers
         }, POLL_INTERVAL);
 
         return () => {
@@ -62,6 +71,42 @@ export default function SystemChatPage() {
             if (isInitial) setError(`Failed to load system ${activeTab === 'chat' ? 'chat' : 'reports'}`);
         } finally {
             if (isInitial) setLoading(false);
+        }
+    };
+    
+    const markChatAsViewed = async () => {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/internal-messages/mark_viewed/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+            if (response.ok) {
+                console.log('[Seen] Marked internal chat as viewed');
+            }
+        } catch (err) {
+            console.error('[Seen] Failed to mark chat as viewed:', err);
+        }
+    };
+    
+    const fetchViewers = async () => {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/internal-messages/viewers/`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setViewers(data?.viewers || []);
+                console.log('[Seen] Fetched viewers:', data?.viewers?.length);
+            }
+        } catch (err) {
+            console.error('[Seen] Failed to fetch viewers:', err);
         }
     };
 
@@ -303,7 +348,29 @@ export default function SystemChatPage() {
                                                 <p style={{ margin: 0 }}>{msg.content}</p>
                                             )}
                                             
-                                            <small>{new Date(msg.timestamp).toLocaleString()}</small>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                                <small>{new Date(msg.timestamp).toLocaleString()}</small>
+                                                
+                                                {/* Seen indicator for messages sent by current user */}
+                                                {isOwnMessage(msg) && viewers.length > 0 && (
+                                                    <span
+                                                        onClick={() => setShowViewersModal(true)}
+                                                        style={{
+                                                            fontSize: '11px',
+                                                            color: '#818cf8',
+                                                            cursor: 'pointer',
+                                                            padding: '2px 6px',
+                                                            background: 'rgba(129, 140, 248, 0.1)',
+                                                            borderRadius: '10px',
+                                                            fontWeight: 500,
+                                                            userSelect: 'none'
+                                                        }}
+                                                        title="Click to see who has viewed this chat"
+                                                    >
+                                                        👁️ Seen by {viewers.length}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     ))
                                 )}
@@ -620,6 +687,102 @@ export default function SystemChatPage() {
 
                 {error && <div className="form-error" style={{ marginTop: 'var(--space-md)' }}>{error}</div>}
             </div>
+            
+            {/* Viewers Modal */}
+            {showViewersModal && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                    }}
+                    onClick={() => setShowViewersModal(false)}
+                >
+                    <div
+                        style={{
+                            background: 'var(--card-bg)',
+                            borderRadius: '12px',
+                            padding: '24px',
+                            maxWidth: '500px',
+                            width: '90%',
+                            maxHeight: '70vh',
+                            overflow: 'auto',
+                            border: '1px solid rgba(129, 140, 248, 0.2)',
+                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 style={{ margin: '0 0 16px 0', color: 'var(--text)' }}>
+                            👁️ Viewed by {viewers.length} {viewers.length === 1 ? 'person' : 'people'}
+                        </h3>
+                        
+                        {viewers.length === 0 ? (
+                            <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
+                                No one has viewed this chat yet
+                            </p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {viewers.map((viewer, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            padding: '12px',
+                                            background: 'rgba(129, 140, 248, 0.05)',
+                                            borderRadius: '8px',
+                                            border: '1px solid rgba(129, 140, 248, 0.1)',
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            {viewer.user?.profile_photo && (
+                                                <img
+                                                    src={viewer.user.profile_photo}
+                                                    alt="Profile"
+                                                    style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: '50%',
+                                                        objectFit: 'cover',
+                                                        border: '2px solid rgba(129, 140, 248, 0.3)',
+                                                    }}
+                                                />
+                                            )}
+                                            <div>
+                                                <div style={{ fontWeight: 600, color: 'var(--text)' }}>
+                                                    {viewer.user?.username}
+                                                </div>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                                    {viewer.user?.role}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'right' }}>
+                                            {new Date(viewer.viewed_at).toLocaleString()}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        
+                        <button
+                            onClick={() => setShowViewersModal(false)}
+                            className="button"
+                            style={{ marginTop: '16px', width: '100%' }}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
