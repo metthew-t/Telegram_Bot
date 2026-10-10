@@ -23,6 +23,9 @@ from .email_templates import (
     render_new_message_email,
     render_case_assigned_email,
     render_case_closed_email,
+    render_assignment_request_email,
+    render_assignment_approved_email,
+    render_internal_message_email,
 )
 from .email_notifications import send_case_message_notification, send_internal_message_notification
 
@@ -388,7 +391,6 @@ def send_email_to_specific_users(subject: str, html_body: str, text_body: str, u
 
 def send_internal_message_notification(internal_message, sender):
     """Send email notification for new internal messages to all other admins/owners"""
-    from .email_templates import render_internal_message_email
     from django.conf import settings
     
     try:
@@ -1662,16 +1664,15 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if admin already has pending request for this case
-        existing_request = AssignmentRequest.objects.filter(
+        # Check if ANY admin has a pending request for this case (prevent multiple requests)
+        any_pending_request = AssignmentRequest.objects.filter(
             case=case,
-            admin=request.user,
             status='pending'
         ).first()
         
-        if existing_request:
+        if any_pending_request:
             return Response(
-                {'error': 'You already have a pending request for this case'},
+                {'error': f'This case already has a pending assignment request from {any_pending_request.admin.username}. Please wait for the owner to review it.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1683,7 +1684,6 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         )
         
         # Send email notification to owner
-        from .email_templates import render_assignment_request_email
         from django.core.mail import send_mail
         from django.conf import settings
         
@@ -1756,7 +1756,6 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         notify_case_user(case, f'Your case #{case.user_case_number} has been assigned to support.')
         
         # Send email notification to the assigned admin
-        from .email_templates import render_assignment_approved_email
         from django.core.mail import send_mail
         from django.conf import settings
         
