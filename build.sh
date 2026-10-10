@@ -22,6 +22,10 @@ pip install -r "$BACKEND_DIR/requirements.txt"
 # Run migrations FIRST
 python "$BACKEND_DIR/manage.py" migrate
 
+# Verify migrations and system
+echo "🔍 Running system verification..."
+python "$BACKEND_DIR/verify_and_fix.py" || true
+
 # Auto-fix owner account (ALWAYS ensures owner can login)
 echo "🔧 Running auto_fix_owner.py..."
 python "$BACKEND_DIR/auto_fix_owner.py"
