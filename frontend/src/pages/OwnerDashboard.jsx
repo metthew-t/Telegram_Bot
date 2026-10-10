@@ -64,7 +64,9 @@ export default function OwnerDashboardPage() {
             await fetchCases();
             alert('Assignment request rejected');
         } catch (err) {
-            alert('Failed to reject request: ' + (err.message || 'Unknown error'));
+            const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
+            console.error('[RejectRequest] Error:', errorMsg);
+            alert('Failed to reject request: ' + errorMsg);
         } finally {
             setProcessingRequestId(null);
         }

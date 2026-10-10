@@ -106,12 +106,23 @@ export default function CaseDetailPage() {
   const fetchViewers = async () => {
     try {
       console.log('[Seen] Fetching viewers for case', id);
+      console.log('[Seen] Current user:', user);
       const data = await apiCall(`/api/cases/${id}/viewers/`, 'GET');
       console.log('[Seen] ✅ Fetched viewers:', data);
+      
       // Filter out current user from viewers list (sender shouldn't see themselves)
-      const otherViewers = (data?.viewers || []).filter(v => v.user?.id !== user?.id);
+      const currentUserId = user?.id;
+      console.log('[Seen] Current user ID:', currentUserId);
+      
+      const otherViewers = (data?.viewers || []).filter(v => {
+        const viewerUserId = v.user?.id;
+        console.log('[Seen] Comparing viewer', viewerUserId, 'with current user', currentUserId);
+        return viewerUserId !== currentUserId;
+      });
+      
       setViewers(otherViewers);
       console.log('[Seen] Viewers count (excluding self):', otherViewers.length);
+      console.log('[Seen] Filtered viewers:', otherViewers);
     } catch (err) {
       console.error('[Seen] ❌ Failed to fetch viewers:', err);
     }
@@ -216,7 +227,15 @@ export default function CaseDetailPage() {
   };
 
   const isOwnMessage = (msg) => {
-    return msg.sender?.label === 'You' || msg.sender?.id === user?.id;
+    const result = msg.sender?.label === 'You' || msg.sender?.id === user?.id;
+    console.log('[Seen] isOwnMessage check:', {
+      messageId: msg.id,
+      senderLabel: msg.sender?.label,
+      senderId: msg.sender?.id,
+      currentUserId: user?.id,
+      isOwn: result
+    });
+    return result;
   };
 
   if (loading) return <div className="page-panel"><div className="loading-spinner" /></div>;

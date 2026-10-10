@@ -814,6 +814,10 @@ class CaseViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({'error': 'User not found or invalid role'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Check if this is a reassignment (case was already assigned to someone)
+        was_previously_assigned = case.assigned_admin is not None
+        previous_admin = case.assigned_admin
+        
         # ── OWNERS AS ONE ENTITY: When assigning to any owner, assign to first owner (representative) ──
         actual_assigned_admin = admin
         if admin.role == 'owner':
@@ -827,13 +831,20 @@ class CaseViewSet(viewsets.ModelViewSet):
         case.status = 'assigned'
         case.assigned_at = timezone.now()  # Track when assigned
         case.save()
+        
         AuditLog.objects.create(
             case=case,
             performer=request.user,
-            action='assigned',
-            details=f'Assigned case to {"all owners" if actual_assigned_admin.role == "owner" else "admin " + actual_assigned_admin.username}',
+            action='reassigned' if was_previously_assigned else 'assigned',
+            details=f'{"Reassigned" if was_previously_assigned else "Assigned"} case to {"all owners" if actual_assigned_admin.role == "owner" else "admin " + actual_assigned_admin.username}',
         )
-        notify_case_user(case, f'Your case #{case.user_case_number} has been assigned to support.')
+        
+        # Only notify user via Telegram if this is a NEW assignment (not a reassignment)
+        if not was_previously_assigned:
+            notify_case_user(case, f'Your case #{case.user_case_number} has been assigned to support.')
+            print(f"[Assignment] ✅ User notified via Telegram (new assignment)")
+        else:
+            print(f"[Assignment] ⏭️  Telegram notification skipped (reassignment from {previous_admin.username if previous_admin else 'unknown'} to {actual_assigned_admin.username})")
 
         frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
@@ -1753,8 +1764,9 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
             details=f'Approved assignment request - assigned case to admin {assignment_request.admin.username}',
         )
         
-        # Notify user
+        # Notify user via Telegram (this is a new assignment through approval workflow)
         notify_case_user(case, f'Your case #{case.user_case_number} has been assigned to support.')
+        print(f"[APPROVE] ✅ User notified via Telegram")
         
         # Send email notification to the assigned admin
         print(f"[APPROVE] Attempting to send email notification...")
