@@ -8,6 +8,7 @@ export default function AdminDashboardPage() {
   const [cases, setCases] = useState([]);
   const [allCases, setAllCases] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
+  const [assignmentRequests, setAssignmentRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
@@ -20,6 +21,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     fetchCases();
     fetchFeedbacks();
+    fetchMyAssignmentRequests();
   }, []);
 
   useEffect(() => {
@@ -50,6 +52,16 @@ export default function AdminDashboardPage() {
       setFeedbacks(data || []);
     } catch (err) {
       console.error('Failed to load feedbacks:', err);
+    }
+  };
+  
+  const fetchMyAssignmentRequests = async () => {
+    try {
+      const data = await apiCall('/api/assignment-requests/', 'GET');
+      setAssignmentRequests(data || []);
+      console.log('[AssignmentRequests] Fetched:', data);
+    } catch (err) {
+      console.error('[AssignmentRequests] Failed to fetch:', err);
     }
   };
 
@@ -94,7 +106,8 @@ export default function AdminDashboardPage() {
         case_id: caseId,
       });
       alert('Assignment request sent to owner for approval');
-      fetchCases();
+      await fetchCases();
+      await fetchMyAssignmentRequests(); // Refresh assignment requests
     } catch (err) {
       alert(err.message || 'Failed to request assignment');
     } finally {
@@ -129,6 +142,13 @@ export default function AdminDashboardPage() {
     if (diffHours > 0) return `${diffHours}h ago`;
     if (diffMins > 0) return `${diffMins}m ago`;
     return 'Just now';
+  };
+  
+  // Check if this case has a pending assignment request from current admin
+  const hasPendingRequest = (caseId) => {
+    return assignmentRequests.some(
+      req => req.case_id === caseId && req.status === 'pending'
+    );
   };
 
   const stats = {
@@ -317,18 +337,34 @@ export default function AdminDashboardPage() {
                   )}
 
                   {caseItem.status === 'open' && !caseItem.assigned_admin && user?.role !== 'owner' && (
-                    <LoadingButton
-                      className="button button-primary button-sm"
-                      style={{ marginTop: '0.75rem' }}
-                      loading={requestingId === caseItem.id}
-                      loadingText="Requesting..."
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRequestAssignment(caseItem.id);
-                      }}
-                    >
-                      Request Assignment
-                    </LoadingButton>
+                    hasPendingRequest(caseItem.id) ? (
+                      <button
+                        className="button button-sm"
+                        style={{
+                          marginTop: '0.75rem',
+                          background: 'rgba(245, 158, 11, 0.1)',
+                          border: '1px solid rgba(245, 158, 11, 0.3)',
+                          color: '#f59e0b',
+                          cursor: 'default',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        ⏳ Request Pending...
+                      </button>
+                    ) : (
+                      <LoadingButton
+                        className="button button-primary button-sm"
+                        style={{ marginTop: '0.75rem' }}
+                        loading={requestingId === caseItem.id}
+                        loadingText="Requesting..."
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRequestAssignment(caseItem.id);
+                        }}
+                      >
+                        Request Assignment
+                      </LoadingButton>
+                    )
                   )}
 
                   {caseItem.status === 'open' && !caseItem.assigned_admin && user?.role === 'owner' && (

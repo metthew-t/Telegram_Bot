@@ -1687,13 +1687,19 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         from django.core.mail import send_mail
         from django.conf import settings
         
+        print(f"[REQUEST] Attempting to send assignment request email to owners...")
         try:
             owner_users = User.objects.filter(role='owner', email_verified=True, email_notifications_enabled=True)
+            print(f"[REQUEST] Found {owner_users.count()} eligible owners")
+            
             frontend_url = settings.FRONTEND_URL
             
             for owner in owner_users:
                 if owner.email:
+                    print(f"[REQUEST] Sending to owner: {owner.username} ({owner.email})")
                     subject, html_body, text_body = render_assignment_request_email(assignment_request, frontend_url)
+                    print(f"[REQUEST] Email subject: {subject}")
+                    
                     send_mail(
                         subject,
                         text_body,
@@ -1702,9 +1708,13 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
                         html_message=html_body,
                         fail_silently=True
                     )
-                    print(f"✅ Assignment request email sent to owner: {owner.email}")
+                    print(f"[REQUEST] ✅ Assignment request email sent to owner: {owner.email}")
+                else:
+                    print(f"[REQUEST] ⚠️ Owner {owner.username} has no email")
         except Exception as e:
-            print(f"❌ Failed to send assignment request email: {str(e)}")
+            print(f"[REQUEST] ❌ Failed to send assignment request email: {str(e)}")
+            import traceback
+            traceback.print_exc()
         
         serializer = self.serializer_class(assignment_request)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -1759,11 +1769,19 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         from django.core.mail import send_mail
         from django.conf import settings
         
+        print(f"[APPROVE] Attempting to send email notification...")
         try:
             admin = assignment_request.admin
+            print(f"[APPROVE] Admin: {admin.username}, Email: {admin.email}")
+            print(f"[APPROVE] Email verified: {admin.email_verified}, Notifications enabled: {admin.email_notifications_enabled}")
+            
             if admin.email and admin.email_verified and admin.email_notifications_enabled:
                 frontend_url = settings.FRONTEND_URL
+                print(f"[APPROVE] Frontend URL: {frontend_url}")
+                
                 subject, html_body, text_body = render_assignment_approved_email(assignment_request, frontend_url)
+                print(f"[APPROVE] Email subject: {subject}")
+                
                 send_mail(
                     subject,
                     text_body,
@@ -1772,9 +1790,13 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
                     html_message=html_body,
                     fail_silently=True
                 )
-                print(f"✅ Assignment approval email sent to admin: {admin.email}")
+                print(f"[APPROVE] ✅ Assignment approval email sent to admin: {admin.email}")
+            else:
+                print(f"[APPROVE] ❌ Email not sent - requirements not met")
         except Exception as e:
-            print(f"❌ Failed to send assignment approval email: {str(e)}")
+            print(f"[APPROVE] ❌ Failed to send assignment approval email: {str(e)}")
+            import traceback
+            traceback.print_exc()
         
         serializer = self.serializer_class(assignment_request)
         return Response(serializer.data)
