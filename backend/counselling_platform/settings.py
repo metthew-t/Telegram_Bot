@@ -121,13 +121,11 @@ else:
         conn_max_age=600,
         conn_health_checks=True,
     )
-    # Add SSL options to handle connection issues
+    # Add connection timeout for better error handling
     if 'OPTIONS' not in db_config:
         db_config['OPTIONS'] = {}
-    db_config['OPTIONS'].update({
-        'connect_timeout': 10,
-        'options': '-c statement_timeout=30000',  # 30 second query timeout
-    })
+    db_config['OPTIONS']['connect_timeout'] = 10
+    
     DATABASES = {
         'default': db_config
     }
