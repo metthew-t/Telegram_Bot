@@ -369,9 +369,12 @@ export default function SystemChatPage() {
                                                     const messageTime = new Date(msg.timestamp);
                                                     const viewersAfterMessage = viewers.filter(v => {
                                                         const viewTime = new Date(v.viewed_at);
-                                                        return viewTime > messageTime;
+                                                        const isAfter = viewTime > messageTime;
+                                                        console.log(`[InternalChat Seen Debug] Message: ${messageTime.toISOString()}, Viewer: ${viewTime.toISOString()}, After: ${isAfter}`);
+                                                        return isAfter;
                                                     });
                                                     const hasSeen = viewersAfterMessage.length > 0;
+                                                    console.log(`[InternalChat Seen Debug] Total viewers: ${viewers.length}, After message: ${viewersAfterMessage.length}`);
                                                     
                                                     return (
                                                         <span
