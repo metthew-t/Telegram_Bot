@@ -394,6 +394,9 @@ async def show_case_messages(update, context, case_id):
     # Fetch messages
     msg_resp = backend_request(f'/api/messages/?case={case_id}', method='get', token=token)
     messages = msg_resp.json() if msg_resp.ok else []
+    
+    # Mark case as viewed (for "seen" status tracking)
+    backend_request(f'/api/cases/{case_id}/mark_viewed/', method='post', token=token)
 
     status_icons = {'open': '🔵', 'assigned': '🟡', 'closed': '🟢'}
     icon = status_icons.get(case['status'], '⚪')
@@ -585,6 +588,9 @@ async def switchcase_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Save selected case
     context.user_data['selected_case_id'] = matching_case['id']
+    
+    # Mark case as viewed (for "seen" status tracking)
+    backend_request(f'/api/cases/{matching_case["id"]}/mark_viewed/', method='post', token=token)
     
     await update.message.reply_text(
         f'✅ *Switched to Case #{case_num}*\n\n'

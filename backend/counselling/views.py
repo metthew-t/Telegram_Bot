@@ -391,28 +391,33 @@ def send_email_to_specific_users(subject: str, html_body: str, text_body: str, u
 
 def send_internal_message_notification(internal_message, sender):
     """Send email notification for new internal messages to all other admins/owners"""
-    from django.conf import settings
+    # DISABLED: No email notifications for internal chat messages
+    print(f"[Email] Internal message notification disabled (no emails sent)")
+    return
     
-    try:
-        # Get all admins and owners except the sender
-        recipients = User.objects.filter(
-            role__in=['admin', 'owner'],
-            email_verified=True,
-            email_notifications_enabled=True
-        ).exclude(id=sender.id).exclude(email__isnull=True).exclude(email='')
-        
-        if not recipients:
-            print(f"[Email] No recipients for internal message notification")
-            return
-        
-        frontend_url = settings.FRONTEND_URL
-        subject, html_body, text_body = render_internal_message_email(internal_message, frontend_url)
-        
-        emails = [user.email for user in recipients]
-        _send_email(subject, html_body, text_body, emails)
-        print(f"[Email] Internal message notification sent to {len(emails)} recipient(s)")
-    except Exception as e:
-        print(f"[Email] Failed to send internal message notification: {str(e)}")
+    # Original code commented out:
+    # from django.conf import settings
+    # 
+    # try:
+    #     # Get all admins and owners except the sender
+    #     recipients = User.objects.filter(
+    #         role__in=['admin', 'owner'],
+    #         email_verified=True,
+    #         email_notifications_enabled=True
+    #     ).exclude(id=sender.id).exclude(email__isnull=True).exclude(email='')
+    #     
+    #     if not recipients:
+    #         print(f"[Email] No recipients for internal message notification")
+    #         return
+    #     
+    #     frontend_url = settings.FRONTEND_URL
+    #     subject, html_body, text_body = render_internal_message_email(internal_message, frontend_url)
+    #     
+    #     emails = [user.email for user in recipients]
+    #     _send_email(subject, html_body, text_body, emails)
+    #     print(f"[Email] Internal message notification sent to {len(emails)} recipient(s)")
+    # except Exception as e:
+    #     print(f"[Email] Failed to send internal message notification: {str(e)}")
 
 
 def send_verification_email(user, request):
