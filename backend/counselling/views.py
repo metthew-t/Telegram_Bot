@@ -1633,58 +1633,29 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
     serializer_class = AssignmentRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def list(self, request, *args, **kwargs):
+        """List assignment requests with detailed logging"""
+        print(f"[LIST REQUESTS] User: {request.user.username} (role: {request.user.role})")
+        
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        print(f"[LIST REQUESTS] Total requests returned: {queryset.count()}")
+        
+        # Log each request's status
+        for req in queryset[:10]:  # Log first 10 to avoid spam
+            print(f"[LIST REQUESTS]   - Request #{req.id}: {req.case.title} | Status: {req.status} | Admin: {req.admin.username}")
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     def get_queryset(self):
-        """
-        Auto-fix stuck assignment requests before returning queryset.
-        This ensures requests that should be approved/rejected based on case status are corrected.
-        """
-        from django.utils import timezone
-        from django.db import transaction
-        
+        """Return filtered queryset based on user role"""
         user = self.request.user
-        
-        # Auto-fix stuck requests (only for owner, to avoid unnecessary checks for admins)
-        if user.role == 'owner':
-            try:
-                # Find pending requests where case is already assigned - convert to list to avoid queryset issues
-                pending_requests = list(
-                    AssignmentRequest.objects.filter(status='pending')
-                    .select_related('case', 'case__assigned_admin', 'admin')
-                )
-                
-                for req in pending_requests:
-                    case = req.case
-                    
-                    # If case is assigned, this request should not be pending
-                    if case.status == 'assigned' and case.assigned_admin:
-                        try:
-                            with transaction.atomic():
-                                # Refresh from database to avoid stale data
-                                req.refresh_from_db()
-                                
-                                # Check status again after refresh
-                                if req.status == 'pending':
-                                    if case.assigned_admin.id == req.admin.id:
-                                        # Case is assigned to THIS admin - mark as approved
-                                        print(f"[AUTO-FIX] Request #{req.id} for case '{case.title}' - marking as APPROVED")
-                                        req.status = 'approved'
-                                        req.reviewed_at = timezone.now()
-                                        req.reviewed_by = user
-                                        req.save(update_fields=['status', 'reviewed_at', 'reviewed_by'])
-                                    else:
-                                        # Case is assigned to DIFFERENT admin - mark as rejected
-                                        print(f"[AUTO-FIX] Request #{req.id} for case '{case.title}' - marking as REJECTED")
-                                        req.status = 'rejected'
-                                        req.reviewed_at = timezone.now()
-                                        req.reviewed_by = user
-                                        req.save(update_fields=['status', 'reviewed_at', 'reviewed_by'])
-                        except Exception as fix_error:
-                            print(f"[AUTO-FIX] Error fixing request #{req.id}: {fix_error}")
-                            # Continue with other requests even if one fails
-                            continue
-            except Exception as e:
-                print(f"[AUTO-FIX] Error in auto-fix: {e}")
-                # Don't crash if auto-fix fails, just log and continue
         
         # Return filtered queryset
         if user.role == 'owner':
@@ -1781,9 +1752,12 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         
         assignment_request = self.get_object()
         
+        print(f"[APPROVE] ===== APPROVAL REQUEST =====")
         print(f"[APPROVE] Assignment request ID: {assignment_request.id}")
         print(f"[APPROVE] Current status: {assignment_request.status}")
         print(f"[APPROVE] Case ID: {assignment_request.case.id}")
+        print(f"[APPROVE] Case title: {assignment_request.case.title}")
+        print(f"[APPROVE] Requesting admin: {assignment_request.admin.username}")
         
         if assignment_request.status != 'pending':
             error_msg = f'Request has already been reviewed (current status: {assignment_request.status})'
@@ -1799,14 +1773,19 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         assignment_request.reviewed_by = request.user
         assignment_request.save()
         
+        print(f"[APPROVE] ✅ Request marked as APPROVED in database")
+        
         # Assign the case
         case = assignment_request.case
+        old_status = case.status
+        old_admin = case.assigned_admin
+        
         case.assigned_admin = assignment_request.admin
         case.status = 'assigned'
         case.assigned_at = timezone.now()
         case.save()
         
-        print(f"[APPROVE] ✅ Case assigned to {assignment_request.admin.username}")
+        print(f"[APPROVE] ✅ Case updated: {old_status} -> assigned, admin: {old_admin} -> {assignment_request.admin.username}")
         
         # Create audit log
         AuditLog.objects.create(
@@ -1854,9 +1833,12 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         
         assignment_request = self.get_object()
         
+        print(f"[REJECT] ===== REJECTION REQUEST =====")
         print(f"[REJECT] Assignment request ID: {assignment_request.id}")
         print(f"[REJECT] Current status: {assignment_request.status}")
         print(f"[REJECT] Case ID: {assignment_request.case.id}")
+        print(f"[REJECT] Case title: {assignment_request.case.title}")
+        print(f"[REJECT] Requesting admin: {assignment_request.admin.username}")
         
         if assignment_request.status != 'pending':
             error_msg = f'Request has already been reviewed (current status: {assignment_request.status})'
@@ -1872,7 +1854,7 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
         assignment_request.reviewed_by = request.user
         assignment_request.save()
         
-        print(f"[REJECT] ✅ Request rejected")
+        print(f"[REJECT] ✅ Request marked as REJECTED in database")
         
         # Send email notification to the admin
         print(f"[REJECT] Attempting to send email notification...")
