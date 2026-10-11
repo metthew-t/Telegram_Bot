@@ -114,19 +114,19 @@ export default function CaseDetailPage() {
       const data = await apiCall(`/api/cases/${id}/viewers/`, 'GET');
       console.log('[Seen] ✅ Fetched viewers:', data);
       
-      // Filter out current user from viewers list (sender shouldn't see themselves)
-      const currentUserId = user?.id;
-      console.log('[Seen] Current user ID:', currentUserId);
+      // For case chat, we want to know if the CASE USER has viewed it
+      // Not if other admins have viewed it
+      // The caseData.user is the user who created the case
+      const caseUserId = caseData?.user?.id;
+      console.log('[Seen] Case user ID:', caseUserId);
+      console.log('[Seen] All viewers:', data?.viewers);
       
-      const otherViewers = (data?.viewers || []).filter(v => {
-        const viewerUserId = v.user?.id;
-        console.log('[Seen] Comparing viewer', viewerUserId, 'with current user', currentUserId);
-        return viewerUserId !== currentUserId;
-      });
+      // Check if the case user is in the viewers list
+      const caseUserViewers = (data?.viewers || []).filter(v => v.user?.id === caseUserId);
       
-      setViewers(otherViewers);
-      console.log('[Seen] Viewers count (excluding self):', otherViewers.length);
-      console.log('[Seen] Filtered viewers:', otherViewers);
+      setViewers(caseUserViewers);
+      console.log('[Seen] Case user viewers count:', caseUserViewers.length);
+      console.log('[Seen] Case user viewers:', caseUserViewers);
     } catch (err) {
       console.error('[Seen] ❌ Failed to fetch viewers:', err);
     }

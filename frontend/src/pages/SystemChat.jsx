@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { getUser } from '../auth.js';
-import { fetchInternalMessages, sendInternalMessage } from '../api.js';
+import { fetchInternalMessages, sendInternalMessage, apiCall } from '../api.js';
 import LoadingButton from '../components/LoadingButton.jsx';
 import VoiceRecorder from '../components/VoiceRecorder.jsx';
 import AudioPlayer from '../components/AudioPlayer.jsx';
@@ -82,18 +82,8 @@ export default function SystemChatPage() {
     const markChatAsViewed = async () => {
         try {
             console.log('[Seen] Calling mark_viewed API for internal chat');
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/internal-messages/mark_viewed/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                }
-            });
-            if (response.ok) {
-                console.log('[Seen] ✅ Marked internal chat as viewed');
-            } else {
-                console.error('[Seen] ❌ Failed to mark chat as viewed:', response.status);
-            }
+            await apiCall('/api/internal-messages/mark_viewed/', 'POST');
+            console.log('[Seen] ✅ Marked internal chat as viewed');
         } catch (err) {
             console.error('[Seen] ❌ Failed to mark chat as viewed:', err);
         }
@@ -102,21 +92,12 @@ export default function SystemChatPage() {
     const fetchViewers = async () => {
         try {
             console.log('[Seen] Fetching internal chat viewers');
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/internal-messages/viewers/`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                console.log('[Seen] ✅ Fetched viewers:', data);
-                // Filter out current user from viewers list (sender shouldn't see themselves)
-                const otherViewers = (data?.viewers || []).filter(v => v.user?.id !== user?.id);
-                setViewers(otherViewers);
-                console.log('[Seen] Viewers count (excluding self):', otherViewers.length);
-            }
+            const data = await apiCall('/api/internal-messages/viewers/', 'GET');
+            console.log('[Seen] ✅ Fetched viewers:', data);
+            // Filter out current user from viewers list (sender shouldn't see themselves)
+            const otherViewers = (data?.viewers || []).filter(v => v.user?.id !== user?.id);
+            setViewers(otherViewers);
+            console.log('[Seen] Viewers count (excluding self):', otherViewers.length);
         } catch (err) {
             console.error('[Seen] ❌ Failed to fetch viewers:', err);
         }
