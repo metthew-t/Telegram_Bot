@@ -603,7 +603,7 @@ async def switchcase_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# ─── /cancel (global fallback) ───
+# ─── /cancel (global fallback) ─── Force redeploy
 
 async def check_for_feedback_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
