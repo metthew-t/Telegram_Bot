@@ -1014,20 +1014,35 @@ class CaseViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrOwner])
     def mark_viewed(self, request, pk=None):
         """Record that the current user has viewed this case (for 'seen' status)"""
-        from .models import CaseView
+        from .models import CaseView, Message
         from django.utils import timezone
         
         case = self.get_object()
+        current_user = request.user
+        
+        # Check if current user is the sender of the most recent message
+        # If yes, don't mark them as viewer (they shouldn't see themselves in "Seen by")
+        most_recent_message = Message.objects.filter(case=case).order_by('-timestamp').first()
+        
+        if most_recent_message and most_recent_message.sender.id == current_user.id:
+            # Check how recent the message is (within last 5 seconds = just sent)
+            time_since_message = timezone.now() - most_recent_message.timestamp
+            if time_since_message.total_seconds() < 5:
+                print(f"[CaseView] User {current_user.username} just sent a message - NOT marking as viewer")
+                return Response({
+                    'status': 'skipped',
+                    'reason': 'User is the most recent sender'
+                })
         
         # Create or update the view record for this user
         view, created = CaseView.objects.update_or_create(
             case=case,
-            user=request.user,
+            user=current_user,
             defaults={'viewed_at': timezone.now()}
         )
         
         action = "created" if created else "updated"
-        print(f"[CaseView] {action} view record for user {request.user.username} on case #{case.id}")
+        print(f"[CaseView] {action} view record for user {current_user.username} on case #{case.id}")
         
         return Response({
             'status': 'viewed',
@@ -1583,17 +1598,33 @@ class InternalMessageViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], permission_classes=[IsAdminOrOwner])
     def mark_viewed(self, request):
         """Record that the current user has viewed the internal chat (for 'seen' status)"""
-        from .models import InternalChatView
+        from .models import InternalChatView, InternalMessage
         from django.utils import timezone
+        
+        current_user = request.user
+        
+        # Check if current user is the sender of the most recent message
+        # If yes, don't mark them as viewer (they shouldn't see themselves in "Seen by")
+        most_recent_message = InternalMessage.objects.order_by('-timestamp').first()
+        
+        if most_recent_message and most_recent_message.sender.id == current_user.id:
+            # Check how recent the message is (within last 5 seconds = just sent)
+            time_since_message = timezone.now() - most_recent_message.timestamp
+            if time_since_message.total_seconds() < 5:
+                print(f"[InternalChatView] User {current_user.username} just sent a message - NOT marking as viewer")
+                return Response({
+                    'status': 'skipped',
+                    'reason': 'User is the most recent sender'
+                })
         
         # Create or update the view record for this user
         view, created = InternalChatView.objects.update_or_create(
-            user=request.user,
+            user=current_user,
             defaults={'viewed_at': timezone.now()}
         )
         
         action = "created" if created else "updated"
-        print(f"[InternalChatView] {action} view record for user {request.user.username}")
+        print(f"[InternalChatView] {action} view record for user {current_user.username}")
         
         return Response({
             'status': 'viewed',
