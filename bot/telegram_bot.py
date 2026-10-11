@@ -449,15 +449,29 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         '🆘 *Available Commands:*\n\n'
-        '/start — Register & get started\n'
-        '/newcase — Submit a new support case (step-by-step)\n'
-        '/mycases — List all your cases\n'
-        '/viewcase — View messages on a case\n'
-        '/reply — Reply to a case\n'
-        '/switchcase — Switch to a different active case\n'
-        '/help — Show this help message\n'
-        '/cancel — Cancel current operation\n\n'
-        '💡 *Tip:* If you have one active case, just type your messages normally and they\'ll be sent to that case!',
+        '📝 *New Case* — Submit a new support case (step-by-step)\n'
+        '   • Use this to create a new counseling request\n'
+        '   • You\'ll be guided through title, description, and confirmation\n\n'
+        '📋 *My Cases* — List all your cases (active and closed)\n'
+        '   • Shows case ID, title, and current status\n'
+        '   • Helps you keep track of all your requests\n\n'
+        '👁️ *View Case* — View messages on a specific case\n'
+        '   • Enter the case ID to see conversation history\n'
+        '   • Shows last 10 messages and case details\n\n'
+        '🔄 *Switch Case* — Switch to a different active case\n'
+        '   • Use this if you have multiple active cases\n'
+        '   • Choose which case your messages should go to\n'
+        '   • Shows case ID and title for easy selection\n\n'
+        '💬 *Reply* — Send a message to your case\n'
+        '   • For multiple cases: choose which case to reply to\n'
+        '   • For single case: just type normally!\n\n'
+        '❓ *Help* — Show this detailed help message\n\n'
+        '---\n\n'
+        '💡 *Quick Tips:*\n'
+        '• If you have only ONE active case, just type your messages normally - they\'ll be sent automatically!\n'
+        '• Use /cancel anytime to abort an operation\n'
+        '• You can send voice messages too!\n'
+        '• Your counselor will be notified when you send a message',
         parse_mode='Markdown',
         reply_markup=MAIN_MENU_KEYBOARD,
     )
