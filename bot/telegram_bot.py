@@ -711,6 +711,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         case_num = cases[0].get('user_case_number', case_id)
         context.user_data['selected_case_id'] = case_id
         print(f"DEBUG: Routing message to case #{case_id}")
+        
+        # Mark case as viewed (user is viewing/replying to their case)
+        backend_request(f'/api/cases/{case_id}/mark_viewed/', method='post', token=token)
+        
         msg_resp = backend_request(
             '/api/messages/',
             token=token,
@@ -734,6 +738,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if matching_case:
                 case_num = matching_case.get('user_case_number', selected_case_id)
                 print(f"DEBUG: Routing message to pre-selected case #{selected_case_id}")
+                
+                # Mark case as viewed (user is viewing/replying to their case)
+                backend_request(f'/api/cases/{selected_case_id}/mark_viewed/', method='post', token=token)
+                
                 msg_resp = backend_request(
                     '/api/messages/',
                     token=token,
@@ -799,6 +807,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(cases) == 1:
         case_id = cases[0]['id']
         case_num = cases[0].get('user_case_number', case_id)
+        # Mark case as viewed (user is viewing/replying to their case)
+        backend_request(f'/api/cases/{case_id}/mark_viewed/', method='post', token=token)
     # If user has selected a case previously, use it
     elif selected_case_id:
         # Verify the selected case is still active
@@ -806,6 +816,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if matching_case:
             case_id = matching_case['id']
             case_num = matching_case.get('user_case_number', case_id)
+            # Mark case as viewed (user is viewing/replying to their case)
+            backend_request(f'/api/cases/{case_id}/mark_viewed/', method='post', token=token)
         else:
             await update.message.reply_text(
                 '📝 Your selected case is no longer active. Please send a text message with the case number to select a different case.',
