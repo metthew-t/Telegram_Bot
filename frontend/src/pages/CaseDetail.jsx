@@ -36,10 +36,13 @@ export default function CaseDetailPage() {
       fetchAdmins();
     }
     
-    // Mark this case as viewed
-    markCaseAsViewed();
+    // Don't mark as viewed immediately - wait 2 seconds to ensure user is actually viewing
+    // This prevents sender from being marked as viewer of their own messages
+    const markViewedTimeout = setTimeout(() => {
+      markCaseAsViewed();
+    }, 2000);
     
-    // Fetch viewers list
+    // Fetch viewers list (this will be empty initially, then populate as others view)
     fetchViewers();
 
     // Start polling
@@ -50,6 +53,7 @@ export default function CaseDetailPage() {
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      clearTimeout(markViewedTimeout);
     };
   }, [id]);
 
@@ -396,22 +400,23 @@ export default function CaseDetailPage() {
                     <small>{new Date(msg.timestamp).toLocaleString()}</small>
                     
                     {/* Seen indicator for messages sent by current user */}
-                    {isOwnMessage(msg) && viewers.length > 0 && (
+                    {isOwnMessage(msg) && (
                       <span
-                        onClick={() => setShowViewersModal(true)}
+                        onClick={() => viewers.length > 0 && setShowViewersModal(true)}
                         style={{
                           fontSize: '11px',
-                          color: '#818cf8',
-                          cursor: 'pointer',
+                          color: viewers.length > 0 ? '#818cf8' : '#9ca3af',
+                          cursor: viewers.length > 0 ? 'pointer' : 'default',
                           padding: '2px 6px',
-                          background: 'rgba(129, 140, 248, 0.1)',
+                          background: viewers.length > 0 ? 'rgba(129, 140, 248, 0.1)' : 'rgba(156, 163, 175, 0.1)',
                           borderRadius: '10px',
                           fontWeight: 500,
-                          userSelect: 'none'
+                          userSelect: 'none',
+                          opacity: viewers.length > 0 ? 1 : 0.7
                         }}
-                        title="Click to see who has viewed this chat"
+                        title={viewers.length > 0 ? "Click to see who has viewed this chat" : "No one has viewed this chat yet"}
                       >
-                        👁️ Seen by {viewers.length}
+                        {viewers.length > 0 ? `👁️ Seen by ${viewers.length}` : '👁️ Not seen yet'}
                       </span>
                     )}
                   </div>

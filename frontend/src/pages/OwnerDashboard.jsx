@@ -16,6 +16,13 @@ export default function OwnerDashboardPage() {
     useEffect(() => {
         fetchCases();
         fetchAssignmentRequests();
+        
+        // Poll for assignment requests every 10 seconds
+        const pollInterval = setInterval(() => {
+            fetchAssignmentRequests();
+        }, 10000);
+        
+        return () => clearInterval(pollInterval);
     }, []);
 
     const fetchCases = async () => {
