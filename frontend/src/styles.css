@@ -1499,11 +1499,13 @@ time {
   flex: 1;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .input-with-emoji input {
   width: 100%;
   padding-right: 50px !important;
+  flex: 1;
 }
 
 .emoji-picker-btn {
@@ -1520,6 +1522,8 @@ time {
   z-index: 10;
   box-shadow: none !important;
   min-width: auto !important;
+  height: auto !important;
+  line-height: 1 !important;
 }
 
 .emoji-picker-btn:hover {
@@ -1533,29 +1537,47 @@ time {
   .input-with-emoji {
     position: relative;
     display: flex;
-    align-items: center;
+    align-items: stretch;
     width: 100%;
+    max-width: 100%;
   }
   
   .input-with-emoji input {
-    flex: 1;
+    flex: 1 1 auto;
     padding-right: 45px !important;
-    min-width: 0; /* Allow input to shrink on very small screens */
+    min-width: 0;
+    width: auto !important;
   }
   
   .emoji-picker-btn {
-    position: absolute;
-    right: 4px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 18px;
+    position: absolute !important;
+    right: 4px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 18px !important;
     padding: 4px 8px !important;
-    z-index: 10;
-    flex-shrink: 0; /* Prevent button from shrinking */
+    z-index: 100 !important;
+    flex-shrink: 0;
+    margin: 0 !important;
+    height: auto !important;
+    width: auto !important;
+    min-width: auto !important;
   }
   
   .emoji-picker-btn:active {
-    transform: translateY(-50%) scale(0.95);
+    transform: translateY(-50%) scale(0.95) !important;
+  }
+  
+  /* Ensure parent form respects the layout */
+  .form-inline {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: stretch !important;
+  }
+  
+  .form-inline .input-with-emoji {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
   }
 }
 
