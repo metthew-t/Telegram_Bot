@@ -1064,7 +1064,10 @@ def main():
     )
 
     switchcase_handler = ConversationHandler(
-        entry_points=[CommandHandler('switchcase', switchcase_start)],
+        entry_points=[
+            CommandHandler('switchcase', switchcase_start),
+            MessageHandler(filters.Regex('^(🔄 Switch Case|Switch Case)$'), switchcase_start)
+        ],
         states={
             REPLY_CASE_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, switchcase_select)],
         },
@@ -1080,9 +1083,6 @@ def main():
     
     application.add_handler(CommandHandler('mycases', list_cases))
     application.add_handler(MessageHandler(filters.Regex('^(📋 My Cases|My Cases)$'), list_cases))
-    
-    # Add button handler for Switch Case
-    application.add_handler(MessageHandler(filters.Regex('^(🔄 Switch Case|Switch Case)$'), switchcase_start))
     
     application.add_handler(reply_handler)
     application.add_handler(viewcase_handler)
