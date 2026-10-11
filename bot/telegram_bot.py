@@ -499,23 +499,17 @@ async def switchcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Show list of cases as buttons
     current_case_id = context.user_data.get('selected_case_id')
     
-    # Build keyboard with case buttons (max 2 per row)
+    # Build keyboard with case buttons (max 1 per row for readability with titles)
     keyboard = []
-    row = []
     for c in cases:
         case_num = c.get('user_case_number', c['id'])
+        title = c['title']
+        # Truncate long titles
+        if len(title) > 25:
+            title = title[:22] + '...'
         is_current = '✅ ' if c['id'] == current_case_id else '📋 '
-        button_text = f"{is_current}Case #{case_num}"
-        row.append(button_text)
-        
-        # Add row to keyboard when we have 2 buttons
-        if len(row) == 2:
-            keyboard.append(row)
-            row = []
-    
-    # Add remaining button if any
-    if row:
-        keyboard.append(row)
+        button_text = f"{is_current}#{case_num}: {title}"
+        keyboard.append([button_text])
     
     # Add cancel button
     keyboard.append(['❌ Cancel'])
@@ -544,9 +538,9 @@ async def switchcase_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
     
-    # Extract case number from button text like "📋 Case #2" or "✅ Case #2"
+    # Extract case number from button text like "📋 #2: Title" or "✅ #2: Title"
     import re
-    match = re.search(r'Case #(\d+)', text)
+    match = re.search(r'#(\d+):', text)
     
     if not match:
         await update.message.reply_text(

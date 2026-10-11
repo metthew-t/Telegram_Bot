@@ -1021,14 +1021,14 @@ class CaseViewSet(viewsets.ModelViewSet):
         current_user = request.user
         
         # Check if current user is the sender of the most recent message
-        # If yes, don't mark them as viewer (they shouldn't see themselves in "Seen by")
+        # If yes AND message is very recent, don't mark them as viewer
         most_recent_message = Message.objects.filter(case=case).order_by('-timestamp').first()
         
         if most_recent_message and most_recent_message.sender.id == current_user.id:
-            # Check how recent the message is (within last 5 seconds = just sent)
+            # Check how recent the message is (within last 10 seconds = just sent)
             time_since_message = timezone.now() - most_recent_message.timestamp
-            if time_since_message.total_seconds() < 5:
-                print(f"[CaseView] User {current_user.username} just sent a message - NOT marking as viewer")
+            if time_since_message.total_seconds() < 10:
+                print(f"[CaseView] User {current_user.username} just sent a message ({time_since_message.total_seconds():.1f}s ago) - NOT marking as viewer")
                 return Response({
                     'status': 'skipped',
                     'reason': 'User is the most recent sender'
@@ -1603,9 +1603,10 @@ class InternalMessageViewSet(viewsets.ModelViewSet):
         
         current_user = request.user
         
-        # Check if current user is the sender of the most recent message
-        # If yes, don't mark them as viewer (they shouldn't see themselves in "Seen by")
-        most_recent_message = InternalMessage.objects.order_by('-timestamp').first()
+        # Check if current user is the sender of the most recent message in THIS chat type
+        # Get message_type from query params
+        message_type = request.query_params.get('message_type', 'chat')
+        most_recent_message = InternalMessage.objects.filter(message_type=message_type).order_by('-timestamp').first()
         
         if most_recent_message and most_recent_message.sender.id == current_user.id:
             # Check how recent the message is (within last 5 seconds = just sent)
