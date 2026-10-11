@@ -400,24 +400,34 @@ export default function CaseDetailPage() {
                     <small>{new Date(msg.timestamp).toLocaleString()}</small>
                     
                     {/* Seen indicator for messages sent by current user (admin/owner only, not user) */}
-                    {isOwnMessage(msg) && user?.role !== 'user' && (
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          color: viewers.length > 0 ? '#818cf8' : '#9ca3af',
-                          cursor: 'default',
-                          padding: '2px 6px',
-                          background: viewers.length > 0 ? 'rgba(129, 140, 248, 0.1)' : 'rgba(156, 163, 175, 0.1)',
-                          borderRadius: '10px',
-                          fontWeight: 500,
-                          userSelect: 'none',
-                          opacity: viewers.length > 0 ? 1 : 0.7
-                        }}
-                        title={viewers.length > 0 ? "Message has been seen" : "Message not seen yet"}
-                      >
-                        {viewers.length > 0 ? '👁️ Seen' : '👁️ Not seen yet'}
-                      </span>
-                    )}
+                    {isOwnMessage(msg) && user?.role !== 'user' && (() => {
+                      // Check if any viewer viewed AFTER this message was sent
+                      const messageTime = new Date(msg.timestamp);
+                      const viewersAfterMessage = viewers.filter(v => {
+                        const viewTime = new Date(v.viewed_at);
+                        return viewTime > messageTime;
+                      });
+                      const hasSeen = viewersAfterMessage.length > 0;
+                      
+                      return (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            color: hasSeen ? '#818cf8' : '#9ca3af',
+                            cursor: 'default',
+                            padding: '2px 6px',
+                            background: hasSeen ? 'rgba(129, 140, 248, 0.1)' : 'rgba(156, 163, 175, 0.1)',
+                            borderRadius: '10px',
+                            fontWeight: 500,
+                            userSelect: 'none',
+                            opacity: hasSeen ? 1 : 0.7
+                          }}
+                          title={hasSeen ? "Message has been seen" : "Message not seen yet"}
+                        >
+                          {hasSeen ? '👁️ Seen' : '👁️ Not seen yet'}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               ))

@@ -364,25 +364,35 @@ export default function SystemChatPage() {
                                                 <small>{new Date(msg.timestamp).toLocaleString()}</small>
                                                 
                                                 {/* Seen indicator for messages sent by current user */}
-                                                {isOwnMessage(msg) && (
-                                                    <span
-                                                        onClick={() => viewers.length > 0 && setShowViewersModal(true)}
-                                                        style={{
-                                                            fontSize: '11px',
-                                                            color: viewers.length > 0 ? '#818cf8' : '#9ca3af',
-                                                            cursor: viewers.length > 0 ? 'pointer' : 'default',
-                                                            padding: '2px 6px',
-                                                            background: viewers.length > 0 ? 'rgba(129, 140, 248, 0.1)' : 'rgba(156, 163, 175, 0.1)',
-                                                            borderRadius: '10px',
-                                                            fontWeight: 500,
-                                                            userSelect: 'none',
-                                                            opacity: viewers.length > 0 ? 1 : 0.7
-                                                        }}
-                                                        title={viewers.length > 0 ? "Click to see who has viewed this chat" : "No one has viewed this chat yet"}
-                                                    >
-                                                        {viewers.length > 0 ? `👁️ Seen by ${viewers.length}` : '👁️ Not seen yet'}
-                                                    </span>
-                                                )}
+                                                {isOwnMessage(msg) && (() => {
+                                                    // Check if any viewer viewed AFTER this message was sent
+                                                    const messageTime = new Date(msg.timestamp);
+                                                    const viewersAfterMessage = viewers.filter(v => {
+                                                        const viewTime = new Date(v.viewed_at);
+                                                        return viewTime > messageTime;
+                                                    });
+                                                    const hasSeen = viewersAfterMessage.length > 0;
+                                                    
+                                                    return (
+                                                        <span
+                                                            onClick={() => hasSeen && setShowViewersModal(true)}
+                                                            style={{
+                                                                fontSize: '11px',
+                                                                color: hasSeen ? '#818cf8' : '#9ca3af',
+                                                                cursor: hasSeen ? 'pointer' : 'default',
+                                                                padding: '2px 6px',
+                                                                background: hasSeen ? 'rgba(129, 140, 248, 0.1)' : 'rgba(156, 163, 175, 0.1)',
+                                                                borderRadius: '10px',
+                                                                fontWeight: 500,
+                                                                userSelect: 'none',
+                                                                opacity: hasSeen ? 1 : 0.7
+                                                            }}
+                                                            title={hasSeen ? `Click to see who has viewed this chat (${viewersAfterMessage.length})` : "No one has viewed this chat yet"}
+                                                        >
+                                                            {hasSeen ? `👁️ Seen by ${viewersAfterMessage.length}` : '👁️ Not seen yet'}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     ))
