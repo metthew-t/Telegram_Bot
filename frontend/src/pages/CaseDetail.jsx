@@ -401,16 +401,9 @@ export default function CaseDetailPage() {
                     
                     {/* Seen indicator for messages sent by current user (admin/owner only, not user) */}
                     {isOwnMessage(msg) && user?.role !== 'user' && (() => {
-                      // Check if any viewer viewed AFTER this message was sent
-                      const messageTime = new Date(msg.timestamp);
-                      const viewersAfterMessage = viewers.filter(v => {
-                        const viewTime = new Date(v.viewed_at);
-                        const isAfter = viewTime > messageTime;
-                        console.log(`[Seen Debug] Message: ${messageTime.toISOString()}, Viewer: ${viewTime.toISOString()}, After: ${isAfter}`);
-                        return isAfter;
-                      });
-                      const hasSeen = viewersAfterMessage.length > 0;
-                      console.log(`[Seen Debug] Total viewers: ${viewers.length}, After message: ${viewersAfterMessage.length}`);
+                      // Simple check: Has the case user viewed the case at all?
+                      // viewers array already contains only the case user (filtered in fetchViewers)
+                      const hasSeen = viewers.length > 0;
                       
                       return (
                         <span
