@@ -116,12 +116,20 @@ if os.getenv('USE_SQLITE') == '1':
         }
     }
 else:
+    db_config = dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
+    # Add SSL options to handle connection issues
+    if 'OPTIONS' not in db_config:
+        db_config['OPTIONS'] = {}
+    db_config['OPTIONS'].update({
+        'connect_timeout': 10,
+        'options': '-c statement_timeout=30000',  # 30 second query timeout
+    })
     DATABASES = {
-        'default': dj_database_url.config(
-            default=os.environ.get('DATABASE_URL'),
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
+        'default': db_config
     }
 
 
