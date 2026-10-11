@@ -1016,7 +1016,7 @@ class CaseViewSet(viewsets.ModelViewSet):
             'message': f'Case #{case_id} has been permanently deleted'
         })
     
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrOwner])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def mark_viewed(self, request, pk=None):
         """Record that the current user has viewed this case (for 'seen' status)"""
         from .models import CaseView, Message
@@ -1024,6 +1024,10 @@ class CaseViewSet(viewsets.ModelViewSet):
         
         case = self.get_object()
         current_user = request.user
+        
+        # Users can only mark their own cases, admins/owners can mark any case
+        if current_user.role == 'user' and case.user.id != current_user.id:
+            return Response({'error': 'You can only mark your own cases as viewed'}, status=status.HTTP_403_FORBIDDEN)
         
         # Check if current user is the sender of the most recent message
         # If yes AND message is very recent, don't mark them as viewer
