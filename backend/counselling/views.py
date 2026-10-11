@@ -1634,7 +1634,40 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        """
+        Auto-fix stuck assignment requests before returning queryset.
+        This ensures requests that should be approved/rejected based on case status are corrected.
+        """
+        from django.utils import timezone
+        
         user = self.request.user
+        
+        # Auto-fix stuck requests (only for owner, to avoid unnecessary checks for admins)
+        if user.role == 'owner':
+            # Find pending requests where case is already assigned
+            pending_requests = AssignmentRequest.objects.filter(status='pending').select_related('case', 'case__assigned_admin', 'admin')
+            
+            for req in pending_requests:
+                case = req.case
+                
+                # If case is assigned, this request should not be pending
+                if case.status == 'assigned' and case.assigned_admin:
+                    if case.assigned_admin.id == req.admin.id:
+                        # Case is assigned to THIS admin - mark as approved
+                        print(f"[AUTO-FIX] Request #{req.id} for case '{case.title}' - marking as APPROVED (case is assigned to requesting admin)")
+                        req.status = 'approved'
+                        req.reviewed_at = timezone.now()
+                        req.reviewed_by = user
+                        req.save()
+                    else:
+                        # Case is assigned to DIFFERENT admin - mark as rejected
+                        print(f"[AUTO-FIX] Request #{req.id} for case '{case.title}' - marking as REJECTED (case is assigned to different admin)")
+                        req.status = 'rejected'
+                        req.reviewed_at = timezone.now()
+                        req.reviewed_by = user
+                        req.save()
+        
+        # Return filtered queryset
         if user.role == 'owner':
             # Owner sees all requests
             return self.queryset

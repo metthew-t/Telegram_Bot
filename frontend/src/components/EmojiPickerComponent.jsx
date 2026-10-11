@@ -28,7 +28,7 @@ export default function EmojiPickerComponent({ onEmojiClick, inputRef }) {
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <>
       <button
         type="button"
         className="emoji-picker-btn"
@@ -63,6 +63,6 @@ export default function EmojiPickerComponent({ onEmojiClick, inputRef }) {
           />
         </div>
       )}
-    </div>
+    </>
   );
 }
