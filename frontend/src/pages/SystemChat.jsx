@@ -34,10 +34,23 @@ export default function SystemChatPage() {
     useEffect(() => {
         fetchMessages(true);
         
-        // Don't mark as viewed immediately - wait 2 seconds to ensure user is actually viewing
+        // Mark as viewed only if there are messages from OTHER users
         // This prevents sender from being marked as viewer of their own messages
-        const markViewedTimeout = setTimeout(() => {
-            markChatAsViewed();
+        const markViewedTimeout = setTimeout(async () => {
+            // Check if there are messages from other users
+            try {
+                const data = await fetchInternalMessages({ message_type: activeTab });
+                const hasMessagesFromOthers = (data || []).some(msg => msg.sender?.id !== user?.id);
+                
+                if (hasMessagesFromOthers) {
+                    console.log('[Seen] Has messages from others - marking as viewed');
+                    markChatAsViewed();
+                } else {
+                    console.log('[Seen] Only own messages - NOT marking as viewed');
+                }
+            } catch (err) {
+                console.error('[Seen] Error checking messages:', err);
+            }
         }, 2000);
         
         // Fetch viewers list (this will be empty initially, then populate as others view)
