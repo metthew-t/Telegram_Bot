@@ -601,9 +601,6 @@ async def switchcase_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=MAIN_MENU_KEYBOARD
     )
     return ConversationHandler.END
-        reply_markup=MAIN_MENU_KEYBOARD,
-    )
-    return ConversationHandler.END
 
 
 # ─── /cancel (global fallback) ───
