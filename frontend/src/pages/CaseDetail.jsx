@@ -399,14 +399,13 @@ export default function CaseDetailPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                     <small>{new Date(msg.timestamp).toLocaleString()}</small>
                     
-                    {/* Seen indicator for messages sent by current user */}
-                    {isOwnMessage(msg) && (
+                    {/* Seen indicator for messages sent by current user (admin/owner only, not user) */}
+                    {isOwnMessage(msg) && user?.role !== 'user' && (
                       <span
-                        onClick={() => viewers.length > 0 && setShowViewersModal(true)}
                         style={{
                           fontSize: '11px',
                           color: viewers.length > 0 ? '#818cf8' : '#9ca3af',
-                          cursor: viewers.length > 0 ? 'pointer' : 'default',
+                          cursor: 'default',
                           padding: '2px 6px',
                           background: viewers.length > 0 ? 'rgba(129, 140, 248, 0.1)' : 'rgba(156, 163, 175, 0.1)',
                           borderRadius: '10px',
@@ -414,9 +413,9 @@ export default function CaseDetailPage() {
                           userSelect: 'none',
                           opacity: viewers.length > 0 ? 1 : 0.7
                         }}
-                        title={viewers.length > 0 ? "Click to see who has viewed this chat" : "No one has viewed this chat yet"}
+                        title={viewers.length > 0 ? "Message has been seen" : "Message not seen yet"}
                       >
-                        {viewers.length > 0 ? `👁️ Seen by ${viewers.length}` : '👁️ Not seen yet'}
+                        {viewers.length > 0 ? '👁️ Seen' : '👁️ Not seen yet'}
                       </span>
                     )}
                   </div>

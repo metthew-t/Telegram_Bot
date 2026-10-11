@@ -28,8 +28,8 @@ if not BOT_TOKEN:
 MAIN_MENU_KEYBOARD = ReplyKeyboardMarkup(
     [
         ['📝 New Case', '📋 My Cases'],
-        ['👁️ View Case', '💬 Reply'],
-        ['❓ Help']
+        ['👁️ View Case', '🔄 Switch Case'],
+        ['💬 Reply', '❓ Help']
     ],
     resize_keyboard=True
 )
@@ -463,7 +463,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ─── /switchcase ───
 
 async def switchcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Let user explicitly switch between active cases"""
+    """Let user explicitly switch between active cases with button interface"""
     if update.effective_user is None or update.message is None:
         return ConversationHandler.END
 
@@ -482,59 +482,99 @@ async def switchcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if len(cases) == 0:
         await update.message.reply_text(
-            '👋 You don\'t have any active cases right now.\n\nUse /newcase to start a support request.',
-            parse_mode='Markdown'
+            '👋 You don\'t have any active cases right now.\n\nUse 📝 New Case to start a support request.',
+            reply_markup=MAIN_MENU_KEYBOARD
         )
         return ConversationHandler.END
     
     if len(cases) == 1:
         await update.message.reply_text(
             f'ℹ️ You only have one active case:\n\n'
-            f'• Case *#{cases[0].get("user_case_number", cases[0]["id"])}*: {cases[0]["title"]}\n\n'
+            f'• Case #{cases[0].get("user_case_number", cases[0]["id"])}: {cases[0]["title"]}\n\n'
             f'All your messages are automatically sent to this case.',
-            parse_mode='Markdown'
+            reply_markup=MAIN_MENU_KEYBOARD
         )
         return ConversationHandler.END
     
-    # Show list of cases to choose from
+    # Show list of cases as buttons
     current_case_id = context.user_data.get('selected_case_id')
-    case_list = []
+    
+    # Build keyboard with case buttons (max 2 per row)
+    keyboard = []
+    row = []
     for c in cases:
         case_num = c.get('user_case_number', c['id'])
-        is_current = '✓ ' if c['id'] == current_case_id else ''
-        case_list.append(f"{is_current}*{case_num}*: {c['title']}")
+        is_current = '✅ ' if c['id'] == current_case_id else '📋 '
+        button_text = f"{is_current}Case #{case_num}"
+        row.append(button_text)
+        
+        # Add row to keyboard when we have 2 buttons
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    
+    # Add remaining button if any
+    if row:
+        keyboard.append(row)
+    
+    # Add cancel button
+    keyboard.append(['❌ Cancel'])
+    
+    # Store cases in context for lookup
+    context.user_data['available_cases'] = {str(c.get('user_case_number', c['id'])): c for c in cases}
     
     await update.message.reply_text(
         f'🔄 *Switch Case*\n\n'
-        f'You have {len(cases)} active cases:\n\n' + '\n'.join(f'• {item}' for item in case_list) + '\n\n'
-        f'Reply with the case number to switch to it.\n'
-        f'Send /cancel to abort.',
+        f'You have {len(cases)} active cases. Select one to switch to it:',
         parse_mode='Markdown',
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     )
     return REPLY_CASE_ID  # Reuse the same state
 
 
 async def switchcase_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle case selection from /switchcase"""
+    """Handle case selection from /switchcase button interface"""
     text = update.message.text.strip()
-    if not text.isdigit():
-        await update.message.reply_text('⚠️ Please enter a valid numeric case number:')
+    
+    # Handle cancel button
+    if text == '❌ Cancel':
+        await update.message.reply_text(
+            '❌ Case switching cancelled.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    # Extract case number from button text like "📋 Case #2" or "✅ Case #2"
+    import re
+    match = re.search(r'Case #(\d+)', text)
+    
+    if not match:
+        await update.message.reply_text(
+            '⚠️ Please select a case button or tap ❌ Cancel.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
         return REPLY_CASE_ID
+    
+    case_num = int(match.group(1))
 
     token = get_access_token(update)
     if token is None:
-        await update.message.reply_text('⚠️ Unable to authenticate.')
+        await update.message.reply_text(
+            '⚠️ Unable to authenticate.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
         return ConversationHandler.END
 
     # Find active cases
     response = backend_request('/api/cases/', method='get', token=token)
     if not response.ok:
-        await update.message.reply_text('⚠️ Unable to fetch your cases.')
+        await update.message.reply_text(
+            '⚠️ Unable to fetch your cases.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
         return ConversationHandler.END
 
     cases = [c for c in response.json() if c['status'] in ['open', 'assigned']]
-    case_num = int(text)
     
     # Find case by user_case_number or database ID
     matching_case = next(
@@ -544,11 +584,10 @@ async def switchcase_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not matching_case:
         await update.message.reply_text(
-            f'⚠️ Case #{case_num} not found in your active cases.\n'
-            f'Please enter a valid case number:',
-            parse_mode='Markdown'
+            f'⚠️ Case #{case_num} not found in your active cases.',
+            reply_markup=MAIN_MENU_KEYBOARD
         )
-        return REPLY_CASE_ID
+        return ConversationHandler.END
     
     # Save selected case
     context.user_data['selected_case_id'] = matching_case['id']
@@ -559,6 +598,9 @@ async def switchcase_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f'📊 Status: {matching_case["status"]}\n\n'
         f'All your messages will now go to this case.',
         parse_mode='Markdown',
+        reply_markup=MAIN_MENU_KEYBOARD
+    )
+    return ConversationHandler.END
         reply_markup=MAIN_MENU_KEYBOARD,
     )
     return ConversationHandler.END
@@ -1041,6 +1083,9 @@ def main():
     
     application.add_handler(CommandHandler('mycases', list_cases))
     application.add_handler(MessageHandler(filters.Regex('^(📋 My Cases|My Cases)$'), list_cases))
+    
+    # Add button handler for Switch Case
+    application.add_handler(MessageHandler(filters.Regex('^(🔄 Switch Case|Switch Case)$'), switchcase_start))
     
     application.add_handler(reply_handler)
     application.add_handler(viewcase_handler)
