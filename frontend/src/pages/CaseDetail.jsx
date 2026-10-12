@@ -75,12 +75,18 @@ export default function CaseDetailPage() {
     setLoading(true);
     try {
       const data = await apiCall(`/api/cases/${id}/`, 'GET');
+      console.log('[Seen] 🔍 fetchCaseDetail response:', data);
+      console.log('[Seen] 🔍 data.user:', data?.user);
+      console.log('[Seen] 🔍 data.user.id:', data?.user?.id);
+      
       setCaseData(data);
       
       // Store case user ID separately so it's always available for polling
       if (data?.user?.id) {
         setCaseUserId(data.user.id);
-        console.log('[Seen] Stored case user ID:', data.user.id);
+        console.log('[Seen] ✅ Stored case user ID:', data.user.id);
+      } else {
+        console.error('[Seen] ❌ NO USER ID IN RESPONSE! data.user:', data?.user);
       }
       
       await fetchMessages();
