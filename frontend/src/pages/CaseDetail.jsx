@@ -54,12 +54,13 @@ export default function CaseDetailPage() {
     };
   }, [id]);
   
-  // Fetch viewers only after caseData is loaded
+  // Fetch viewers only after caseData is initially loaded (not on every change)
   useEffect(() => {
-    if (caseData) {
+    if (caseData && caseData.user?.id) {
+      console.log('[Seen] caseData loaded, fetching viewers');
       fetchViewers();
     }
-  }, [caseData]);
+  }, [caseData?.id]); // Only trigger when case ID in caseData changes (i.e., initial load)
 
   useEffect(() => {
     scrollToBottom();
