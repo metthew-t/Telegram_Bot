@@ -22,9 +22,6 @@ export default function CaseDetailPage() {
   const [isSending, setIsSending] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
-  const [viewers, setViewers] = useState([]);
-  const [showViewersModal, setShowViewersModal] = useState(false);
-  const [caseUserId, setCaseUserId] = useState(null); // Store case user ID separately
   const messagesEndRef = useRef(null);
   const pollRef = useRef(null);
   const messageInputRef = useRef(null);
@@ -36,32 +33,16 @@ export default function CaseDetailPage() {
     if (user?.role === 'owner') {
       fetchAdmins();
     }
-    
-    // Don't mark as viewed immediately - wait 2 seconds to ensure user is actually viewing
-    // This prevents sender from being marked as viewer of their own messages
-    const markViewedTimeout = setTimeout(() => {
-      markCaseAsViewed();
-    }, 2000);
 
     // Start polling
     pollRef.current = setInterval(() => {
       fetchMessages();
-      fetchViewers(); // Also poll viewers
     }, POLL_INTERVAL);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
-      clearTimeout(markViewedTimeout);
     };
   }, [id]);
-  
-  // Fetch viewers only after caseData is initially loaded (not on every change)
-  useEffect(() => {
-    if (caseUserId) {
-      console.log('[Seen] caseUserId state updated, fetching viewers');
-      fetchViewers();
-    }
-  }, [caseUserId]); // Trigger when caseUserId is set
 
   useEffect(() => {
     scrollToBottom();
@@ -75,20 +56,7 @@ export default function CaseDetailPage() {
     setLoading(true);
     try {
       const data = await apiCall(`/api/cases/${id}/`, 'GET');
-      console.log('[Seen] 🔍 fetchCaseDetail response:', data);
-      console.log('[Seen] 🔍 data.user:', data?.user);
-      console.log('[Seen] 🔍 data.user.id:', data?.user?.id);
-      
       setCaseData(data);
-      
-      // Store case user ID separately so it's always available for polling
-      if (data?.user?.id) {
-        setCaseUserId(data.user.id);
-        console.log('[Seen] ✅ Stored case user ID:', data.user.id);
-      } else {
-        console.error('[Seen] ❌ NO USER ID IN RESPONSE! data.user:', data?.user);
-      }
-      
       await fetchMessages();
     } catch (err) {
       setError('Failed to load case details');
@@ -113,39 +81,6 @@ export default function CaseDetailPage() {
       setAdmins((data || []).filter((u) => u.role === 'admin'));
     } catch (err) {
       console.error('Failed to fetch admins:', err);
-    }
-  };
-  
-  const markCaseAsViewed = async () => {
-    try {
-      console.log('[Seen] Calling mark_viewed API for case', id);
-      await apiCall(`/api/cases/${id}/mark_viewed/`, 'POST');
-      console.log('[Seen] ✅ Marked case as viewed');
-    } catch (err) {
-      console.error('[Seen] ❌ Failed to mark case as viewed:', err);
-    }
-  };
-  
-  const fetchViewers = async () => {
-    try {
-      console.log('[Seen] Fetching viewers for case', id);
-      console.log('[Seen] Current user:', user);
-      const data = await apiCall(`/api/cases/${id}/viewers/`, 'GET');
-      console.log('[Seen] ✅ Fetched viewers:', data);
-      
-      // Use the stored case user ID instead of caseData.user.id
-      // This ensures it's always available even during polling
-      console.log('[Seen] Case user ID (from state):', caseUserId);
-      console.log('[Seen] All viewers:', data?.viewers);
-      
-      // Check if the case user is in the viewers list
-      const caseUserViewers = (data?.viewers || []).filter(v => v.user?.id === caseUserId);
-      
-      setViewers(caseUserViewers);
-      console.log('[Seen] Case user viewers count:', caseUserViewers.length);
-      console.log('[Seen] Case user viewers:', caseUserViewers);
-    } catch (err) {
-      console.error('[Seen] ❌ Failed to fetch viewers:', err);
     }
   };
 
@@ -248,15 +183,7 @@ export default function CaseDetailPage() {
   };
 
   const isOwnMessage = (msg) => {
-    const result = msg.sender?.label === 'You' || msg.sender?.id === user?.id;
-    console.log('[Seen] isOwnMessage check:', {
-      messageId: msg.id,
-      senderLabel: msg.sender?.label,
-      senderId: msg.sender?.id,
-      currentUserId: user?.id,
-      isOwn: result
-    });
-    return result;
+    return msg.sender?.label === 'You' || msg.sender?.id === user?.id;
   };
 
   if (loading) return <div className="page-panel"><div className="loading-spinner" /></div>;
@@ -415,32 +342,6 @@ export default function CaseDetailPage() {
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                     <small>{new Date(msg.timestamp).toLocaleString()}</small>
-                    
-                    {/* Seen indicator for messages sent by current user (admin/owner only, not user) */}
-                    {isOwnMessage(msg) && user?.role !== 'user' && (() => {
-                      // Simple check: Has the case user viewed the case at all?
-                      // viewers array already contains only the case user (filtered in fetchViewers)
-                      const hasSeen = viewers.length > 0;
-                      
-                      return (
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            color: hasSeen ? '#818cf8' : '#9ca3af',
-                            cursor: 'default',
-                            padding: '2px 6px',
-                            background: hasSeen ? 'rgba(129, 140, 248, 0.1)' : 'rgba(156, 163, 175, 0.1)',
-                            borderRadius: '10px',
-                            fontWeight: 500,
-                            userSelect: 'none',
-                            opacity: hasSeen ? 1 : 0.7
-                          }}
-                          title={hasSeen ? "Message has been seen" : "Message not seen yet"}
-                        >
-                          {hasSeen ? '👁️ Seen' : '👁️ Not seen yet'}
-                        </span>
-                      );
-                    })()}
                   </div>
                 </div>
               ))
@@ -585,102 +486,6 @@ export default function CaseDetailPage() {
             <p style={{ color: 'var(--success)', fontWeight: 600, margin: 0 }}>
               ✓ This case has been closed
             </p>
-          </div>
-        )}
-        
-        {/* Viewers Modal */}
-        {showViewersModal && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0, 0, 0, 0.7)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-            }}
-            onClick={() => setShowViewersModal(false)}
-          >
-            <div
-              style={{
-                background: 'var(--card-bg)',
-                borderRadius: '12px',
-                padding: '24px',
-                maxWidth: '500px',
-                width: '90%',
-                maxHeight: '70vh',
-                overflow: 'auto',
-                border: '1px solid rgba(129, 140, 248, 0.2)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 style={{ margin: '0 0 16px 0', color: 'var(--text)' }}>
-                👁️ Viewed by {viewers.length} {viewers.length === 1 ? 'person' : 'people'}
-              </h3>
-              
-              {viewers.length === 0 ? (
-                <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
-                  No one has viewed this chat yet
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {viewers.map((viewer, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px',
-                        background: 'rgba(129, 140, 248, 0.05)',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(129, 140, 248, 0.1)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {viewer.user?.profile_photo && (
-                          <img
-                            src={viewer.user.profile_photo}
-                            alt="Profile"
-                            style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '50%',
-                              objectFit: 'cover',
-                              border: '2px solid rgba(129, 140, 248, 0.3)',
-                            }}
-                          />
-                        )}
-                        <div>
-                          <div style={{ fontWeight: 600, color: 'var(--text)' }}>
-                            {viewer.user?.username}
-                          </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            {viewer.user?.role}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'right' }}>
-                        {new Date(viewer.viewed_at).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <button
-                onClick={() => setShowViewersModal(false)}
-                className="button"
-                style={{ marginTop: '16px', width: '100%' }}
-              >
-                Close
-              </button>
-            </div>
           </div>
         )}
       </div>
