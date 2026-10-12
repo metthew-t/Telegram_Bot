@@ -24,6 +24,7 @@ export default function CaseDetailPage() {
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [viewers, setViewers] = useState([]);
   const [showViewersModal, setShowViewersModal] = useState(false);
+  const [caseUserId, setCaseUserId] = useState(null); // Store case user ID separately
   const messagesEndRef = useRef(null);
   const pollRef = useRef(null);
   const messageInputRef = useRef(null);
@@ -56,11 +57,11 @@ export default function CaseDetailPage() {
   
   // Fetch viewers only after caseData is initially loaded (not on every change)
   useEffect(() => {
-    if (caseData && caseData.user?.id) {
-      console.log('[Seen] caseData loaded, fetching viewers');
+    if (caseUserId) {
+      console.log('[Seen] caseUserId state updated, fetching viewers');
       fetchViewers();
     }
-  }, [caseData?.id]); // Only trigger when case ID in caseData changes (i.e., initial load)
+  }, [caseUserId]); // Trigger when caseUserId is set
 
   useEffect(() => {
     scrollToBottom();
@@ -75,6 +76,13 @@ export default function CaseDetailPage() {
     try {
       const data = await apiCall(`/api/cases/${id}/`, 'GET');
       setCaseData(data);
+      
+      // Store case user ID separately so it's always available for polling
+      if (data?.user?.id) {
+        setCaseUserId(data.user.id);
+        console.log('[Seen] Stored case user ID:', data.user.id);
+      }
+      
       await fetchMessages();
     } catch (err) {
       setError('Failed to load case details');
@@ -119,11 +127,9 @@ export default function CaseDetailPage() {
       const data = await apiCall(`/api/cases/${id}/viewers/`, 'GET');
       console.log('[Seen] ✅ Fetched viewers:', data);
       
-      // For case chat, we want to know if the CASE USER has viewed it
-      // Not if other admins have viewed it
-      // The caseData.user is the user who created the case
-      const caseUserId = caseData?.user?.id;
-      console.log('[Seen] Case user ID:', caseUserId);
+      // Use the stored case user ID instead of caseData.user.id
+      // This ensures it's always available even during polling
+      console.log('[Seen] Case user ID (from state):', caseUserId);
       console.log('[Seen] All viewers:', data?.viewers);
       
       // Check if the case user is in the viewers list
