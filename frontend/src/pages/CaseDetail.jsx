@@ -41,9 +41,6 @@ export default function CaseDetailPage() {
     const markViewedTimeout = setTimeout(() => {
       markCaseAsViewed();
     }, 2000);
-    
-    // Fetch viewers list (this will be empty initially, then populate as others view)
-    fetchViewers();
 
     // Start polling
     pollRef.current = setInterval(() => {
@@ -56,6 +53,13 @@ export default function CaseDetailPage() {
       clearTimeout(markViewedTimeout);
     };
   }, [id]);
+  
+  // Fetch viewers only after caseData is loaded
+  useEffect(() => {
+    if (caseData) {
+      fetchViewers();
+    }
+  }, [caseData]);
 
   useEffect(() => {
     scrollToBottom();
