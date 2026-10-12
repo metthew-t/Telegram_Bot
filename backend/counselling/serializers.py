@@ -84,12 +84,12 @@ class CaseSerializer(serializers.ModelSerializer):
     def get_user(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
-            return {'label': 'Anonymous'}
+            return {'id': obj.user.id, 'label': 'Anonymous'}
         if request.user.role == 'owner':
             return UserSerializer(obj.user, context=self.context).data
         if obj.user == request.user:
-            return {'label': 'You'}
-        return {'label': f'User #{obj.user.id}'}
+            return {'id': obj.user.id, 'label': 'You'}
+        return {'id': obj.user.id, 'label': f'User #{obj.user.id}'}
 
     def get_assigned_admin(self, obj):
         if obj.assigned_admin is None:
