@@ -774,3 +774,75 @@ View in internal chat: {chat_url}
 """
 
     return subject, _html_wrap("💬 Internal Message", "purple", body_html), text_body
+
+
+# ─── Template: Case Reopened ──────────────────────────────────────────────────
+
+def render_case_reopened_email(case, frontend_url: str):
+    """Email notification when user reopens a closed case"""
+    subject = f"🔄 Case #{case.id} Reopened — {case.title}"
+    case_url = f"{frontend_url}/cases/{case.id}"
+    
+    body_html = f"""
+    <div class="alert-icon">🔄</div>
+    <h2 class="greeting">Case #{case.id} Has Been Reopened</h2>
+    <p class="intro">
+      A user has reopened Case #{case.id}. The case has been restored to <strong style="color:#818cf8;">Assigned</strong> status
+      and requires your attention. Please review the case and continue providing support.
+    </p>
+    
+    <!-- Case Information Card -->
+    <div class="info-card">
+      <div class="info-row">
+        <span class="info-label">Case ID</span>
+        <span class="info-value mono"># {case.id}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Title</span>
+        <span class="info-value">{case.title}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Status</span>
+        <span class="info-value"><span class="status-badge status-assigned">{case.status.capitalize()}</span></span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Submitted by</span>
+        <span class="info-value">Anonymous User</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Assigned to</span>
+        <span class="info-value">{case.assigned_admin.username if case.assigned_admin else 'Unassigned'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Reopened at</span>
+        <span class="info-value">{case.updated_at.strftime('%d %B %Y, %H:%M UTC')}</span>
+      </div>
+    </div>
+    
+    <div class="info-card" style="background:#13151f;border-left-color:#0ea5e9;padding:16px 20px;margin-top:16px;">
+      <p class="note" style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
+        <strong style="color:#0ea5e9;">ℹ️ What This Means:</strong><br>
+        The user needs additional support on this case. Please review the conversation history
+        and respond promptly to address their concerns.
+      </p>
+    </div>
+    
+    {_cta_button("💬 View Reopened Case", case_url)}
+    
+    <hr class="divider"/>
+    
+    <p class="note">This case was previously closed and has now been reopened by the user.</p>"""
+
+    text_body = f"""Case Reopened — Case #{case.id}
+
+Title:      {case.title}
+Status:     {case.status.capitalize()}
+Assigned:   {case.assigned_admin.username if case.assigned_admin else 'Unassigned'}
+Reopened:   {case.updated_at.strftime('%d %B %Y, %H:%M UTC')}
+
+The user has reopened this case and needs additional support.
+
+View the case: {case_url}
+"""
+
+    return subject, _html_wrap("🔄 Case Reopened", "purple", body_html), text_body

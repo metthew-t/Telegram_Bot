@@ -968,6 +968,73 @@ class CaseViewSet(viewsets.ModelViewSet):
         return Response({'status': 'closed'})
     
     @action(detail=True, methods=['post'])
+    def reopen(self, request, pk=None):
+        """Reopen a closed case - only accessible by the case creator"""
+        from django.utils import timezone
+        
+        case = self.get_object()
+        
+        # Only the user who created the case can reopen it
+        if request.user.role != 'user' or case.user != request.user:
+            return Response(
+                {'error': 'Only the case creator can reopen this case'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if case is actually closed
+        if case.status != 'closed':
+            return Response(
+                {'error': f'Case is not closed (current status: {case.status})'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Reopen the case - restore to 'assigned' status if it had an admin, otherwise 'open'
+        previous_admin = case.assigned_admin
+        
+        if previous_admin:
+            case.status = 'assigned'
+            case.assigned_at = timezone.now()
+        else:
+            case.status = 'open'
+        
+        case.closed_at = None
+        case.save()
+        
+        # Create audit log
+        AuditLog.objects.create(
+            case=case,
+            performer=request.user,
+            action='reopened',
+            details=f'Case reopened by {request.user.username}',
+        )
+        
+        # Notify the assigned admin (if any) via email
+        if previous_admin and previous_admin.email and previous_admin.email_verified and previous_admin.email_notifications_enabled:
+            try:
+                frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
+                subject, html_body, text_body = render_case_reopened_email(case, frontend_url)
+                _send_email(subject, html_body, text_body, [previous_admin.email])
+                print(f"[Reopen] ✅ Case reopened email sent to admin: {previous_admin.email}")
+            except Exception as e:
+                print(f"[Reopen] ❌ Failed to send reopen email: {str(e)}")
+                import traceback
+                traceback.print_exc()
+        
+        # Notify user via Telegram
+        notify_case_user(
+            case,
+            f'✅ Your case #{case.user_case_number} has been reopened.\n\n'
+            f'Status: {case.status}\n'
+            f'You can now continue the conversation.'
+        )
+        
+        return Response({
+            'status': case.status,
+            'message': 'Case reopened successfully',
+            'assigned_admin': case.assigned_admin.username if case.assigned_admin else None
+        })
+    
+    @action(detail=True, methods=['post'])
     def resolve(self, request, pk=None):
         """Mark case as resolved (before closing)"""
         from django.utils import timezone

@@ -419,10 +419,12 @@ export default function AdminDashboardPage() {
             background: 'rgba(0, 0, 0, 0.85)',
             backdropFilter: 'blur(4px)',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',  /* Changed from 'center' to 'flex-start' */
             justifyContent: 'center',
             zIndex: 1000,
             padding: '20px',
+            paddingTop: '50px',  /* Added padding from top so modal appears at top of viewport */
+            overflowY: 'auto',  /* Allow scrolling if content is too tall */
             animation: 'fadeIn 0.2s ease'
           }}
           onClick={() => setSelectedFeedback(null)}

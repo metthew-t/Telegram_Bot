@@ -40,14 +40,18 @@ export default function OwnerDashboardPage() {
     const fetchAssignmentRequests = async () => {
         try {
             const data = await apiCall('/api/assignment-requests/', 'GET');
-            console.log('[OwnerDashboard] All assignment requests:', data);
-            setAssignmentRequests(data || []);
+            console.log('[OwnerDashboard] ===== ASSIGNMENT REQUESTS FETCH =====');
+            console.log('[OwnerDashboard] Total assignment requests returned:', data?.length);
             
-            // Log pending vs processed
+            // Detailed logging
             const pending = (data || []).filter(r => r.status === 'pending');
             const processed = (data || []).filter(r => r.status !== 'pending');
+            console.log('[OwnerDashboard] Pending count:', pending.length);
+            console.log('[OwnerDashboard] Processed count:', processed.length);
             console.log('[OwnerDashboard] Pending requests:', pending);
             console.log('[OwnerDashboard] Processed requests:', processed);
+            
+            setAssignmentRequests(data || []);
         } catch (err) {
             console.error('Failed to load assignment requests:', err);
         }

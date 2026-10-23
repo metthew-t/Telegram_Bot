@@ -267,6 +267,8 @@ async def list_cases(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     status_icons = {'open': '🔵', 'assigned': '🟡', 'closed': '🟢'}
     lines = ['📋 *Your Cases:*\n']
+    
+    # Show all cases including closed
     for case in cases:
         icon = status_icons.get(case['status'], '⚪')
         case_num = case.get('user_case_number', case['id'])
@@ -274,6 +276,7 @@ async def list_cases(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines.append(f'\n_Total: {len(cases)} case(s)_')
     lines.append('\nUse /viewcase to view messages on a case.')
+    lines.append('Use /reopen to reopen a closed case.')
     await update.message.reply_text('\n'.join(lines), parse_mode='Markdown', reply_markup=MAIN_MENU_KEYBOARD)
 
 
@@ -433,6 +436,12 @@ async def show_case_messages(update, context, case_id):
             lines.append(f'_... and {len(messages) - 10} earlier message(s)_')
 
     lines.append('\nUse /reply to respond to this case.')
+    
+    # Add reopen hint for closed cases
+    if case['status'] == 'closed':
+        lines.append('\n🔒 *This case is closed.* You cannot reply to a closed case.')
+        lines.append('Use /reopen to reopen this case if you need further assistance.')
+    
     await update.message.reply_text('\n'.join(lines), parse_mode='Markdown', reply_markup=MAIN_MENU_KEYBOARD)
 
 
@@ -465,16 +474,84 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '💬 *Reply* — Send a message to your case\n'
         '   • For multiple cases: choose which case to reply to\n'
         '   • For single case: just type normally!\n\n'
+        '🔓 *Reopen* — Reopen a closed case\n'
+        '   • Use this if you need to continue a closed case\n'
+        '   • The case will be reopened and assigned to the same admin\n'
+        '   • Enter the case ID when prompted\n\n'
         '❓ *Help* — Show this detailed help message\n\n'
         '---\n\n'
         '💡 *Quick Tips:*\n'
         '• If you have only ONE active case, just type your messages normally - they\'ll be sent automatically!\n'
         '• Use /cancel anytime to abort an operation\n'
         '• You can send voice messages too!\n'
-        '• Your counselor will be notified when you send a message',
+        '• Your counselor will be notified when you send a message\n'
+        '• Closed cases can be reopened anytime using /reopen',
         parse_mode='Markdown',
         reply_markup=MAIN_MENU_KEYBOARD,
     )
+
+
+# ─── /reopen ───
+
+REOPEN_CASE_ID = 30
+
+async def reopen_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start the reopen case flow"""
+    if update.effective_user is None or update.message is None:
+        return ConversationHandler.END
+
+    await update.message.reply_text(
+        '🔓 *Reopen a Closed Case*\n\n'
+        'Send /cancel to abort.\n\n'
+        'Enter the case ID you want to reopen:',
+        parse_mode='Markdown',
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    return REOPEN_CASE_ID
+
+
+async def reopen_case_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Process the case ID and attempt to reopen"""
+    text = update.message.text.strip()
+    if not text.isdigit():
+        await update.message.reply_text('⚠️ Please enter a valid numeric case ID:')
+        return REOPEN_CASE_ID
+
+    case_id = int(text)
+    token = get_access_token(update)
+    if token is None:
+        await update.message.reply_text(
+            '⚠️ Unable to authenticate. Please try /start first.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+
+    # Call the reopen API endpoint
+    response = backend_request(f'/api/cases/{case_id}/reopen/', method='post', token=token)
+    
+    if response.ok:
+        data = response.json()
+        await update.message.reply_text(
+            f'✅ *Case #{case_id} Reopened Successfully!*\n\n'
+            f'📊 Status: {data.get("status", "assigned")}\n'
+            f'👤 Assigned to: {data.get("assigned_admin", "Previous admin")}\n\n'
+            f'You can now continue the conversation on this case.',
+            parse_mode='Markdown',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+    else:
+        error_msg = response.json().get('error', response.text) if response.text else 'Unknown error'
+        await update.message.reply_text(
+            f'⚠️ Failed to reopen case:\n\n{error_msg}',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+    
+    return ConversationHandler.END
+
+
+async def reopen_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text('❌ Reopen cancelled.', reply_markup=MAIN_MENU_KEYBOARD)
+    return ConversationHandler.END
 
 
 # ─── /switchcase ───
@@ -549,6 +626,12 @@ async def switchcase_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Handle cancel button
     if text == '❌ Cancel':
+        # Clear pending message if any
+        context.user_data.pop('pending_message', None)
+        context.user_data.pop('pending_message_type', None)
+        context.user_data.pop('pending_voice_data', None)
+        context.user_data.pop('pending_voice_duration', None)
+        
         await update.message.reply_text(
             '❌ Case switching cancelled.',
             reply_markup=MAIN_MENU_KEYBOARD
@@ -606,11 +689,67 @@ async def switchcase_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Mark case as viewed (for "seen" status tracking)
     backend_request(f'/api/cases/{matching_case["id"]}/mark_viewed/', method='post', token=token)
     
-    await update.message.reply_text(
+    # Check for pending message (saved before switch)
+    pending_message = context.user_data.get('pending_message')
+    pending_message_type = context.user_data.get('pending_message_type')
+    pending_voice_data = context.user_data.get('pending_voice_data')
+    pending_voice_duration = context.user_data.get('pending_voice_duration')
+    
+    # Send base confirmation
+    confirmation = (
         f'✅ *Switched to Case #{case_num}*\n\n'
         f'📝 {matching_case["title"]}\n'
         f'📊 Status: {matching_case["status"]}\n\n'
-        f'All your messages will now go to this case.',
+    )
+    
+    # Send pending message if exists
+    if pending_message and pending_message_type == 'text':
+        # Send the text message
+        msg_resp = backend_request(
+            '/api/messages/',
+            token=token,
+            json={'case': matching_case['id'], 'content': pending_message, 'message_type': 'text'},
+        )
+        
+        if msg_resp.ok:
+            confirmation += f'✅ Your message has been sent to this case!\n\n'
+            print(f"DEBUG: Pending text message sent to case #{matching_case['id']}")
+        else:
+            confirmation += f'⚠️ Failed to send pending message: {msg_resp.text}\n\n'
+        
+        # Clear pending message
+        context.user_data.pop('pending_message', None)
+        context.user_data.pop('pending_message_type', None)
+    
+    elif pending_voice_data and pending_message_type == 'voice':
+        # Send the voice message
+        msg_resp = backend_request(
+            '/api/messages/',
+            token=token,
+            json={
+                'case': matching_case['id'],
+                'content': '[Voice Message]',
+                'message_type': 'voice',
+                'voice_data': pending_voice_data,
+                'voice_duration': pending_voice_duration
+            },
+        )
+        
+        if msg_resp.ok:
+            confirmation += f'✅ Your voice message has been sent to this case! 🎤\n\n'
+            print(f"DEBUG: Pending voice message sent to case #{matching_case['id']}")
+        else:
+            confirmation += f'⚠️ Failed to send pending voice message: {msg_resp.text}\n\n'
+        
+        # Clear pending voice
+        context.user_data.pop('pending_voice_data', None)
+        context.user_data.pop('pending_voice_duration', None)
+        context.user_data.pop('pending_message_type', None)
+    else:
+        confirmation += f'All your messages will now go to this case.'
+    
+    await update.message.reply_text(
+        confirmation,
         parse_mode='Markdown',
         reply_markup=MAIN_MENU_KEYBOARD
     )
@@ -694,7 +833,7 @@ async def handle_message_with_feedback(update: Update, context: ContextTypes.DEF
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Seamlessly route plain text messages to the user's active case with simplified case selection."""
+    """Seamlessly route plain text messages to the user's active case with smart case switching."""
     if update.effective_user is None or update.message is None or not update.message.text:
         print("DEBUG: Early return (user/message/text is None)")
         return
@@ -719,12 +858,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cases = [c for c in response.json() if c['status'] in ['open', 'assigned']]
     print(f"DEBUG: Found {len(cases)} active cases")
     
+    message_text = update.message.text.strip()
+    
     # Single case - send directly
     if len(cases) == 1:
         case_id = cases[0]['id']
         case_num = cases[0].get('user_case_number', case_id)
+        case_status = cases[0]['status']
         context.user_data['selected_case_id'] = case_id
         print(f"DEBUG: Routing message to case #{case_id}")
+        
+        # Check if case is closed
+        if case_status == 'closed':
+            await update.message.reply_text(
+                f'🔒 Your case *#{case_num}* is closed.\n\n'
+                f'You cannot send messages to a closed case.\n\n'
+                f'💡 Use /reopen to reopen this case if you need further assistance.',
+                parse_mode='Markdown'
+            )
+            return
         
         # Mark case as viewed (user is viewing/replying to their case)
         backend_request(f'/api/cases/{case_id}/mark_viewed/', method='post', token=token)
@@ -732,7 +884,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg_resp = backend_request(
             '/api/messages/',
             token=token,
-            json={'case': case_id, 'content': update.message.text, 'message_type': 'text'},
+            json={'case': case_id, 'content': message_text, 'message_type': 'text'},
         )
         if msg_resp.ok:
             await update.message.reply_text(f'✅ Sent to your case *#{case_num}*.', parse_mode='Markdown')
@@ -740,18 +892,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print(f"DEBUG: Failed to send message to backend: {msg_resp.text}")
             await update.message.reply_text(f'⚠️ Failed to send: {msg_resp.text}')
     
-    # Multiple cases - check if user has selected a case
+    # Multiple cases - smart routing with message saving
     elif len(cases) > 1:
-        message_text = update.message.text.strip()
-        
         # Check if user has previously selected a case
         selected_case_id = context.user_data.get('selected_case_id')
+        
+        # NEW: Check for new response notification (admin replied to a different case)
+        # If admin replied to a case that's NOT the currently selected one, ask to switch
+        has_new_response_on_different_case = False
+        response_case_id = None
+        
+        # This would require tracking which case got new admin responses
+        # For now, skip this check and just use selected_case_id
+        
         if selected_case_id:
             # Verify the case is still active
             matching_case = next((c for c in cases if c['id'] == selected_case_id), None)
             if matching_case:
                 case_num = matching_case.get('user_case_number', selected_case_id)
+                case_status = matching_case['status']
                 print(f"DEBUG: Routing message to pre-selected case #{selected_case_id}")
+                
+                # Check if case is closed
+                if case_status == 'closed':
+                    await update.message.reply_text(
+                        f'🔒 Your case *#{case_num}* is closed.\n\n'
+                        f'You cannot send messages to a closed case.\n\n'
+                        f'💡 Use /reopen to reopen this case if you need further assistance.',
+                        parse_mode='Markdown'
+                    )
+                    return
                 
                 # Mark case as viewed (user is viewing/replying to their case)
                 backend_request(f'/api/cases/{selected_case_id}/mark_viewed/', method='post', token=token)
@@ -771,12 +941,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Case no longer active, clear selection
                 context.user_data.pop('selected_case_id', None)
         
-        # No case selected - ask user to select using /switchcase
-        case_list = '\n'.join([f"• Case *#{c.get('user_case_number', c['id'])}*: {c['title']}" for c in cases[:10]])
+        # No case selected - save message and ask user to select using /switchcase
+        print(f"DEBUG: Multiple cases, no selection. Saving message for after switch.")
+        context.user_data['pending_message'] = message_text
+        context.user_data['pending_message_type'] = 'text'
+        
+        case_list = '\n'.join([f"• Case *#{c.get('user_case_number', c['id'])}*: {c['title']}" for c in cases[:7]])
         await update.message.reply_text(
             f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'
             f'💡 Use /switchcase to select which case you want to reply to.\n\n'
-            f'_Your message has not been sent yet._',
+            f'✅ _Your message has been saved and will be sent after you switch to a case._',
             parse_mode='Markdown'
         )
     
@@ -841,16 +1015,32 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
     # Multiple cases and no selection
     elif len(cases) > 1:
-        # Ask user to use /switchcase instead of storing voice
-        case_list = '\n'.join([f"• Case *#{c.get('user_case_number', c['id'])}*: {c['title']}" for c in cases[:5]])
-        await update.message.reply_text(
-            f'🎤 Voice message received!\n\n'
-            f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'
-            '💡 Use /switchcase to select which case you want to send this to.\n\n'
-            '_Your voice message has not been sent yet. Please try again after selecting a case._',
-            parse_mode='Markdown'
-        )
-        return
+        # Save voice message and ask user to use /switchcase
+        try:
+            print(f"DEBUG: Multiple cases, saving voice message")
+            voice_bytes = await file.download_as_bytearray()
+            voice_base64 = base64.b64encode(voice_bytes).decode('utf-8')
+            
+            # Save voice data in context
+            context.user_data['pending_voice_data'] = voice_base64
+            context.user_data['pending_voice_duration'] = voice.duration
+            context.user_data['pending_message_type'] = 'voice'
+            
+            case_list = '\n'.join([f"• Case *#{c.get('user_case_number', c['id'])}*: {c['title']}" for c in cases[:5]])
+            await update.message.reply_text(
+                f'🎤 Voice message received!\n\n'
+                f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'
+                '💡 Use /switchcase to select which case you want to send this to.\n\n'
+                '✅ _Your voice message has been saved and will be sent after you switch to a case._',
+                parse_mode='Markdown'
+            )
+            return
+        except Exception as e:
+            print(f"ERROR: Failed to save voice message: {str(e)}")
+            await update.message.reply_text(
+                '⚠️ Failed to process voice message. Please try again.'
+            )
+            return
     # No cases
     else:
         await update.message.reply_text(
@@ -1100,6 +1290,17 @@ def main():
         fallbacks=[CommandHandler('cancel', reply_cancel)],
     )
 
+    reopen_handler = ConversationHandler(
+        entry_points=[
+            CommandHandler('reopen', reopen_start),
+            MessageHandler(filters.Regex('^(🔓 Reopen|Reopen)$'), reopen_start)
+        ],
+        states={
+            REOPEN_CASE_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, reopen_case_id)],
+        },
+        fallbacks=[CommandHandler('cancel', reopen_cancel)],
+    )
+
     application.add_handler(CommandHandler('start', start))
     application.add_handler(newcase_handler)
     
@@ -1113,6 +1314,7 @@ def main():
     application.add_handler(reply_handler)
     application.add_handler(viewcase_handler)
     application.add_handler(switchcase_handler)
+    application.add_handler(reopen_handler)
     
     application.add_handler(CommandHandler('help', help_command))
     application.add_handler(MessageHandler(filters.Regex('^(❓ Help|Help)$'), help_command))
