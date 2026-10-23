@@ -1790,6 +1790,12 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
             
             print(f"[LIST REQUESTS] Total requests in queryset: {queryset.count()}")
             
+            # Count by status FIRST (before converting to list)
+            pending_count = queryset.filter(status='pending').count()
+            approved_count = queryset.filter(status='approved').count()
+            rejected_count = queryset.filter(status='rejected').count()
+            print(f"[LIST REQUESTS] Counts - Pending: {pending_count}, Approved: {approved_count}, Rejected: {rejected_count}")
+            
             # Log ALL requests with their current status
             all_requests = list(queryset)
             for req in all_requests:
@@ -1797,12 +1803,6 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
                     print(f"[LIST REQUESTS]   Request #{req.id}: Case #{req.case.id} | Status: {req.status} | Admin: {req.admin.username} | Created: {req.created_at} | Reviewed: {req.reviewed_at}")
                 except Exception as log_error:
                     print(f"[LIST REQUESTS]   Request #{req.id}: Error logging details - {str(log_error)}")
-            
-            # Count by status
-            pending_count = queryset.filter(status='pending').count()
-            approved_count = queryset.filter(status='approved').count()
-            rejected_count = queryset.filter(status='rejected').count()
-            print(f"[LIST REQUESTS] Counts - Pending: {pending_count}, Approved: {approved_count}, Rejected: {rejected_count}")
             
             page = self.paginate_queryset(queryset)
             if page is not None:
