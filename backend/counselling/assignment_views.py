@@ -13,7 +13,6 @@ from django.conf import settings
 from .models import CaseAssignmentRequest, Case, User, AuditLog
 from .serializers import CaseAssignmentRequestSerializer
 from .email_templates import render_assignment_request_email, render_assignment_approved_email
-from .email_notifications import _send_email
 
 
 class IsOwner(permissions.BasePermission):
@@ -54,6 +53,49 @@ def notify_case_user(case, text):
         print(f"Backend Warning: Case #{case.id} user has no telegram_id.")
         return
     send_telegram_notification(case.user.telegram_id, text)
+
+
+def _send_email(subject, html_body, text_body, recipients):
+    """Send email via Brevo API"""
+    if not recipients:
+        print("[Email] No recipients, skipping")
+        return
+    
+    api_key = os.getenv('BREVO_API_KEY')
+    if not api_key:
+        print("[Email] BREVO_API_KEY not set, skipping email")
+        return
+    
+    from_email_str = settings.DEFAULT_FROM_EMAIL
+    if '<' in from_email_str:
+        sender_name = from_email_str.split('<')[0].strip()
+        sender_email = from_email_str.split('<')[1].strip('>')
+        from_dict = {"email": sender_email, "name": sender_name}
+    else:
+        from_dict = {"email": from_email_str}
+    
+    headers = {
+        'api-key': api_key,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+    
+    data = {
+        "sender": from_dict,
+        "to": [{"email": email} for email in recipients],
+        "subject": subject,
+        "htmlContent": html_body,
+        "textContent": text_body
+    }
+    
+    try:
+        response = requests.post('https://api.brevo.com/v3/smtp/email', headers=headers, json=data, timeout=10)
+        if response.ok:
+            print(f"[Email] ✅ Sent '{subject}' to {len(recipients)} recipient(s)")
+        else:
+            print(f"[Email] ❌ Brevo API Error {response.status_code}: {response.text}")
+    except Exception as e:
+        print(f"[Email] ❌ Exception: {e}")
 
 
 class CaseAssignmentRequestViewSet(viewsets.ModelViewSet):
