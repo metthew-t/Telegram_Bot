@@ -10,10 +10,15 @@ from django.conf import settings
 
 from .models import CaseAssignmentRequest, Case, User, AuditLog
 from .serializers import CaseAssignmentRequestSerializer
-from .permissions import IsOwner
 from .email_templates import render_assignment_request_email, render_assignment_approved_email
 from .telegram_notifications import notify_case_user
 from .email_notifications import _send_email
+
+
+class IsOwner(permissions.BasePermission):
+    """Permission class: only users with role='owner' can access"""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.role == 'owner')
 
 
 class CaseAssignmentRequestViewSet(viewsets.ModelViewSet):
