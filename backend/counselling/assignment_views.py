@@ -106,9 +106,6 @@ class CaseAssignmentRequestViewSet(viewsets.ModelViewSet):
     - Owner approves (assigns case) or rejects
     - Email notifications sent to all parties
     """
-    queryset = CaseAssignmentRequest.objects.select_related(
-        'case', 'requesting_admin', 'reviewed_by'
-    ).all()
     serializer_class = CaseAssignmentRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
     http_method_names = ['get', 'post', 'head', 'options']  # No PUT/PATCH/DELETE
@@ -116,11 +113,33 @@ class CaseAssignmentRequestViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter based on user role"""
         user = self.request.user
+        qs = CaseAssignmentRequest.objects.select_related(
+            'case', 'requesting_admin', 'reviewed_by'
+        ).all()
+        
         if user.role == 'owner':
-            return self.queryset  # Owners see all requests
+            return qs  # Owners see all requests
         elif user.role == 'admin':
-            return self.queryset.filter(requesting_admin=user)  # Admins see only theirs
-        return self.queryset.none()
+            return qs.filter(requesting_admin=user)  # Admins see only theirs
+        return qs.none()
+    
+    def list(self, request, *args, **kwargs):
+        """List assignment requests with logging"""
+        print(f"\n[ASSIGNMENT_LIST] ===== LIST REQUEST =====")
+        print(f"[ASSIGNMENT_LIST] User: {request.user.username} (role: {request.user.role})")
+        
+        queryset = self.filter_queryset(self.get_queryset())
+        print(f"[ASSIGNMENT_LIST] Queryset count: {queryset.count()}")
+        
+        # Log each request
+        for req in queryset:
+            print(f"[ASSIGNMENT_LIST]   Request #{req.id}: Case={req.case_id}, Admin={req.requesting_admin.username}, Status={req.status}")
+        
+        serializer = self.get_serializer(queryset, many=True)
+        print(f"[ASSIGNMENT_LIST] Serialized {len(serializer.data)} items")
+        print(f"[ASSIGNMENT_LIST] ===== END LIST =====\n")
+        
+        return Response(serializer.data)
     
     def create(self, request):
         """Admin creates new assignment request"""
@@ -174,7 +193,13 @@ class CaseAssignmentRequestViewSet(viewsets.ModelViewSet):
             status=CaseAssignmentRequest.STATUS_PENDING
         )
         
-        print(f"[NEW_REQUEST] ID={assignment_req.id}, Case={case.id}, Admin={request.user.username}")
+        print(f"\n[NEW_REQUEST] ===== ASSIGNMENT REQUEST CREATED =====")
+        print(f"[NEW_REQUEST] ID: {assignment_req.id}")
+        print(f"[NEW_REQUEST] Case: #{case.id} - {case.title}")
+        print(f"[NEW_REQUEST] Requesting Admin: {request.user.username} (ID: {request.user.id})")
+        print(f"[NEW_REQUEST] Status: {assignment_req.status}")
+        print(f"[NEW_REQUEST] Requested At: {assignment_req.requested_at}")
+        print(f"[NEW_REQUEST] ===== END CREATE =====\n")
         
         # Send email to owners
         self._notify_owners_new_request(assignment_req)
