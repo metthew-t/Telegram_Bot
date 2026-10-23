@@ -301,6 +301,8 @@ export default function AdminDashboardPage() {
                       onClick={(e) => {
                         e.stopPropagation(); // Prevent navigation to case detail
                         setSelectedFeedback(caseFeedback);
+                        // Scroll page to top when modal opens
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       style={{ 
                         marginTop: '8px', 
