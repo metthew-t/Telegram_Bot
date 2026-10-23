@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getUser } from '../auth.js';
 import { apiCall } from '../api.js';
@@ -114,25 +115,32 @@ export default function OwnerDashboardPage() {
         }
     };
 
-    const pendingRequests = assignmentRequests.filter(r => r.status === 'pending');
-    const recentProcessedRequests = assignmentRequests
-        .filter(r => r.status === 'approved' || r.status === 'rejected')
-        .sort((a, b) => new Date(b.reviewed_at || b.created_at) - new Date(a.reviewed_at || a.created_at))
-        .slice(0, 5);
-
-    // Force recalculation on every state change
-    const pendingCount = pendingRequests.length;
+    // Calculate counts directly in render for guaranteed freshness
+    const pendingRequestsList = React.useMemo(() => {
+        return assignmentRequests.filter(r => r.status === 'pending');
+    }, [assignmentRequests]);
     
-    console.log('[OwnerDashboard] RENDER - Pending:', pendingCount, 'Total:', assignmentRequests.length);
+    const processedRequestsList = React.useMemo(() => {
+        return assignmentRequests
+            .filter(r => r.status === 'approved' || r.status === 'rejected')
+            .sort((a, b) => new Date(b.reviewed_at || b.created_at) - new Date(a.reviewed_at || a.created_at))
+            .slice(0, 5);
+    }, [assignmentRequests]);
+    
+    // Force recalculation
+    const pendingCount = pendingRequestsList.length;
+    const processedCount = processedRequestsList.length;
+    
+    console.log('[OwnerDashboard] RENDER - Pending:', pendingCount, 'Processed:', processedCount, 'Total:', assignmentRequests.length);
 
-    const stats = {
+    const stats = React.useMemo(() => ({
         total: allCases.length,
         open: allCases.filter((c) => c.status === 'open').length,
         assigned: allCases.filter((c) => c.status === 'assigned').length,
         resolved: allCases.filter((c) => c.status === 'resolved').length,
         closed: allCases.filter((c) => c.status === 'closed').length,
         pendingRequests: pendingCount,
-    };
+    }), [allCases, pendingCount]);
 
     return (
         <div className="page-panel">
@@ -150,17 +158,17 @@ export default function OwnerDashboardPage() {
                     <span className="stat-value">{stats.open}</span>
                     <span className="stat-label">Open Now</span>
                 </div>
-                <div className="stat-card" style={{ background: stats.pendingRequests > 0 ? 'linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%)' : undefined }}>
-                    <span className="stat-value" style={{ color: stats.pendingRequests > 0 ? '#f59e0b' : undefined }}>
-                        {stats.pendingRequests}
+                <div className="stat-card" style={{ background: pendingCount > 0 ? 'linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%)' : undefined }}>
+                    <span className="stat-value" style={{ color: pendingCount > 0 ? '#f59e0b' : undefined }} key={`pending-stat-${pendingCount}`}>
+                        {pendingCount}
                     </span>
                     <span className="stat-label">Pending Assignment Requests</span>
                 </div>
             </div>
 
             {/* Assignment Requests Section */}
-            {pendingRequests.length > 0 && (
-                <div className="glass-panel" style={{ marginTop: '2rem' }}>
+            {pendingCount > 0 && (
+                <div className="glass-panel" style={{ marginTop: '2rem' }} key={`pending-${pendingCount}-${Date.now()}`}>
                     <div className="panel-header" style={{ borderBottom: '1px solid var(--border-subtle)', marginBottom: '1rem' }}>
                         <h2>🔔 Assignment Requests</h2>
                         <p style={{ fontSize: 'var(--font-sm)', opacity: 0.8 }}>
@@ -168,7 +176,7 @@ export default function OwnerDashboardPage() {
                         </p>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {pendingRequests.map(request => (
+                        {pendingRequestsList.map(request => (
                             <div 
                                 key={request.id}
                                 style={{
@@ -231,8 +239,8 @@ export default function OwnerDashboardPage() {
             )}
 
             {/* Recent Request History */}
-            {recentProcessedRequests.length > 0 && (
-                <div className="glass-panel" style={{ marginTop: '2rem' }}>
+            {processedCount > 0 && (
+                <div className="glass-panel" style={{ marginTop: '2rem' }} key={`processed-${processedCount}-${Date.now()}`}>
                     <div className="panel-header" style={{ borderBottom: '1px solid var(--border-subtle)', marginBottom: '1rem' }}>
                         <h2>📜 Recent Assignment History</h2>
                         <p style={{ fontSize: 'var(--font-sm)', opacity: 0.8 }}>
@@ -240,7 +248,7 @@ export default function OwnerDashboardPage() {
                         </p>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {recentProcessedRequests.map(request => (
+                        {processedRequestsList.map(request => (
                             <div 
                                 key={request.id}
                                 style={{
