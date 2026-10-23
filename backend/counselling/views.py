@@ -1897,6 +1897,13 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
             status='pending'
         )
         
+        print(f"[CREATE REQUEST] ===== NEW ASSIGNMENT REQUEST CREATED =====")
+        print(f"[CREATE REQUEST] Request ID: {assignment_request.id}")
+        print(f"[CREATE REQUEST] Case: #{case.id} - {case.title}")
+        print(f"[CREATE REQUEST] Admin: {request.user.username}")
+        print(f"[CREATE REQUEST] Status: {assignment_request.status}")
+        print(f"[CREATE REQUEST] Created at: {assignment_request.created_at}")
+        
         # Send email notification to owner
         print(f"[REQUEST] Attempting to send assignment request email to owners...")
         try:
