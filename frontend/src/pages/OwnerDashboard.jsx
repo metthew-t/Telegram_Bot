@@ -42,7 +42,7 @@ export default function OwnerDashboardPage() {
         try {
             // Add timestamp to prevent caching
             const timestamp = new Date().getTime();
-            const data = await apiCall(`/api/assignment-requests/?t=${timestamp}`, 'GET');
+            const data = await apiCall(`/api/case-assignment-requests/?t=${timestamp}`, 'GET');
             console.log('[OwnerDashboard] ===== ASSIGNMENT REQUESTS FETCH =====');
             console.log('[OwnerDashboard] Fetch timestamp:', timestamp);
             console.log('[OwnerDashboard] Raw API response:', JSON.stringify(data, null, 2));
@@ -58,7 +58,7 @@ export default function OwnerDashboardPage() {
             
             // Log each request individually
             data?.forEach((req, idx) => {
-                console.log(`[OwnerDashboard] Request ${idx + 1}: ID=${req.id}, Status=${req.status}, Case=${req.case_id}, Admin=${req.admin_name}, ReviewedAt=${req.reviewed_at}`);
+                console.log(`[OwnerDashboard] Request ${idx + 1}: ID=${req.id}, Status=${req.status}, Case=${req.case_id}, Admin=${req.requesting_admin_name}, ReviewedAt=${req.reviewed_at}`);
             });
             
             setAssignmentRequests(data || []);
@@ -70,7 +70,7 @@ export default function OwnerDashboardPage() {
     const handleApproveRequest = async (requestId) => {
         setProcessingRequestId(requestId);
         try {
-            const response = await apiCall(`/api/assignment-requests/${requestId}/approve/`, 'POST');
+            const response = await apiCall(`/api/case-assignment-requests/${requestId}/approve/`, 'POST');
             console.log('[ApproveRequest] Success:', response);
             console.log('[ApproveRequest] Response status updated to:', response.status);
             
@@ -94,7 +94,7 @@ export default function OwnerDashboardPage() {
     const handleRejectRequest = async (requestId) => {
         setProcessingRequestId(requestId);
         try {
-            const response = await apiCall(`/api/assignment-requests/${requestId}/reject/`, 'POST');
+            const response = await apiCall(`/api/case-assignment-requests/${requestId}/reject/`, 'POST');
             console.log('[RejectRequest] Success:', response);
             console.log('[RejectRequest] Response status updated to:', response.status);
             
@@ -123,7 +123,7 @@ export default function OwnerDashboardPage() {
     const processedRequestsList = React.useMemo(() => {
         return assignmentRequests
             .filter(r => r.status === 'approved' || r.status === 'rejected')
-            .sort((a, b) => new Date(b.reviewed_at || b.created_at) - new Date(a.reviewed_at || a.created_at))
+            .sort((a, b) => new Date(b.reviewed_at || b.requested_at) - new Date(a.reviewed_at || a.requested_at))
             .slice(0, 5);
     }, [assignmentRequests]);
     
@@ -196,10 +196,10 @@ export default function OwnerDashboardPage() {
                                         <span className="case-id-badge">Case #{request.case_id}</span> - {request.case_title}
                                     </div>
                                     <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                                        Requested by: <strong>{request.admin_name}</strong>
+                                        Requested by: <strong>{request.requesting_admin_name}</strong>
                                     </div>
                                     <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                        {new Date(request.created_at).toLocaleString()}
+                                        {new Date(request.requested_at).toLocaleString()}
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -283,13 +283,13 @@ export default function OwnerDashboardPage() {
                                         </span>
                                     </div>
                                     <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-                                        Admin: <strong>{request.admin_name}</strong>
+                                        Admin: <strong>{request.requesting_admin_name}</strong>
                                         {request.reviewed_by_name && (
                                             <span> • Reviewed by: <strong>{request.reviewed_by_name}</strong></span>
                                         )}
                                     </div>
                                     <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                        Requested: {new Date(request.created_at).toLocaleString()}
+                                        Requested: {new Date(request.requested_at).toLocaleString()}
                                         {request.reviewed_at && (
                                             <span> • Reviewed: {new Date(request.reviewed_at).toLocaleString()}</span>
                                         )}

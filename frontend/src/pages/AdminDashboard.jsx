@@ -57,7 +57,7 @@ export default function AdminDashboardPage() {
   
   const fetchMyAssignmentRequests = async () => {
     try {
-      const data = await apiCall('/api/assignment-requests/', 'GET');
+      const data = await apiCall('/api/case-assignment-requests/', 'GET');
       setAssignmentRequests(data || []);
       console.log('[AssignmentRequests] Fetched:', data);
     } catch (err) {
@@ -102,7 +102,7 @@ export default function AdminDashboardPage() {
   const handleRequestAssignment = async (caseId) => {
     setRequestingId(caseId);
     try {
-      await apiCall('/api/assignment-requests/', 'POST', {
+      await apiCall('/api/case-assignment-requests/', 'POST', {
         case_id: caseId,
       });
       alert('Assignment request sent to owner for approval');
