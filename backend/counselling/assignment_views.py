@@ -2,6 +2,8 @@
 Assignment Request Views - Completely rewritten from scratch
 Handles admin assignment requests and owner approvals/rejections
 """
+import os
+import requests
 from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
@@ -11,7 +13,6 @@ from django.conf import settings
 from .models import CaseAssignmentRequest, Case, User, AuditLog
 from .serializers import CaseAssignmentRequestSerializer
 from .email_templates import render_assignment_request_email, render_assignment_approved_email
-from .telegram_notifications import notify_case_user
 from .email_notifications import _send_email
 
 
@@ -19,6 +20,40 @@ class IsOwner(permissions.BasePermission):
     """Permission class: only users with role='owner' can access"""
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated and request.user.role == 'owner')
+
+
+def send_telegram_notification(telegram_id, text):
+    """Send a Telegram notification to a specific user"""
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if not token:
+        print("ERROR: TELEGRAM_BOT_TOKEN not set")
+        return False
+    
+    telegram_id = str(telegram_id).strip() if telegram_id else None
+    if not telegram_id or telegram_id == 'None':
+        print(f"ERROR: Invalid telegram_id: {telegram_id}")
+        return False
+    
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": telegram_id, "text": text}
+    
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code != 200:
+            print(f"ERROR: Telegram API Error: {response.status_code} - {response.text}")
+            return False
+        return True
+    except Exception as e:
+        print(f"ERROR: Telegram notification failed: {str(e)}")
+        return False
+
+
+def notify_case_user(case, text):
+    """Notify case user via Telegram"""
+    if not case.user.telegram_id:
+        print(f"Backend Warning: Case #{case.id} user has no telegram_id.")
+        return
+    send_telegram_notification(case.user.telegram_id, text)
 
 
 class CaseAssignmentRequestViewSet(viewsets.ModelViewSet):
