@@ -435,12 +435,12 @@ async def show_case_messages(update, context, case_id):
         if len(messages) > 10:
             lines.append(f'_... and {len(messages) - 10} earlier message(s)_')
 
-    lines.append('\nUse /reply to respond to this case.')
-    
-    # Add reopen hint for closed cases
+    # Add appropriate action hint based on case status
     if case['status'] == 'closed':
         lines.append('\n🔒 *This case is closed.* You cannot reply to a closed case.')
         lines.append('Use /reopen to reopen this case if you need further assistance.')
+    else:
+        lines.append('\nUse /reply to respond to this case.')
     
     await update.message.reply_text('\n'.join(lines), parse_mode='Markdown', reply_markup=MAIN_MENU_KEYBOARD)
 

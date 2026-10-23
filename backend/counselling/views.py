@@ -1005,33 +1005,57 @@ class CaseViewSet(viewsets.ModelViewSet):
             case=case,
             performer=request.user,
             action='reopened',
-            details=f'Case reopened by {request.user.username}',
+            details=f'Case reopened by user (case creator)',
         )
         
-        # Notify the assigned admin (if any) via email
+        frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
+        
+        # Notify the assigned admin via email (hide user identity)
         if previous_admin and previous_admin.email and previous_admin.email_verified and previous_admin.email_notifications_enabled:
             try:
-                frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
                 subject, html_body, text_body = render_case_reopened_email(case, frontend_url)
                 _send_email(subject, html_body, text_body, [previous_admin.email])
                 print(f"[Reopen] ✅ Case reopened email sent to admin: {previous_admin.email}")
             except Exception as e:
-                print(f"[Reopen] ❌ Failed to send reopen email: {str(e)}")
+                print(f"[Reopen] ❌ Failed to send reopen email to admin: {str(e)}")
                 import traceback
                 traceback.print_exc()
+        else:
+            print(f"[Reopen] ⚠️ Admin email not sent - requirements not met")
+            if previous_admin:
+                print(f"[Reopen]   Admin: {previous_admin.username}")
+                print(f"[Reopen]   Email: {previous_admin.email}")
+                print(f"[Reopen]   Verified: {previous_admin.email_verified}")
+                print(f"[Reopen]   Notifications enabled: {previous_admin.email_notifications_enabled}")
         
-        # Notify user via Telegram
+        # Also notify owners via email (with full case details)
+        try:
+            owner_emails = _owner_email_recipients()
+            if owner_emails:
+                # Send same template to owners (they see user as "Anonymous" too for consistency)
+                subject, html_body, text_body = render_case_reopened_email(case, frontend_url)
+                _send_email(subject, html_body, text_body, owner_emails)
+                print(f"[Reopen] ✅ Case reopened email sent to {len(owner_emails)} owner(s)")
+            else:
+                print(f"[Reopen] ⚠️ No verified owner emails found")
+        except Exception as e:
+            print(f"[Reopen] ❌ Failed to send reopen email to owners: {str(e)}")
+            import traceback
+            traceback.print_exc()
+        
+        # Notify user via Telegram (hide admin identity for privacy)
         notify_case_user(
             case,
             f'✅ Your case #{case.user_case_number} has been reopened.\n\n'
             f'Status: {case.status}\n'
+            f'Assigned to: Support team\n\n'
             f'You can now continue the conversation.'
         )
         
         return Response({
             'status': case.status,
             'message': 'Case reopened successfully',
-            'assigned_admin': case.assigned_admin.username if case.assigned_admin else None
+            'assigned_admin': 'Support team'  # Hide admin identity from user
         })
     
     @action(detail=True, methods=['post'])
