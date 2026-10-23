@@ -128,6 +128,12 @@ export default function OwnerDashboardPage() {
         closed: allCases.filter((c) => c.status === 'closed').length,
         pendingRequests: pendingRequests.length,
     };
+    
+    console.log('[OwnerDashboard] STATS CALCULATION:', {
+        pendingRequestsLength: pendingRequests.length,
+        statsPendingRequests: stats.pendingRequests,
+        pendingRequestsArray: pendingRequests
+    });
 
     return (
         <div className="page-panel">
