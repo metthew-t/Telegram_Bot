@@ -14,11 +14,11 @@ from .views import (
     EmailVerifyView,
     ForgotPasswordView,
     ResetPasswordView,
-    AssignmentRequestViewSet,
     FeedbackViewSet,
     AnalyticsViewSet,
     api_root,
 )
+from .assignment_views import CaseAssignmentRequestViewSet
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
@@ -26,7 +26,7 @@ router.register(r'cases', CaseViewSet)
 router.register(r'messages', MessageViewSet)
 router.register(r'audit-logs', AuditLogViewSet)
 router.register(r'internal-messages', InternalMessageViewSet)
-router.register(r'assignment-requests', AssignmentRequestViewSet)
+router.register(r'case-assignment-requests', CaseAssignmentRequestViewSet)  # New rewritten endpoint
 router.register(r'feedbacks', FeedbackViewSet)
 router.register(r'analytics', AnalyticsViewSet, basename='analytics')
 

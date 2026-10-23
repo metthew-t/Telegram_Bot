@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Case, Message, AuditLog, PasswordResetToken, CaseView, InternalChatView
+from .models import User, Case, Message, AuditLog, PasswordResetToken, CaseView, InternalChatView, CaseAssignmentRequest
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -36,3 +36,10 @@ class InternalChatViewAdmin(admin.ModelAdmin):
     list_display = ['user', 'viewed_at']
     list_filter = ['viewed_at']
     search_fields = ['user__username']
+
+@admin.register(CaseAssignmentRequest)
+class CaseAssignmentRequestAdmin(admin.ModelAdmin):
+    list_display = ['id', 'case', 'requesting_admin', 'status', 'requested_at', 'reviewed_at', 'reviewed_by']
+    list_filter = ['status', 'requested_at', 'reviewed_at']
+    search_fields = ['case__title', 'requesting_admin__username', 'reviewed_by__username']
+    readonly_fields = ['requested_at', 'reviewed_at']
