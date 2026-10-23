@@ -578,7 +578,7 @@ def render_assignment_request_email(assignment_request, frontend_url: str):
     <div class="alert-icon">📋</div>
     <h2 class="greeting">New Assignment Request</h2>
     <p class="intro">
-      <strong style="color:#818cf8;">{assignment_request.admin.username}</strong> has requested to be assigned to the following case.
+      <strong style="color:#818cf8;">{assignment_request.requesting_admin.username}</strong> has requested to be assigned to the following case.
       Please review the case details and approve or reject this request from your dashboard.
     </p>
     
@@ -610,15 +610,15 @@ def render_assignment_request_email(assignment_request, frontend_url: str):
     <div class="info-card" style="border-left-color:#7c3aed;margin-top:16px;">
       <div class="info-row">
         <span class="info-label">Requested by</span>
-        <span class="info-value"><strong style="color:#818cf8;">{assignment_request.admin.username}</strong></span>
+        <span class="info-value"><strong style="color:#818cf8;">{assignment_request.requesting_admin.username}</strong></span>
       </div>
       <div class="info-row">
         <span class="info-label">Admin Email</span>
-        <span class="info-value">{assignment_request.admin.email or 'Not provided'}</span>
+        <span class="info-value">{assignment_request.requesting_admin.email or 'Not provided'}</span>
       </div>
       <div class="info-row">
         <span class="info-label">Request Date</span>
-        <span class="info-value">{assignment_request.created_at.strftime('%d %B %Y, %H:%M UTC')}</span>
+        <span class="info-value">{assignment_request.requested_at.strftime('%d %B %Y, %H:%M UTC')}</span>
       </div>
     </div>
     
@@ -631,9 +631,9 @@ def render_assignment_request_email(assignment_request, frontend_url: str):
     text_body = f"""New Assignment Request — Case #{assignment_request.case.id}
 
 Case:          {assignment_request.case.title}
-Requested by:  {assignment_request.admin.username}
-Admin Email:   {assignment_request.admin.email or 'Not provided'}
-Request Date:  {assignment_request.created_at.strftime('%d %B %Y, %H:%M UTC')}
+Requested by:  {assignment_request.requesting_admin.username}
+Admin Email:   {assignment_request.requesting_admin.email or 'Not provided'}
+Request Date:  {assignment_request.requested_at.strftime('%d %B %Y, %H:%M UTC')}
 
 Review the request: {case_url}
 """
@@ -699,7 +699,7 @@ def render_assignment_approved_email(assignment_request, frontend_url: str):
     text_body = f"""Assignment Request Approved — Case #{assignment_request.case.id}
 
 Case:        {assignment_request.case.title}
-Assigned to: {assignment_request.admin.username}
+Assigned to: {assignment_request.requesting_admin.username}
 Approved by: {assignment_request.reviewed_by.username}
 Approved at: {assignment_request.reviewed_at.strftime('%d %B %Y, %H:%M UTC')}
 
