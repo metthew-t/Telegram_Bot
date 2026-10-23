@@ -92,10 +92,6 @@ export default function AnalyticsPage() {
           <span className="stat-label">Assigned</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">{cases_by_status.resolved}</span>
-          <span className="stat-label">Resolved</span>
-        </div>
-        <div className="stat-card">
           <span className="stat-value">{cases_by_status.closed}</span>
           <span className="stat-label">Closed</span>
         </div>
@@ -155,7 +151,6 @@ export default function AnalyticsPage() {
                   <th style={{ textAlign: 'center', padding: '12px 8px' }}>Total</th>
                   <th style={{ textAlign: 'center', padding: '12px 8px' }}>Open</th>
                   <th style={{ textAlign: 'center', padding: '12px 8px' }}>Assigned</th>
-                  <th style={{ textAlign: 'center', padding: '12px 8px' }}>Resolved</th>
                   <th style={{ textAlign: 'center', padding: '12px 8px' }}>Closed</th>
                 </tr>
               </thead>
@@ -173,9 +168,6 @@ export default function AnalyticsPage() {
                     </td>
                     <td style={{ textAlign: 'center', padding: '12px 8px' }}>
                       {admin.assigned}
-                    </td>
-                    <td style={{ textAlign: 'center', padding: '12px 8px' }}>
-                      {admin.resolved}
                     </td>
                     <td style={{ textAlign: 'center', padding: '12px 8px' }}>
                       {admin.closed}
