@@ -2155,7 +2155,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
         total_cases = cases.count()
         open_cases = cases.filter(status='open').count()
         assigned_cases = cases.filter(status='assigned').count()
-        resolved_cases = cases.filter(status='resolved').count()
         closed_cases = cases.filter(status='closed').count()
         
         # Cases per admin (owner only)
@@ -2170,7 +2169,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     'total': admin_cases.count(),
                     'open': admin_cases.filter(status='open').count(),
                     'assigned': admin_cases.filter(status='assigned').count(),
-                    'resolved': admin_cases.filter(status='resolved').count(),
                     'closed': admin_cases.filter(status='closed').count(),
                 })
         
@@ -2237,7 +2235,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
             'cases_by_status': {
                 'open': open_cases,
                 'assigned': assigned_cases,
-                'resolved': resolved_cases,
                 'closed': closed_cases,
             },
             'cases_per_admin': cases_per_admin,
