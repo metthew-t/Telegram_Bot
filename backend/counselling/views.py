@@ -1780,42 +1780,54 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         """List assignment requests with detailed logging"""
-        print(f"[LIST REQUESTS] ===== NEW REQUEST =====")
-        print(f"[LIST REQUESTS] Timestamp: {timezone.now()}")
-        print(f"[LIST REQUESTS] User: {request.user.username} (role: {request.user.role})")
-        
-        queryset = self.filter_queryset(self.get_queryset())
-        
-        print(f"[LIST REQUESTS] Total requests in queryset: {queryset.count()}")
-        
-        # Log ALL requests with their current status
-        all_requests = list(queryset)
-        for req in all_requests:
-            print(f"[LIST REQUESTS]   Request #{req.id}: Case #{req.case_id} | Status: {req.status} | Admin: {req.admin.username} | Created: {req.created_at} | Reviewed: {req.reviewed_at}")
-        
-        # Count by status
-        pending_count = queryset.filter(status='pending').count()
-        approved_count = queryset.filter(status='approved').count()
-        rejected_count = queryset.filter(status='rejected').count()
-        print(f"[LIST REQUESTS] Counts - Pending: {pending_count}, Approved: {approved_count}, Rejected: {rejected_count}")
-        
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            response = self.get_paginated_response(serializer.data)
-        else:
-            serializer = self.get_serializer(queryset, many=True)
-            response = Response(serializer.data)
-        
-        # Add cache control headers to prevent caching
-        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response['Pragma'] = 'no-cache'
-        response['Expires'] = '0'
-        
-        print(f"[LIST REQUESTS] Response data count: {len(serializer.data)}")
-        print(f"[LIST REQUESTS] ===== END REQUEST =====")
-        
-        return response
+        try:
+            print(f"[LIST REQUESTS] ===== NEW REQUEST =====")
+            print(f"[LIST REQUESTS] Timestamp: {timezone.now()}")
+            print(f"[LIST REQUESTS] User: {request.user.username} (role: {request.user.role})")
+            
+            queryset = self.filter_queryset(self.get_queryset())
+            
+            print(f"[LIST REQUESTS] Total requests in queryset: {queryset.count()}")
+            
+            # Log ALL requests with their current status
+            all_requests = list(queryset)
+            for req in all_requests:
+                try:
+                    print(f"[LIST REQUESTS]   Request #{req.id}: Case #{req.case.id} | Status: {req.status} | Admin: {req.admin.username} | Created: {req.created_at} | Reviewed: {req.reviewed_at}")
+                except Exception as log_error:
+                    print(f"[LIST REQUESTS]   Request #{req.id}: Error logging details - {str(log_error)}")
+            
+            # Count by status
+            pending_count = queryset.filter(status='pending').count()
+            approved_count = queryset.filter(status='approved').count()
+            rejected_count = queryset.filter(status='rejected').count()
+            print(f"[LIST REQUESTS] Counts - Pending: {pending_count}, Approved: {approved_count}, Rejected: {rejected_count}")
+            
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                response = self.get_paginated_response(serializer.data)
+            else:
+                serializer = self.get_serializer(queryset, many=True)
+                response = Response(serializer.data)
+            
+            # Add cache control headers to prevent caching
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            
+            print(f"[LIST REQUESTS] Response data count: {len(serializer.data)}")
+            print(f"[LIST REQUESTS] ===== END REQUEST =====")
+            
+            return response
+        except Exception as e:
+            print(f"[LIST REQUESTS] ❌ ERROR: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'error': 'Failed to fetch assignment requests', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def get_queryset(self):
         """Return filtered queryset based on user role"""
