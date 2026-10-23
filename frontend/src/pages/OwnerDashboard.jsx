@@ -118,7 +118,12 @@ export default function OwnerDashboardPage() {
     const recentProcessedRequests = assignmentRequests
         .filter(r => r.status === 'approved' || r.status === 'rejected')
         .sort((a, b) => new Date(b.reviewed_at || b.created_at) - new Date(a.reviewed_at || a.created_at))
-        .slice(0, 5); // Show last 5 processed requests
+        .slice(0, 5);
+
+    // Force recalculation on every state change
+    const pendingCount = pendingRequests.length;
+    
+    console.log('[OwnerDashboard] RENDER - Pending:', pendingCount, 'Total:', assignmentRequests.length);
 
     const stats = {
         total: allCases.length,
@@ -126,14 +131,8 @@ export default function OwnerDashboardPage() {
         assigned: allCases.filter((c) => c.status === 'assigned').length,
         resolved: allCases.filter((c) => c.status === 'resolved').length,
         closed: allCases.filter((c) => c.status === 'closed').length,
-        pendingRequests: pendingRequests.length,
+        pendingRequests: pendingCount,
     };
-    
-    console.log('[OwnerDashboard] STATS CALCULATION:', {
-        pendingRequestsLength: pendingRequests.length,
-        statsPendingRequests: stats.pendingRequests,
-        pendingRequestsArray: pendingRequests
-    });
 
     return (
         <div className="page-panel">
