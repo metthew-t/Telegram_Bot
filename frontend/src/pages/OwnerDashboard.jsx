@@ -39,8 +39,12 @@ export default function OwnerDashboardPage() {
 
     const fetchAssignmentRequests = async () => {
         try {
-            const data = await apiCall('/api/assignment-requests/', 'GET');
+            // Add timestamp to prevent caching
+            const timestamp = new Date().getTime();
+            const data = await apiCall(`/api/assignment-requests/?t=${timestamp}`, 'GET');
             console.log('[OwnerDashboard] ===== ASSIGNMENT REQUESTS FETCH =====');
+            console.log('[OwnerDashboard] Fetch timestamp:', timestamp);
+            console.log('[OwnerDashboard] Raw API response:', JSON.stringify(data, null, 2));
             console.log('[OwnerDashboard] Total assignment requests returned:', data?.length);
             
             // Detailed logging
@@ -50,6 +54,11 @@ export default function OwnerDashboardPage() {
             console.log('[OwnerDashboard] Processed count:', processed.length);
             console.log('[OwnerDashboard] Pending requests:', pending);
             console.log('[OwnerDashboard] Processed requests:', processed);
+            
+            // Log each request individually
+            data?.forEach((req, idx) => {
+                console.log(`[OwnerDashboard] Request ${idx + 1}: ID=${req.id}, Status=${req.status}, Case=${req.case_id}, Admin=${req.admin_name}, ReviewedAt=${req.reviewed_at}`);
+            });
             
             setAssignmentRequests(data || []);
         } catch (err) {
@@ -62,8 +71,15 @@ export default function OwnerDashboardPage() {
         try {
             const response = await apiCall(`/api/assignment-requests/${requestId}/approve/`, 'POST');
             console.log('[ApproveRequest] Success:', response);
+            console.log('[ApproveRequest] Response status updated to:', response.status);
+            
+            // Wait a moment for the database to update
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Force refetch with cache busting
             await fetchAssignmentRequests();
             await fetchCases();
+            
             alert('Assignment request approved!');
         } catch (err) {
             console.error('[ApproveRequest] Error:', err);
@@ -77,9 +93,17 @@ export default function OwnerDashboardPage() {
     const handleRejectRequest = async (requestId) => {
         setProcessingRequestId(requestId);
         try {
-            await apiCall(`/api/assignment-requests/${requestId}/reject/`, 'POST');
+            const response = await apiCall(`/api/assignment-requests/${requestId}/reject/`, 'POST');
+            console.log('[RejectRequest] Success:', response);
+            console.log('[RejectRequest] Response status updated to:', response.status);
+            
+            // Wait a moment for the database to update
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Force refetch with cache busting
             await fetchAssignmentRequests();
             await fetchCases();
+            
             alert('Assignment request rejected');
         } catch (err) {
             const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
