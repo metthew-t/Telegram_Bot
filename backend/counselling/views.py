@@ -16,8 +16,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.http import JsonResponse
 
-from .models import User, Case, Message, AuditLog, InternalMessage
-from .serializers import UserSerializer, CaseSerializer, MessageSerializer, AuditLogSerializer, InternalMessageSerializer
+from .models import User, Case, Message, AuditLog, InternalMessage, CaseAssignmentRequest
+from .serializers import UserSerializer, CaseSerializer, MessageSerializer, AuditLogSerializer, InternalMessageSerializer, CaseAssignmentRequestSerializer
 from .email_templates import (
     render_verification_email,
     render_new_case_email,

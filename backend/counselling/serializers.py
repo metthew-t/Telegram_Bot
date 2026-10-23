@@ -190,19 +190,22 @@ class InternalMessageSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'timestamp', 'sender']
 
 
-class AssignmentRequestSerializer(serializers.ModelSerializer):
-    admin_name = serializers.ReadOnlyField(source='admin.username')
-    case_title = serializers.ReadOnlyField(source='case.title')
-    case_id = serializers.ReadOnlyField(source='case.id')
-    reviewed_by_name = serializers.SerializerMethodField()
+class CaseAssignmentRequestSerializer(serializers.ModelSerializer):
+    """Serializer for the new assignment request model"""
+    requesting_admin_name = serializers.CharField(source='requesting_admin.username', read_only=True)
+    case_id = serializers.IntegerField(source='case.id', read_only=True)
+    case_title = serializers.CharField(source='case.title', read_only=True)
+    reviewed_by_name = serializers.CharField(source='reviewed_by.username', read_only=True)
 
     class Meta:
-        model = AssignmentRequest
-        fields = ['id', 'case', 'case_id', 'case_title', 'admin', 'admin_name', 'status', 'created_at', 'reviewed_at', 'reviewed_by', 'reviewed_by_name']
-        read_only_fields = ['id', 'created_at', 'reviewed_at', 'reviewed_by']
-
-    def get_reviewed_by_name(self, obj):
-        return obj.reviewed_by.username if obj.reviewed_by else None
+        model = CaseAssignmentRequest
+        fields = [
+            'id', 'case', 'case_id', 'case_title', 
+            'requesting_admin', 'requesting_admin_name',
+            'status', 'requested_at', 'reviewed_at', 
+            'reviewed_by', 'reviewed_by_name'
+        ]
+        read_only_fields = ['id', 'requested_at', 'reviewed_at', 'reviewed_by']
 
 
 class FeedbackSerializer(serializers.ModelSerializer):

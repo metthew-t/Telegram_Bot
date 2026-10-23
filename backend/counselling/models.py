@@ -133,21 +133,36 @@ class PasswordResetToken(models.Model):
         return f"Password reset for {self.user.username} - {'Valid' if self.is_valid() else 'Invalid'}"
 
 
-class AssignmentRequest(models.Model):
+class CaseAssignmentRequest(models.Model):
+    """
+    Simplified assignment request model - completely rewritten
+    Admin requests assignment → Owner approves/rejects → Status updated
+    """
+    STATUS_PENDING = 'pending'
+    STATUS_APPROVED = 'approved'
+    STATUS_REJECTED = 'rejected'
+    
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('approved', 'Approved'),
-        ('rejected', 'Rejected'),
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
     ]
-    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='assignment_requests')
-    admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assignment_requests')
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
-    created_at = models.DateTimeField(default=timezone.now)
+    
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='assignment_requests_v2')
+    requesting_admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='case_assignment_requests')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    
+    # Timestamps
+    requested_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
-    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_assignment_requests')
-
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_case_assignments')
+    
+    class Meta:
+        ordering = ['-requested_at']
+        unique_together = [['case', 'requesting_admin', 'status']]  # Prevent duplicate pending requests
+    
     def __str__(self):
-        return f"Assignment request for case {self.case.id} by {self.admin.username} - {self.status}"
+        return f"Assignment Request #{self.id} - Case {self.case.id} by {self.requesting_admin.username} ({self.status})"
 
 
 class Feedback(models.Model):
