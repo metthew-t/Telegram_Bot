@@ -1818,6 +1818,9 @@ class AssignmentRequestViewSet(viewsets.ModelViewSet):
             response['Expires'] = '0'
             
             print(f"[LIST REQUESTS] Response data count: {len(serializer.data)}")
+            print(f"[LIST REQUESTS] Serialized data being sent to frontend:")
+            for item in serializer.data:
+                print(f"[LIST REQUESTS]   ID={item.get('id')}, Status={item.get('status')}, Case={item.get('case_id')}, Admin={item.get('admin_name')}")
             print(f"[LIST REQUESTS] ===== END REQUEST =====")
             
             return response
