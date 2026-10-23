@@ -26,7 +26,7 @@ router.register(r'cases', CaseViewSet)
 router.register(r'messages', MessageViewSet)
 router.register(r'audit-logs', AuditLogViewSet)
 router.register(r'internal-messages', InternalMessageViewSet)
-router.register(r'case-assignment-requests', CaseAssignmentRequestViewSet)  # New rewritten endpoint
+router.register(r'case-assignment-requests', CaseAssignmentRequestViewSet, basename='caseassignmentrequest')  # New rewritten endpoint
 router.register(r'feedbacks', FeedbackViewSet)
 router.register(r'analytics', AnalyticsViewSet, basename='analytics')
 
