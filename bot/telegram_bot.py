@@ -29,7 +29,7 @@ MAIN_MENU_KEYBOARD = ReplyKeyboardMarkup(
     [
         ['📝 New Case', '👁️ View Case'],
         ['💬 Reply', '🔄 Reopen Case'],
-        ['❓ Help']
+        ['❌ Close Case', '❓ Help']
     ],
     resize_keyboard=True,
     is_persistent=True  # Keep menu always visible
@@ -39,6 +39,7 @@ MAIN_MENU_KEYBOARD = ReplyKeyboardMarkup(
 TITLE, DESCRIPTION, CONFIRM = range(3)
 REPLY_CASE_ID, REPLY_CONTENT = range(10, 12)
 VIEW_CASE_ID = 20
+CLOSE_CASE_ID = 21
 
 
 # ─── Backend helpers ───
@@ -561,6 +562,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '🔓 *Reopen* — Reopen a closed case\n'
         '   • Continue work on a previously closed case\n'
         '   • Enter the case number when prompted\n\n'
+        '❌ *Close Case* — Close your active case\n'
+        '   • Mark your case as resolved\n'
+        '   • You can reopen it later if needed\n\n'
         '❓ *Help* — Show this detailed help message\n\n'
         '---\n\n'
         '💡 *Quick Tips:*\n'
@@ -660,6 +664,135 @@ async def reopen_case_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def reopen_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('❌ Reopen cancelled.', reply_markup=MAIN_MENU_KEYBOARD)
+    return ConversationHandler.END
+
+
+# ─── /closecase ───
+
+async def closecase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start the close case flow"""
+    if update.effective_user is None or update.message is None:
+        return ConversationHandler.END
+
+    token = get_access_token(update)
+    if token is None:
+        await update.message.reply_text(
+            '⚠️ Unable to authenticate. Please try /start first.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+
+    # Fetch active cases (open or assigned)
+    cases_resp = backend_request('/api/cases/', method='get', token=token)
+    if not cases_resp.ok:
+        await update.message.reply_text(
+            '⚠️ Failed to fetch your cases.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    all_cases = cases_resp.json()
+    active_cases = [c for c in all_cases if c.get('status') in ['open', 'assigned']]
+    
+    if not active_cases:
+        await update.message.reply_text(
+            '📋 You don\'t have any active cases to close.\n\n'
+            'Only active cases (open or assigned) can be closed.',
+            parse_mode='Markdown',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    # Show list of active cases
+    lines = ['❌ *Close a Case*\n\nYour active cases:\n']
+    for case in active_cases:
+        case_num = case.get('user_case_number', case['id'])
+        status_icon = '🔵' if case['status'] == 'open' else '🟡'
+        lines.append(f'{status_icon} *Case #{case_num}*: {case["title"]} (`{case["status"]}`)')
+    
+    lines.append('\nEnter the case number you want to close:')
+    lines.append('\nSend /cancel to abort.')
+    
+    await update.message.reply_text(
+        '\n'.join(lines),
+        parse_mode='Markdown',
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return CLOSE_CASE_ID
+
+
+async def closecase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Process the case number and close the case"""
+    text = update.message.text.strip()
+    if not text.isdigit():
+        await update.message.reply_text('⚠️ Please enter a valid numeric case number:')
+        return CLOSE_CASE_ID
+
+    user_case_num = int(text)
+    token = get_access_token(update)
+    if token is None:
+        await update.message.reply_text(
+            '⚠️ Unable to authenticate. Please try /start first.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+
+    # Fetch all user's cases to find the one with matching user_case_number
+    cases_resp = backend_request('/api/cases/', method='get', token=token)
+    if not cases_resp.ok:
+        await update.message.reply_text(
+            '⚠️ Failed to fetch your cases.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    all_cases = cases_resp.json()
+    matching_case = next(
+        (c for c in all_cases if c.get('user_case_number') == user_case_num),
+        None
+    )
+    
+    if not matching_case:
+        await update.message.reply_text(
+            f'⚠️ Case #{user_case_num} not found in your cases.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    # Check if case is already closed
+    if matching_case['status'] == 'closed':
+        await update.message.reply_text(
+            f'ℹ️ Case #{user_case_num} is already closed.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    case_id = matching_case['id']
+    
+    # Call the close API endpoint using database ID
+    response = backend_request(f'/api/cases/{case_id}/close/', method='post', token=token)
+    
+    if response.ok:
+        await update.message.reply_text(
+            f'✅ *Case #{user_case_num} Closed Successfully!*\n\n'
+            f'📝 {matching_case["title"]}\n\n'
+            f'Thank you for using our counseling service!\n\n'
+            f'💡 You can reopen this case anytime using 🔄 *Reopen Case*.',
+            parse_mode='Markdown',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+    else:
+        error_msg = response.json().get('error', response.text) if response.text else 'Unknown error'
+        await update.message.reply_text(
+            f'⚠️ Failed to close case:\n\n{error_msg}',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+    
+    return ConversationHandler.END
+
+
+async def closecase_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text('❌ Close cancelled.', reply_markup=MAIN_MENU_KEYBOARD)
     return ConversationHandler.END
 
 
@@ -1180,6 +1313,17 @@ def main():
         fallbacks=[CommandHandler('cancel', reopen_cancel)],
     )
 
+    closecase_handler = ConversationHandler(
+        entry_points=[
+            CommandHandler('closecase', closecase_start),
+            MessageHandler(filters.Regex('^(❌ Close Case|Close Case|Close)$'), closecase_start)
+        ],
+        states={
+            CLOSE_CASE_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, closecase_confirm)],
+        },
+        fallbacks=[CommandHandler('cancel', closecase_cancel)],
+    )
+
     application.add_handler(CommandHandler('start', start))
     application.add_handler(newcase_handler)
     
@@ -1192,6 +1336,7 @@ def main():
     application.add_handler(reply_handler)
     application.add_handler(viewcase_handler)
     application.add_handler(reopen_handler)
+    application.add_handler(closecase_handler)
     
     application.add_handler(CommandHandler('help', help_command))
     application.add_handler(MessageHandler(filters.Regex('^(❓ Help|Help)$'), help_command))
