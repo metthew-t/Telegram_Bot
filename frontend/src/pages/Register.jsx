@@ -51,30 +51,23 @@ export default function RegisterPage() {
             marginBottom: '16px',
             animation: 'pulse 2s infinite',
           }}>⏳</div>
-          <h1 style={{ color: '#10b981', textShadow: 'none', fontSize: '28px', fontWeight: '800', marginBottom: '16px' }}>
+          <h1 className="pending-verification-title">
             Pending Verification
           </h1>
-          <p style={{ maxWidth: '460px', margin: '12px auto 0', lineHeight: 1.7, color: '#000000', fontSize: '16px', fontWeight: '500', textShadow: 'none' }}>
+          <p className="pending-verification-text" style={{ maxWidth: '460px', margin: '12px auto 0' }}>
             Your account has been successfully created.
             <br /><br />
             However, for security reasons,{' '}
-            <strong style={{ color: '#10b981', fontWeight: '800', textShadow: 'none' }}>
+            <strong className="pending-verification-highlight">
               your account must be manually verified
             </strong>{' '}
             by an administrator before you can log in.
           </p>
         </div>
 
-        <div style={{
-          background: 'rgba(16, 185, 129, 0.08)',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
-          borderRadius: '12px',
-          padding: '20px 24px',
-          margin: '24px auto',
-          maxWidth: '460px',
-        }}>
-          <p style={{ margin: 0, fontSize: '15px', color: '#000000', lineHeight: 1.7, fontWeight: '500' }}>
-            <strong style={{ color: '#10b981', fontSize: '16px', fontWeight: '700' }}>📋 Next steps:</strong>
+        <div className="pending-verification-steps-box">
+          <p className="pending-verification-steps-item" style={{ margin: 0 }}>
+            <strong className="pending-verification-steps-title">📋 Next steps:</strong>
             <br />
             1. Wait for an administrator to approve your account.<br />
             2. Once approved, you will be able to log in.<br />
