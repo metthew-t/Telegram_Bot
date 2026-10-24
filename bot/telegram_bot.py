@@ -27,11 +27,12 @@ if not BOT_TOKEN:
 # Persistent main menu keyboard layout
 MAIN_MENU_KEYBOARD = ReplyKeyboardMarkup(
     [
-        ['📝 New Case', '📋 My Cases'],
-        ['👁️ View Case', '🔄 Switch Case'],
-        ['💬 Reply', '❓ Help']
+        ['📝 New Case', '👁️ View Case'],
+        ['💬 Reply', '🔄 Reopen Case'],
+        ['❓ Help']
     ],
-    resize_keyboard=True
+    resize_keyboard=True,
+    persistent=True  # Keep menu always visible
 )
 
 # ConversationHandler states
@@ -111,9 +112,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '👋 *Welcome to the Counselling Support Bot!*\n\n'
         'Your account is ready. Here\'s what you can do:\n\n'
         '📝 /newcase — Submit a new support case\n'
-        '📋 /mycases — View your cases\n'
-        '💬 /reply — Reply to a case\n'
-        '👁️ /viewcase — View messages on a case\n'
+        '👁️ /viewcase — View your case history\n'
+        '💬 /reply — Reply to your active case\n'
+        '🔄 /reopen — Reopen a closed case\n'
         '❓ /help — Show all commands',
         parse_mode='Markdown',
         reply_markup=MAIN_MENU_KEYBOARD,
@@ -205,6 +206,30 @@ async def newcase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=MAIN_MENU_KEYBOARD,
         )
         return ConversationHandler.END
+
+    # Check for existing active cases (open or assigned)
+    check_response = backend_request(
+        '/api/cases/',
+        method='get',
+        token=token,
+    )
+    
+    if check_response.ok:
+        cases = check_response.json()
+        active_cases = [c for c in cases if c.get('status') in ['open', 'assigned']]
+        if active_cases:
+            active_case = active_cases[0]
+            case_num = active_case.get('user_case_number', active_case.get('id'))
+            await update.message.reply_text(
+                f'⚠️ *You already have an active case!*\n\n'
+                f'📝 Case #{case_num}: {active_case.get("title")}\n'
+                f'📊 Status: {active_case.get("status")}\n\n'
+                f'Please close your current case before creating a new one.\n'
+                f'At one time, you can only have one active case.',
+                parse_mode='Markdown',
+                reply_markup=MAIN_MENU_KEYBOARD,
+            )
+            return ConversationHandler.END
 
     response = backend_request(
         '/api/cases/',
@@ -1279,21 +1304,10 @@ def main():
         fallbacks=[CommandHandler('cancel', viewcase_cancel)],
     )
 
-    switchcase_handler = ConversationHandler(
-        entry_points=[
-            CommandHandler('switchcase', switchcase_start),
-            MessageHandler(filters.Regex('^(🔄 Switch Case|Switch Case)$'), switchcase_start)
-        ],
-        states={
-            REPLY_CASE_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, switchcase_select)],
-        },
-        fallbacks=[CommandHandler('cancel', reply_cancel)],
-    )
-
     reopen_handler = ConversationHandler(
         entry_points=[
             CommandHandler('reopen', reopen_start),
-            MessageHandler(filters.Regex('^(🔓 Reopen|Reopen)$'), reopen_start)
+            MessageHandler(filters.Regex('^(🔄 Reopen Case|Reopen Case|Reopen)$'), reopen_start)
         ],
         states={
             REOPEN_CASE_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, reopen_case_id)],
@@ -1308,12 +1322,10 @@ def main():
     # Handle all feedback-related callbacks: feedback_, rating_, submit_rating_only_
     application.add_handler(CallbackQueryHandler(handle_feedback_button, pattern='^(feedback_|rating_|submit_rating_only_)'))
     
-    application.add_handler(CommandHandler('mycases', list_cases))
-    application.add_handler(MessageHandler(filters.Regex('^(📋 My Cases|My Cases)$'), list_cases))
+    # Removed /mycases and /switchcase commands as per new workflow
     
     application.add_handler(reply_handler)
     application.add_handler(viewcase_handler)
-    application.add_handler(switchcase_handler)
     application.add_handler(reopen_handler)
     
     application.add_handler(CommandHandler('help', help_command))

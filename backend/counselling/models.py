@@ -67,6 +67,7 @@ class Message(models.Model):
     voice_data = models.TextField(null=True, blank=True)  # Base64 encoded audio
     voice_duration = models.IntegerField(null=True, blank=True)  # Duration in seconds
     timestamp = models.DateTimeField(default=timezone.now)
+    seen_by_admin_at = models.DateTimeField(null=True, blank=True)  # Read receipt: when admin viewed the message
 
     def __str__(self):
         return f"Message from {self.sender} in {self.case}"
