@@ -1314,9 +1314,8 @@ class MessageViewSet(viewsets.ModelViewSet):
                             import traceback
                             traceback.print_exc()
                     else:
-                        # Regular text message
-                        case_num = case.user_case_number if case.user_case_number else case.id
-                        notification_text = f'New response on your case #{case_num}: {case.title}\n\n{message.content[:500]}'
+                        # Regular text message - simplified notification (user has only one case)
+                        notification_text = f'{message.content[:500]}'
                         safe_print_text = notification_text.encode('ascii', 'ignore').decode('ascii')
                         print(f"[TELEGRAM NOTIFICATION] Notification text preview: {safe_print_text[:100]}...")
                         print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")

@@ -504,15 +504,15 @@ async def show_case_messages(update, context, case_id):
             label = sender.get('label', sender.get('username', 'Unknown'))
             role = msg.get('sender_role', '')
             
-            # Determine read receipt status
+            # Determine read receipt status for user's own messages
             read_status = ''
-            if role == 'user':  # Only show read receipts for user's own messages
+            if label == 'You' or role == 'user':  # User's own messages
                 if msg.get('seen_by_admin_at'):
-                    read_status = ' ✓✓'  # Seen by admin
+                    read_status = ' ✓✓'  # Seen by admin (green checkmarks)
                 else:
-                    read_status = ' ✓'   # Sent but not seen yet
+                    read_status = ' ✓'   # Sent but not seen yet (single checkmark)
             
-            role_tag = f' [{role}]' if role else ''
+            role_tag = f' [{role}]' if role and role != 'user' else ''
             lines.append(f'*{label}*{role_tag}:')
             
             # Check if voice message

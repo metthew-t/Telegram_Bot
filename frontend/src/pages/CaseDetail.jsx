@@ -82,6 +82,8 @@ export default function CaseDetailPage() {
   const markMessagesAsSeen = async () => {
     try {
       await apiCall(`/api/cases/${id}/mark_messages_seen/`, 'POST');
+      // Refetch messages to get updated seen_by_admin_at timestamps
+      await fetchMessages();
     } catch (err) {
       // Silently fail - not critical
       console.error('Failed to mark messages as seen:', err);
