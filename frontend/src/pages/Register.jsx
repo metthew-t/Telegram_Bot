@@ -44,33 +44,37 @@ export default function RegisterPage() {
   /* ── Success state: pending manual verification ────────────────────────── */
   if (registered) {
     return (
-      <section className="page-panel">
-        <div className="panel-header" style={{ textAlign: 'center' }}>
+      <section className="page-panel" style={{ background: '#ffffff', color: '#000000' }}>
+        <div className="panel-header" style={{ textAlign: 'center', borderBottom: 'none' }}>
           <div style={{
             fontSize: '56px',
             marginBottom: '16px',
             animation: 'pulse 2s infinite',
           }}>⏳</div>
-          <h1 style={{ color: 'var(--color-accent, #818cf8)' }}>Pending Verification</h1>
-          <p style={{ maxWidth: '460px', margin: '12px auto 0', lineHeight: 1.7, color: '#475569' }}>
+          <h1 style={{ color: '#10b981', textShadow: 'none', fontSize: '28px', fontWeight: '800', marginBottom: '16px' }}>
+            Pending Verification
+          </h1>
+          <p style={{ maxWidth: '460px', margin: '12px auto 0', lineHeight: 1.7, color: '#000000', fontSize: '16px', fontWeight: '500', textShadow: 'none' }}>
             Your account has been successfully created.
             <br /><br />
-            However, for security reasons, <strong style={{ color: '#ef4444', fontWeight: 'bold' }}>
+            However, for security reasons,{' '}
+            <strong style={{ color: '#10b981', fontWeight: '800', textShadow: 'none' }}>
               your account must be manually verified
-            </strong> by an administrator before you can log in.
+            </strong>{' '}
+            by an administrator before you can log in.
           </p>
         </div>
 
         <div style={{
-          background: 'rgba(79, 70, 229, 0.08)',
-          border: '1px solid rgba(79, 70, 229, 0.25)',
+          background: 'rgba(16, 185, 129, 0.08)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
           borderRadius: '12px',
           padding: '20px 24px',
-          margin: '28px auto',
+          margin: '24px auto',
           maxWidth: '460px',
         }}>
-          <p style={{ margin: 0, fontSize: '15px', color: '#334155', lineHeight: 1.7 }}>
-            <strong style={{ color: '#3b82f6', fontSize: '16px' }}>📋 Next steps:</strong>
+          <p style={{ margin: 0, fontSize: '15px', color: '#000000', lineHeight: 1.7, fontWeight: '500' }}>
+            <strong style={{ color: '#10b981', fontSize: '16px', fontWeight: '700' }}>📋 Next steps:</strong>
             <br />
             1. Wait for an administrator to approve your account.<br />
             2. Once approved, you will be able to log in.<br />
@@ -80,10 +84,11 @@ export default function RegisterPage() {
 
         {error && <div className="form-error" style={{ maxWidth: '460px', margin: '0 auto 16px' }}>{error}</div>}
 
-        <div style={{ textAlign: 'center', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '8px' }}>
+        <div style={{ textAlign: 'center', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '16px' }}>
           <button
             className="button button-primary"
             onClick={() => navigate('/login')}
+            style={{ minWidth: '160px', padding: '12px 24px', fontWeight: '700' }}
           >
             Go to Login
           </button>
