@@ -32,7 +32,7 @@ MAIN_MENU_KEYBOARD = ReplyKeyboardMarkup(
         ['❓ Help']
     ],
     resize_keyboard=True,
-    persistent=True  # Keep menu always visible
+    is_persistent=True  # Keep menu always visible
 )
 
 # ConversationHandler states
