@@ -553,31 +553,23 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '📝 *New Case* — Submit a new support case (step-by-step)\n'
         '   • Use this to create a new counseling request\n'
         '   • You\'ll be guided through title, description, and confirmation\n\n'
-        '📋 *My Cases* — List all your cases (active and closed)\n'
-        '   • Shows case ID, title, and current status\n'
-        '   • Helps you keep track of all your requests\n\n'
-        '👁️ *View Case* — View messages on a specific case\n'
-        '   • Enter the case ID to see conversation history\n'
-        '   • Shows last 10 messages and case details\n\n'
-        '🔄 *Switch Case* — Switch to a different active case\n'
-        '   • Use this if you have multiple active cases\n'
-        '   • Choose which case your messages should go to\n'
-        '   • Shows case ID and title for easy selection\n\n'
+        '👁️ *View Case* — View your case history\n'
+        '   • Shows all your cases (active and closed)\n'
+        '   • Enter a case number to see conversation history\n\n'
         '💬 *Reply* — Send a message to your case\n'
-        '   • For multiple cases: choose which case to reply to\n'
-        '   • For single case: just type normally!\n\n'
+        '   • Quick way to send messages\n\n'
         '🔓 *Reopen* — Reopen a closed case\n'
-        '   • Use this if you need to continue a closed case\n'
-        '   • The case will be reopened and assigned to the same admin\n'
-        '   • Enter the case ID when prompted\n\n'
+        '   • Continue work on a previously closed case\n'
+        '   • Enter the case number when prompted\n\n'
         '❓ *Help* — Show this detailed help message\n\n'
         '---\n\n'
         '💡 *Quick Tips:*\n'
-        '• If you have only ONE active case, just type your messages normally - they\'ll be sent automatically!\n'
+        '• You can only have ONE active case at a time\n'
+        '• Just type your messages normally - they\'ll be sent automatically!\n'
         '• Use /cancel anytime to abort an operation\n'
         '• You can send voice messages too!\n'
         '• Your counselor will be notified when you send a message\n'
-        '• Closed cases can be reopened anytime using /reopen',
+        '• Closed cases can be reopened anytime using 🔄 Reopen',
         parse_mode='Markdown',
         reply_markup=MAIN_MENU_KEYBOARD,
     )
@@ -671,209 +663,7 @@ async def reopen_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# ─── /switchcase ───
-
-async def switchcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Let user explicitly switch between active cases with button interface"""
-    if update.effective_user is None or update.message is None:
-        return ConversationHandler.END
-
-    token = get_access_token(update)
-    if token is None:
-        await update.message.reply_text('⚠️ Unable to authenticate. Please try /start first.')
-        return ConversationHandler.END
-
-    # Find active cases (open or assigned)
-    response = backend_request('/api/cases/', method='get', token=token)
-    if not response.ok:
-        await update.message.reply_text('⚠️ Unable to fetch your cases.')
-        return ConversationHandler.END
-
-    cases = [c for c in response.json() if c['status'] in ['open', 'assigned']]
-    
-    if len(cases) == 0:
-        await update.message.reply_text(
-            '👋 You don\'t have any active cases right now.\n\nUse 📝 New Case to start a support request.',
-            reply_markup=MAIN_MENU_KEYBOARD
-        )
-        return ConversationHandler.END
-    
-    if len(cases) == 1:
-        await update.message.reply_text(
-            f'ℹ️ You only have one active case:\n\n'
-            f'• Case #{cases[0].get("user_case_number", cases[0]["id"])}: {cases[0]["title"]}\n\n'
-            f'All your messages are automatically sent to this case.',
-            reply_markup=MAIN_MENU_KEYBOARD
-        )
-        return ConversationHandler.END
-    
-    # Show list of cases as buttons
-    current_case_id = context.user_data.get('selected_case_id')
-    
-    # Build keyboard with case buttons (max 1 per row for readability with titles)
-    keyboard = []
-    for c in cases:
-        case_num = c.get('user_case_number', c['id'])
-        title = c['title']
-        # Truncate long titles
-        if len(title) > 25:
-            title = title[:22] + '...'
-        is_current = '✅ ' if c['id'] == current_case_id else '📋 '
-        button_text = f"{is_current}#{case_num}: {title}"
-        keyboard.append([button_text])
-    
-    # Add cancel button
-    keyboard.append(['❌ Cancel'])
-    
-    # Store cases in context for lookup
-    context.user_data['available_cases'] = {str(c.get('user_case_number', c['id'])): c for c in cases}
-    
-    await update.message.reply_text(
-        f'🔄 *Switch Case*\n\n'
-        f'You have {len(cases)} active cases. Select one to switch to it:',
-        parse_mode='Markdown',
-        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-    )
-    return REPLY_CASE_ID  # Reuse the same state
-
-
-async def switchcase_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle case selection from /switchcase button interface"""
-    text = update.message.text.strip()
-    
-    # Handle cancel button
-    if text == '❌ Cancel':
-        # Clear pending message if any
-        context.user_data.pop('pending_message', None)
-        context.user_data.pop('pending_message_type', None)
-        context.user_data.pop('pending_voice_data', None)
-        context.user_data.pop('pending_voice_duration', None)
-        
-        await update.message.reply_text(
-            '❌ Case switching cancelled.',
-            reply_markup=MAIN_MENU_KEYBOARD
-        )
-        return ConversationHandler.END
-    
-    # Extract case number from button text like "📋 #2: Title" or "✅ #2: Title"
-    import re
-    match = re.search(r'#(\d+):', text)
-    
-    if not match:
-        await update.message.reply_text(
-            '⚠️ Please select a case button or tap ❌ Cancel.',
-            reply_markup=MAIN_MENU_KEYBOARD
-        )
-        return REPLY_CASE_ID
-    
-    case_num = int(match.group(1))
-
-    token = get_access_token(update)
-    if token is None:
-        await update.message.reply_text(
-            '⚠️ Unable to authenticate.',
-            reply_markup=MAIN_MENU_KEYBOARD
-        )
-        return ConversationHandler.END
-
-    # Find active cases
-    response = backend_request('/api/cases/', method='get', token=token)
-    if not response.ok:
-        await update.message.reply_text(
-            '⚠️ Unable to fetch your cases.',
-            reply_markup=MAIN_MENU_KEYBOARD
-        )
-        return ConversationHandler.END
-
-    cases = [c for c in response.json() if c['status'] in ['open', 'assigned']]
-    
-    # Find case by user_case_number or database ID
-    matching_case = next(
-        (c for c in cases if c.get('user_case_number') == case_num or c['id'] == case_num),
-        None
-    )
-    
-    if not matching_case:
-        await update.message.reply_text(
-            f'⚠️ Case #{case_num} not found in your active cases.',
-            reply_markup=MAIN_MENU_KEYBOARD
-        )
-        return ConversationHandler.END
-    
-    # Save selected case
-    context.user_data['selected_case_id'] = matching_case['id']
-    
-    # Mark case as viewed (for "seen" status tracking)
-    backend_request(f'/api/cases/{matching_case["id"]}/mark_viewed/', method='post', token=token)
-    
-    # Check for pending message (saved before switch)
-    pending_message = context.user_data.get('pending_message')
-    pending_message_type = context.user_data.get('pending_message_type')
-    pending_voice_data = context.user_data.get('pending_voice_data')
-    pending_voice_duration = context.user_data.get('pending_voice_duration')
-    
-    # Send base confirmation
-    confirmation = (
-        f'✅ *Switched to Case #{case_num}*\n\n'
-        f'📝 {matching_case["title"]}\n'
-        f'📊 Status: {matching_case["status"]}\n\n'
-    )
-    
-    # Send pending message if exists
-    if pending_message and pending_message_type == 'text':
-        # Send the text message
-        msg_resp = backend_request(
-            '/api/messages/',
-            token=token,
-            json={'case': matching_case['id'], 'content': pending_message, 'message_type': 'text'},
-        )
-        
-        if msg_resp.ok:
-            confirmation += f'✅ Your message has been sent to this case!\n\n'
-            print(f"DEBUG: Pending text message sent to case #{matching_case['id']}")
-        else:
-            confirmation += f'⚠️ Failed to send pending message: {msg_resp.text}\n\n'
-        
-        # Clear pending message
-        context.user_data.pop('pending_message', None)
-        context.user_data.pop('pending_message_type', None)
-    
-    elif pending_voice_data and pending_message_type == 'voice':
-        # Send the voice message
-        msg_resp = backend_request(
-            '/api/messages/',
-            token=token,
-            json={
-                'case': matching_case['id'],
-                'content': '[Voice Message]',
-                'message_type': 'voice',
-                'voice_data': pending_voice_data,
-                'voice_duration': pending_voice_duration
-            },
-        )
-        
-        if msg_resp.ok:
-            confirmation += f'✅ Your voice message has been sent to this case! 🎤\n\n'
-            print(f"DEBUG: Pending voice message sent to case #{matching_case['id']}")
-        else:
-            confirmation += f'⚠️ Failed to send pending voice message: {msg_resp.text}\n\n'
-        
-        # Clear pending voice
-        context.user_data.pop('pending_voice_data', None)
-        context.user_data.pop('pending_voice_duration', None)
-        context.user_data.pop('pending_message_type', None)
-    else:
-        confirmation += f'All your messages will now go to this case.'
-    
-    await update.message.reply_text(
-        confirmation,
-        parse_mode='Markdown',
-        reply_markup=MAIN_MENU_KEYBOARD
-    )
-    return ConversationHandler.END
-
-
-# ─── /cancel (global fallback) ─── Force redeploy
+# ─── /cancel (global fallback) ───
 
 async def check_for_feedback_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -1061,21 +851,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Case no longer active, clear selection
                 context.user_data.pop('selected_case_id', None)
         
-        # No case selected - save message and ask user to select using /switchcase
-        print(f"DEBUG: Multiple cases, no selection. Saving message for after switch.")
-        context.user_data['pending_message'] = message_text
-        context.user_data['pending_message_type'] = 'text'
-        
-        case_list = '\n'.join([f"• Case *#{c.get('user_case_number', c['id'])}*: {c['title']}" for c in cases[:7]])
+    # Multiple cases - this shouldn't happen with new workflow!
+    # Show error and tell user to close extra cases
+    elif len(cases) > 1:
+        case_list = '\n'.join([f"• Case #{c.get('user_case_number', c['id'])}: {c['title']} ({c['status']})" for c in cases[:10]])
         await update.message.reply_text(
-            f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'
-            f'💡 Use /switchcase to select which case you want to reply to.\n\n'
-            f'✅ _Your message has been saved and will be sent after you switch to a case._',
-            parse_mode='Markdown'
+            f'⚠️ *System Notice:* You have {len(cases)} active cases, but you should only have one.\n\n'
+            f'Active cases:\n{case_list}\n\n'
+            f'Please contact support or close the extra cases using the web interface.',
+            parse_mode='Markdown',
+            reply_markup=MAIN_MENU_KEYBOARD,
         )
-    
-    # No cases
-    else:
+        return
         print("DEBUG: No active cases found")
         await update.message.reply_text(
             '👋 Welcome! You don\'t have any active cases right now.\n\n'
@@ -1133,38 +920,23 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             context.user_data.pop('selected_case_id', None)
             return
-    # Multiple cases and no selection
+    # Multiple cases - this shouldn't happen with new workflow!
     elif len(cases) > 1:
-        # Save voice message and ask user to use /switchcase
-        try:
-            print(f"DEBUG: Multiple cases, saving voice message")
-            voice_bytes = await file.download_as_bytearray()
-            voice_base64 = base64.b64encode(voice_bytes).decode('utf-8')
-            
-            # Save voice data in context
-            context.user_data['pending_voice_data'] = voice_base64
-            context.user_data['pending_voice_duration'] = voice.duration
-            context.user_data['pending_message_type'] = 'voice'
-            
-            case_list = '\n'.join([f"• Case *#{c.get('user_case_number', c['id'])}*: {c['title']}" for c in cases[:5]])
-            await update.message.reply_text(
-                f'🎤 Voice message received!\n\n'
-                f'📝 You have {len(cases)} active cases:\n\n{case_list}\n\n'
-                '💡 Use /switchcase to select which case you want to send this to.\n\n'
-                '✅ _Your voice message has been saved and will be sent after you switch to a case._',
-                parse_mode='Markdown'
-            )
-            return
-        except Exception as e:
-            print(f"ERROR: Failed to save voice message: {str(e)}")
-            await update.message.reply_text(
-                '⚠️ Failed to process voice message. Please try again.'
-            )
-            return
+        case_list = '\n'.join([f"• Case #{c.get('user_case_number', c['id'])}: {c['title']} ({c['status']})" for c in cases[:10]])
+        await update.message.reply_text(
+            f'⚠️ *System Notice:* You have {len(cases)} active cases, but you should only have one.\n\n'
+            f'Active cases:\n{case_list}\n\n'
+            f'Please contact support or close the extra cases using the web interface.',
+            parse_mode='Markdown',
+            reply_markup=MAIN_MENU_KEYBOARD,
+        )
+        return
     # No cases
     else:
         await update.message.reply_text(
-            '👋 You don\'t have any active cases right now.\n\nUse /newcase to start a support request.'
+            '👋 You don\'t have any active cases right now.\n\nUse 📝 *New Case* to start a support request.',
+            parse_mode='Markdown',
+            reply_markup=MAIN_MENU_KEYBOARD,
         )
         return
 
