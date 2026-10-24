@@ -1150,6 +1150,40 @@ class CaseViewSet(viewsets.ModelViewSet):
             'viewed_at': view.viewed_at
         })
     
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrOwner])
+    def mark_messages_seen(self, request, pk=None):
+        """Mark all unseen user messages in this case as seen by admin - for read receipts"""
+        from django.utils import timezone
+        
+        case = self.get_object()
+        
+        # Only admins/owners can mark messages as seen
+        if request.user.role not in ['admin', 'owner']:
+            return Response(
+                {'error': 'Only admins and owners can mark messages as seen'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Find all unseen messages from users in this case
+        unseen_messages = Message.objects.filter(
+            case=case,
+            sender__role='user',  # Only user messages
+            seen_by_admin_at__isnull=True  # Not yet seen
+        )
+        
+        count = unseen_messages.count()
+        
+        # Mark them all as seen
+        unseen_messages.update(seen_by_admin_at=timezone.now())
+        
+        print(f"[ReadReceipt] Admin {request.user.username} marked {count} messages as seen in case #{case.id}")
+        
+        return Response({
+            'status': 'success',
+            'marked_seen': count,
+            'case_id': case.id
+        })
+    
     @action(detail=True, methods=['get'], permission_classes=[IsAdminOrOwner])
     def viewers(self, request, pk=None):
         """Get list of users who have viewed this case (for 'seen' status display)"""

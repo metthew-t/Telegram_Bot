@@ -141,8 +141,8 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['id', 'case', 'sender', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'voice_data', 'voice_duration', 'timestamp']
-        read_only_fields = ['id', 'timestamp']
+        fields = ['id', 'case', 'sender', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'voice_data', 'voice_duration', 'timestamp', 'seen_by_admin_at']
+        read_only_fields = ['id', 'timestamp', 'seen_by_admin_at']
 
     def get_sender(self, obj):
         request = self.context.get('request')
