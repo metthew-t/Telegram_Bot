@@ -195,12 +195,13 @@ class CaseAssignmentRequestSerializer(serializers.ModelSerializer):
     requesting_admin_name = serializers.CharField(source='requesting_admin.username', read_only=True)
     case_id = serializers.IntegerField(source='case.id', read_only=True)
     case_title = serializers.CharField(source='case.title', read_only=True)
+    user_case_number = serializers.IntegerField(source='case.user_case_number', read_only=True)
     reviewed_by_name = serializers.CharField(source='reviewed_by.username', read_only=True)
 
     class Meta:
         model = CaseAssignmentRequest
         fields = [
-            'id', 'case', 'case_id', 'case_title', 
+            'id', 'case', 'case_id', 'case_title', 'user_case_number',
             'requesting_admin', 'requesting_admin_name',
             'status', 'requested_at', 'reviewed_at', 
             'reviewed_by', 'reviewed_by_name'

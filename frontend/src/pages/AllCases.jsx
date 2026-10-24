@@ -41,11 +41,15 @@ export default function AllCasesPage() {
                         {cases.map((c) => (
                             <div key={c.id} className="case-card" onClick={() => navigate(`/cases/${c.id}`)}>
                                 <div className="case-header">
-                                    <h3>#{c.id}</h3>
+                                    <h3>
+                                        <span className="case-id-badge">Case #{c.user_case_number || c.id}</span>
+                                        <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '6px' }}>(ID: {c.id})</span>
+                                    </h3>
                                     <span className={`status-badge status-${c.status}`}>{c.status}</span>
                                 </div>
                                 <h4>{c.title}</h4>
                                 <div className="case-meta">
+                                    <span>User: {c.user?.username || c.user?.label || '—'}</span>
                                     <span>Admin: {c.assigned_admin?.username || '—'}</span>
                                     <LoadingButton
                                         className="button button-danger button-sm"

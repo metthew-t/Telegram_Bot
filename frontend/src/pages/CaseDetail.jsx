@@ -34,6 +34,11 @@ export default function CaseDetailPage() {
       fetchAdmins();
     }
 
+    // Mark messages as seen when admin/owner opens the case
+    if (user?.role === 'admin' || user?.role === 'owner') {
+      markMessagesAsSeen();
+    }
+
     // Start polling
     pollRef.current = setInterval(() => {
       fetchMessages();
@@ -71,6 +76,15 @@ export default function CaseDetailPage() {
       setMessages(allMessages || []);
     } catch (err) {
       // Silently fail for polling
+    }
+  };
+
+  const markMessagesAsSeen = async () => {
+    try {
+      await apiCall(`/api/cases/${id}/mark_messages_seen/`, 'POST');
+    } catch (err) {
+      // Silently fail - not critical
+      console.error('Failed to mark messages as seen:', err);
     }
   };
 
@@ -342,6 +356,12 @@ export default function CaseDetailPage() {
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                     <small>{new Date(msg.timestamp).toLocaleString()}</small>
+                    {/* Read receipts for user messages (show to user only) */}
+                    {user?.role === 'user' && msg.sender?.label === 'You' && (
+                      <small style={{ color: msg.seen_by_admin_at ? '#10b981' : '#6b7280' }}>
+                        {msg.seen_by_admin_at ? '✓✓' : '✓'}
+                      </small>
+                    )}
                   </div>
                 </div>
               ))

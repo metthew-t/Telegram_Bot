@@ -193,7 +193,11 @@ export default function OwnerDashboardPage() {
                             >
                                 <div style={{ flex: 1, minWidth: '200px' }}>
                                     <div style={{ fontWeight: 600, marginBottom: '4px' }}>
-                                        <span className="case-id-badge">Case #{request.case_id}</span> - {request.case_title}
+                                        <span className="case-id-badge">Case #{request.user_case_number || request.case_id}</span>
+                                        {request.user_case_number && (
+                                            <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '6px' }}>(ID: {request.case_id})</span>
+                                        )}
+                                        {' '}- {request.case_title}
                                     </div>
                                     <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
                                         Requested by: <strong>{request.requesting_admin_name}</strong>
@@ -270,7 +274,10 @@ export default function OwnerDashboardPage() {
                             >
                                 <div style={{ flex: 1, minWidth: '200px' }}>
                                     <div style={{ fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span className="case-id-badge">Case #{request.case_id}</span>
+                                        <span className="case-id-badge">Case #{request.user_case_number || request.case_id}</span>
+                                        {request.user_case_number && (
+                                            <span style={{ fontSize: '0.85rem', color: '#64748b' }}>(ID: {request.case_id})</span>
+                                        )}
                                         <span style={{
                                             padding: '2px 8px',
                                             borderRadius: '12px',
