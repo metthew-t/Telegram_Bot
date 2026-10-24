@@ -128,6 +128,33 @@ async def newcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user is None or update.message is None:
         return ConversationHandler.END
 
+    token = get_access_token(update)
+    if token is None:
+        await update.message.reply_text(
+            '⚠️ Unable to authenticate. Please try /start first.',
+            reply_markup=MAIN_MENU_KEYBOARD,
+        )
+        return ConversationHandler.END
+
+    # Check for existing active cases (open or assigned) BEFORE starting case creation
+    check_response = backend_request('/api/cases/', method='get', token=token)
+    if check_response.ok:
+        cases = check_response.json()
+        active_cases = [c for c in cases if c.get('status') in ['open', 'assigned']]
+        if active_cases:
+            active_case = active_cases[0]
+            case_num = active_case.get('user_case_number', active_case.get('id'))
+            await update.message.reply_text(
+                f'⚠️ *You already have an active case!*\n\n'
+                f'📝 Case #{case_num}: {active_case.get("title")}\n'
+                f'📊 Status: `{active_case.get("status")}`\n\n'
+                f'You can only have *ONE* active case at a time.\n'
+                f'Please close your current case using ❌ *Close Case* before creating a new one.',
+                parse_mode='Markdown',
+                reply_markup=MAIN_MENU_KEYBOARD,
+            )
+            return ConversationHandler.END
+
     await update.message.reply_text(
         '📝 *New Support Case*\n\n'
         'Let\'s create your case step by step.\n'
@@ -312,10 +339,59 @@ async def reply_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user is None or update.message is None:
         return ConversationHandler.END
 
+    token = get_access_token(update)
+    if token is None:
+        await update.message.reply_text(
+            '⚠️ Unable to authenticate. Please try /start first.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+
+    # Check active cases
+    cases_resp = backend_request('/api/cases/', method='get', token=token)
+    if not cases_resp.ok:
+        await update.message.reply_text(
+            '⚠️ Failed to fetch your cases.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    all_cases = cases_resp.json()
+    active_cases = [c for c in all_cases if c.get('status') in ['open', 'assigned']]
+    
+    # If no active cases
+    if not active_cases:
+        await update.message.reply_text(
+            '📋 You don\'t have any active cases.\n\nUse 📝 *New Case* to create one.',
+            parse_mode='Markdown',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    # If only ONE active case, skip asking for ID and go directly to message input
+    if len(active_cases) == 1:
+        case_num = active_cases[0].get('user_case_number', active_cases[0]['id'])
+        case_id = active_cases[0]['id']
+        context.user_data['reply_case_id'] = case_id
+        context.user_data['selected_case_id'] = case_id
+        
+        await update.message.reply_text(
+            f'💬 *Replying to Case #{case_num}*\n\n'
+            f'📝 {active_cases[0]["title"]}\n\n'
+            f'Type your message:',
+            parse_mode='Markdown',
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return REPLY_CONTENT
+    
+    # Multiple active cases - list them for selection
+    lines = ['💬 *Reply to a Case*\n\nYour active cases:\n']
+    for case in active_cases:
+        c_num = case.get('user_case_number', case['id'])
+        lines.append(f'• *Case #{c_num}*: {case["title"]}')
+    lines.append('\nSend /cancel to abort.\n\n*Step 1/2:* Enter the case number:')
     await update.message.reply_text(
-        '💬 *Reply to a Case*\n\n'
-        'Send /cancel to abort.\n\n'
-        '*Step 1/2:* Enter the case ID:',
+        '\n'.join(lines),
         parse_mode='Markdown',
         reply_markup=ReplyKeyboardRemove(),
     )
@@ -325,14 +401,65 @@ async def reply_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def reply_case_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if not text.isdigit():
-        await update.message.reply_text('⚠️ Please enter a valid numeric case ID:')
+        await update.message.reply_text('⚠️ Please enter a valid numeric case number:')
         return REPLY_CASE_ID
 
-    context.user_data['reply_case_id'] = text
+    user_case_num = int(text)
+    token = get_access_token(update)
+    if token is None:
+        await update.message.reply_text(
+            '⚠️ Unable to authenticate. Please try /start first.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+
+    # Fetch user's cases to match user_case_number or database ID
+    cases_resp = backend_request('/api/cases/', method='get', token=token)
+    if not cases_resp.ok:
+        await update.message.reply_text(
+            '⚠️ Failed to fetch your cases.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+
+    all_cases = cases_resp.json()
+    matching_case = next(
+        (c for c in all_cases if c.get('user_case_number') == user_case_num),
+        None
+    )
+    if not matching_case:
+        # Fallback to database ID
+        matching_case = next(
+            (c for c in all_cases if c.get('id') == user_case_num),
+            None
+        )
+
+    if not matching_case:
+        await update.message.reply_text(
+            f'⚠️ Case #{user_case_num} not found in your cases.\n\n'
+            f'Please enter a valid case number, or send /cancel to abort:'
+        )
+        return REPLY_CASE_ID
+
+    if matching_case.get('status') == 'closed':
+        case_num = matching_case.get('user_case_number', user_case_num)
+        await update.message.reply_text(
+            f'🔒 Case #{case_num} is closed. You cannot send messages to a closed case.\n\n'
+            f'💡 Use /reopen to reopen this case.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+
+    case_id = matching_case['id']
+    display_num = matching_case.get('user_case_number', user_case_num)
+    context.user_data['reply_case_id'] = case_id
+    context.user_data['selected_case_id'] = case_id
+
     await update.message.reply_text(
-        f'📝 Replying to case *#{text}*.\n\n'
+        f'📝 Replying to case *#{display_num}* ({matching_case["title"]}).\n\n'
         f'*Step 2/2:* Type your message:',
         parse_mode='Markdown',
+        reply_markup=ReplyKeyboardRemove(),
     )
     return REPLY_CONTENT
 
@@ -350,6 +477,13 @@ async def reply_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('⚠️ Unable to authenticate. Please try /start first.')
         return ConversationHandler.END
 
+    if not case_id:
+        await update.message.reply_text('⚠️ No case selected. Please use /reply to select a case.', reply_markup=MAIN_MENU_KEYBOARD)
+        return ConversationHandler.END
+
+    # Mark case as viewed
+    backend_request(f'/api/cases/{case_id}/mark_viewed/', method='post', token=token)
+
     response = backend_request(
         '/api/messages/',
         token=token,
@@ -357,7 +491,7 @@ async def reply_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if response.ok:
-        # Message sent - no confirmation needed, just return to menu
+        # Message sent - return to menu
         await update.message.reply_text(
             '✅ Message sent.',
             reply_markup=MAIN_MENU_KEYBOARD,
@@ -473,17 +607,17 @@ async def show_case_messages(update, context, case_id):
     # Fetch case info
     case_resp = backend_request(f'/api/cases/{case_id}/', method='get', token=token)
     if not case_resp.ok:
-        await update.message.reply_text(f'⚠️ Case #{case_id} not found or access denied.')
+        await update.message.reply_text('⚠️ Case not found or access denied.')
         return
 
     case = case_resp.json()
 
+    # Mark case as viewed (for "seen" status tracking)
+    backend_request(f'/api/cases/{case_id}/mark_viewed/', method='post', token=token)
+
     # Fetch messages
     msg_resp = backend_request(f'/api/messages/?case={case_id}', method='get', token=token)
     messages = msg_resp.json() if msg_resp.ok else []
-    
-    # Mark case as viewed (for "seen" status tracking)
-    backend_request(f'/api/cases/{case_id}/mark_viewed/', method='post', token=token)
 
     status_icons = {'open': '🔵', 'assigned': '🟡', 'closed': '🟢'}
     icon = status_icons.get(case['status'], '⚪')
@@ -512,8 +646,9 @@ async def show_case_messages(update, context, case_id):
                 else:
                     read_status = ' ✓'   # Sent but not seen yet (single checkmark)
             
-            role_tag = f' [{role}]' if role and role != 'user' else ''
-            lines.append(f'*{label}*{role_tag}:')
+            # Hide admin/owner role tags - users should only see "Support team"
+            # Don't show role at all for user-facing display
+            lines.append(f'*{label}*:')
             
             # Check if voice message
             if msg.get('message_type') == 'voice' and msg.get('voice_data'):
@@ -588,10 +723,60 @@ async def reopen_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user is None or update.message is None:
         return ConversationHandler.END
 
+    token = get_access_token(update)
+    if token is None:
+        await update.message.reply_text(
+            '⚠️ Unable to authenticate. Please try /start first.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+
+    # Fetch all user's cases to find closed cases
+    cases_resp = backend_request('/api/cases/', method='get', token=token)
+    if not cases_resp.ok:
+        await update.message.reply_text(
+            '⚠️ Failed to fetch your cases.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+
+    all_cases = cases_resp.json()
+    active_cases = [c for c in all_cases if c.get('status') in ['open', 'assigned']]
+    if active_cases:
+        active_case = active_cases[0]
+        case_num = active_case.get('user_case_number', active_case.get('id'))
+        await update.message.reply_text(
+            f'⚠️ *You already have an active case!*\n\n'
+            f'📝 Case #{case_num}: {active_case.get("title")}\n'
+            f'📊 Status: `{active_case.get("status")}`\n\n'
+            f'You can only have *ONE* active case at a time.\n'
+            f'Please close your active case using ❌ *Close Case* before reopening another case.',
+            parse_mode='Markdown',
+            reply_markup=MAIN_MENU_KEYBOARD,
+        )
+        return ConversationHandler.END
+
+    closed_cases = [c for c in all_cases if c.get('status') == 'closed']
+
+    if not closed_cases:
+        await update.message.reply_text(
+            '📋 You don\'t have any closed cases to reopen.\n\n'
+            'Use /viewcase to see your case history.',
+            parse_mode='Markdown',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+
+    lines = ['🔓 *Reopen a Closed Case*\n\nYour closed cases:\n']
+    for c in closed_cases:
+        c_num = c.get('user_case_number', c['id'])
+        lines.append(f'⚪ *Case #{c_num}*: {c["title"]}')
+
+    lines.append('\nEnter the case number you want to reopen:')
+    lines.append('Send /cancel to abort.')
+
     await update.message.reply_text(
-        '🔓 *Reopen a Closed Case*\n\n'
-        'Send /cancel to abort.\n\n'
-        'Enter the case ID you want to reopen:',
+        '\n'.join(lines),
         parse_mode='Markdown',
         reply_markup=ReplyKeyboardRemove(),
     )
@@ -628,6 +813,11 @@ async def reopen_case_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         (c for c in all_cases if c.get('user_case_number') == user_case_num),
         None
     )
+    if not matching_case:
+        matching_case = next(
+            (c for c in all_cases if c.get('id') == user_case_num),
+            None
+        )
     
     if not matching_case:
         await update.message.reply_text(
@@ -1361,21 +1551,37 @@ async def legacy_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     payload = ' '.join(context.args)
     if '|' not in payload:
         await update.message.reply_text(
-            'Usage: /message <case_id> | <message>\n'
+            'Usage: /message <case_number> | <message>\n'
             'Or use /reply for the step-by-step flow.'
         )
         return
 
-    case_id, content = [part.strip() for part in payload.split('|', 1)]
+    case_input, content = [part.strip() for part in payload.split('|', 1)]
     token = get_access_token(update)
     if token is None:
         await update.message.reply_text('⚠️ Unable to authenticate.')
         return
 
+    target_case_id = case_input
+    if case_input.isdigit():
+        num = int(case_input)
+        cases_resp = backend_request('/api/cases/', method='get', token=token)
+        if cases_resp.ok:
+            all_cases = cases_resp.json()
+            matching_case = next(
+                (c for c in all_cases if c.get('user_case_number') == num),
+                None
+            ) or next(
+                (c for c in all_cases if c.get('id') == num),
+                None
+            )
+            if matching_case:
+                target_case_id = matching_case['id']
+
     response = backend_request(
         '/api/messages/',
         token=token,
-        json={'case': case_id, 'content': content},
+        json={'case': target_case_id, 'content': content},
     )
     if response.ok:
         await update.message.reply_text(f'✅ Message sent.')

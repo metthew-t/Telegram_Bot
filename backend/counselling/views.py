@@ -761,6 +761,19 @@ class CaseViewSet(viewsets.ModelViewSet):
             return queryset.all()
         return queryset.filter(user=user)
 
+    def get_object(self):
+        try:
+            return super().get_object()
+        except Exception:
+            user = self.request.user
+            pk = self.kwargs.get(self.lookup_field or 'pk')
+            if user.is_authenticated and user.role == 'user' and pk and str(pk).isdigit():
+                case = self.get_queryset().filter(user_case_number=int(pk)).first()
+                if case:
+                    self.check_object_permissions(self.request, case)
+                    return case
+            raise
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
@@ -770,6 +783,14 @@ class CaseViewSet(viewsets.ModelViewSet):
         if self.request.user.role in ['owner', 'admin']:
             serializer.save(user=serializer.validated_data.get('user', self.request.user))
         else:
+            # Enforce single active case policy
+            active_case = Case.objects.filter(
+                user=self.request.user,
+                status__in=['open', 'assigned']
+            ).first()
+            if active_case:
+                case_num = active_case.user_case_number or active_case.id
+                raise PermissionDenied(f'You already have an active case (#{case_num}). Please close it before creating a new one.')
             case = serializer.save(user=self.request.user)
             frontend_url = getattr(settings, 'FRONTEND_URL', os.getenv('FRONTEND_URL', 'http://localhost:5173')).rstrip('/')
 
@@ -986,6 +1007,18 @@ class CaseViewSet(viewsets.ModelViewSet):
         if case.status != 'closed':
             return Response(
                 {'error': f'Case is not closed (current status: {case.status})'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Enforce single active case policy: user cannot reopen if they already have an active case
+        active_case = Case.objects.filter(
+            user=request.user,
+            status__in=['open', 'assigned']
+        ).first()
+        if active_case:
+            active_num = active_case.user_case_number or active_case.id
+            return Response(
+                {'error': f'You already have an active case (#{active_num}). Please close it before reopening another case.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1232,13 +1265,44 @@ class MessageViewSet(viewsets.ModelViewSet):
         else:
             queryset = queryset.filter(case__user=user)
         if case_id:
+            if user.role == 'user':
+                # Check if case_id might be user_case_number instead of db pk
+                user_case = Case.objects.filter(user=user, user_case_number=case_id).first()
+                if user_case and not Case.objects.filter(user=user, id=case_id).exists():
+                    case_id = user_case.id
             queryset = queryset.filter(case_id=case_id)
         return queryset
 
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        case_val = data.get('case')
+        if request.user.is_authenticated and request.user.role == 'user' and case_val:
+            try:
+                case_int = int(case_val)
+                # If user doesn't own a case with id=case_int, check if they own one with user_case_number=case_int
+                if not Case.objects.filter(id=case_int, user=request.user).exists():
+                    user_case = Case.objects.filter(user=request.user, user_case_number=case_int).first()
+                    if user_case:
+                        print(f"[MessageViewSet] Remapping user_case_number {case_int} -> Case ID {user_case.id} for user {request.user.username}")
+                        data['case'] = user_case.id
+            except (ValueError, TypeError):
+                pass
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(self, serializer):
         case = serializer.validated_data['case']
         user = self.request.user
+
+        # Extra safety check: if user is role 'user' and case.user != user:
+        if user.role == 'user' and case.user != user:
+            fallback_case = Case.objects.filter(user=user, user_case_number=case.id).first()
+            if fallback_case:
+                print(f"[MessageViewSet] perform_create fallback: Remapped case {case.id} -> {fallback_case.id} for user {user.username}")
+                case = fallback_case
         
         # ENHANCED LOGGING FOR DEBUGGING
         print(f"\n{'='*80}")
@@ -1262,7 +1326,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             print(f"[PERMISSION DENIED] User {user.username} not allowed to message case #{case.id}")
             raise PermissionDenied('Permission denied')
 
-        message = serializer.save(sender=user)
+        message = serializer.save(sender=user, case=case)
         print(f"[MESSAGE SAVED] Message ID: {message.id}, Content length: {len(message.content)}\n")
         
         # Send email notification for case messages (with error handling)
@@ -1845,13 +1909,17 @@ class FeedbackViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        try:
-            case = Case.objects.get(id=case_id)
-        except Case.DoesNotExist:
-            return Response(
-                {'error': 'Case not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        case = Case.objects.filter(id=case_id, user=request.user).first()
+        if not case:
+            case = Case.objects.filter(user_case_number=case_id, user=request.user).first()
+        if not case:
+            try:
+                case = Case.objects.get(id=case_id)
+            except (Case.DoesNotExist, ValueError):
+                return Response(
+                    {'error': 'Case not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
         
         # Only the case owner can leave feedback
         if request.user != case.user:

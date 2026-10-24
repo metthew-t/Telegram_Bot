@@ -135,3 +135,56 @@ class CounsellingAPITestCase(TestCase):
             args, kwargs = mock_post.call_args
             self.assertEqual(kwargs['json']['chat_id'], '999999999')
             self.assertIn('New Case Created', kwargs['json']['text'])
+
+    def test_user_can_message_using_user_case_number(self):
+        # Create user 1's case (PK id=1, user_case_number=1)
+        self.auth_client(self.user)
+        res1 = self.client.post('/api/cases/', {'title': 'User 1 Case', 'description': 'Help'}, format='json')
+        case1_id = res1.data['id']
+
+        # Create user 2
+        user2 = User.objects.create_user(username='user2', password='password123', role='user')
+        self.auth_client(user2)
+        res2 = self.client.post('/api/cases/', {'title': 'User 2 Case', 'description': 'Help'}, format='json')
+        case2_id = res2.data['id']
+        case2_user_case_num = res2.data['user_case_number']
+        self.assertEqual(case2_user_case_num, 1)  # Per-user case number is 1
+
+        # User 2 sends message using 'case': 1 (which equals case1_id, but is user2's user_case_number)
+        msg_res = self.client.post(
+            '/api/messages/',
+            {'case': case2_user_case_num, 'content': 'Hello from user2'},
+            format='json'
+        )
+        self.assertEqual(msg_res.status_code, 201)
+        # Verify the message was attached to user 2's case (case2_id), not case 1
+        msg = Message.objects.get(id=msg_res.data['id'])
+        self.assertEqual(msg.case.id, case2_id)
+        self.assertEqual(msg.sender, user2)
+
+    def test_single_active_case_enforcement(self):
+        self.auth_client(self.user)
+        # Create first case (open)
+        res1 = self.client.post('/api/cases/', {'title': 'First Case', 'description': 'Need help'}, format='json')
+        self.assertEqual(res1.status_code, 201)
+        case1_id = res1.data['id']
+
+        # Attempt to create second case while first is active -> must fail with 403
+        res2 = self.client.post('/api/cases/', {'title': 'Second Case', 'description': 'Another help'}, format='json')
+        self.assertEqual(res2.status_code, 403)
+
+        # Close the first case
+        close_res = self.client.post(f'/api/cases/{case1_id}/close/')
+        self.assertEqual(close_res.status_code, 200)
+
+        # Now creating a second case must succeed
+        res3 = self.client.post('/api/cases/', {'title': 'Second Case', 'description': 'Another help'}, format='json')
+        self.assertEqual(res3.status_code, 201)
+        case2_id = res3.data['id']
+
+        # Attempt to reopen first case while second case is active -> must fail with 400
+        reopen_res = self.client.post(f'/api/cases/{case1_id}/reopen/')
+        self.assertEqual(reopen_res.status_code, 400)
+        self.assertIn('already have an active case', reopen_res.data['error'])
+
+
