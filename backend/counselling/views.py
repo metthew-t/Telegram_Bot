@@ -1623,6 +1623,35 @@ class ServerInfoView(APIView):
         return Response(info)
 
 
+class PurgeTestDataView(APIView):
+    """
+    POST /api/purge-test-data/
+    Owner-only endpoint to purge all test data and reset ID sequences for launch.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role != 'owner':
+            return Response(
+                {'error': 'Only the system owner can execute pre-launch data purge.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if not request.data.get('confirm'):
+            return Response(
+                {'error': 'Confirmation required. Pass {"confirm": true}.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        import io
+        from django.core.management import call_command
+        out = io.StringIO()
+        call_command('purge_test_data', confirm=True, stdout=out)
+        return Response({
+            'status': 'success',
+            'message': 'All test data purged, non-owner users cleared, and ID sequences reset to 1.',
+            'log': out.getvalue()
+        })
+
+
 # ─── Password Reset Views ─────────────────────────────────────────────────────
 
 class ForgotPasswordView(APIView):

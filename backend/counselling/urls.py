@@ -16,6 +16,7 @@ from .views import (
     ResetPasswordView,
     FeedbackViewSet,
     AnalyticsViewSet,
+    PurgeTestDataView,
     api_root,
 )
 from .assignment_views import CaseAssignmentRequestViewSet
@@ -41,6 +42,7 @@ urlpatterns = [
     path('api/forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
     path('api/reset-password/', ResetPasswordView.as_view(), name='reset_password'),
     path('api/diagnostic/', api_root, name='diagnostic'),  # Add diagnostic endpoint
+    path('api/purge-test-data/', PurgeTestDataView.as_view(), name='purge_test_data'),
     # Explicit route for change_email action (workaround for @action not registering)
     path('api/users/<int:pk>/change-email/', UserViewSet.as_view({'post': 'change_email'}), name='user-change-email'),
 ]

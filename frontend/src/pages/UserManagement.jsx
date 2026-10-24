@@ -17,6 +17,11 @@ export default function UserManagementPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [addError, setAddError] = useState('');
   const [roleChangingId, setRoleChangingId] = useState(null);
+  const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
+  const [purgeConfirmText, setPurgeConfirmText] = useState('');
+  const [isPurging, setIsPurging] = useState(false);
+  const [purgeError, setPurgeError] = useState('');
+  const [purgeSuccess, setPurgeSuccess] = useState('');
   const user = getUser();
 
   useEffect(() => {
@@ -109,6 +114,27 @@ export default function UserManagementPage() {
       alert(err.response?.data?.error || `Failed to ${action} email.`);
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handlePurgeTestData = async () => {
+    if (purgeConfirmText.trim() !== 'RESET') {
+      setPurgeError('Please type RESET in capital letters to confirm.');
+      return;
+    }
+    setIsPurging(true);
+    setPurgeError('');
+    setPurgeSuccess('');
+    try {
+      const res = await apiCall('/api/purge-test-data/', 'POST', { confirm: true });
+      setPurgeSuccess(res.message || 'System reset successfully. All test data cleared and sequences reset to 1.');
+      setIsPurgeModalOpen(false);
+      setPurgeConfirmText('');
+      fetchUsers();
+    } catch (err) {
+      setPurgeError(err.message || 'Failed to purge test data');
+    } finally {
+      setIsPurging(false);
     }
   };
 
@@ -329,6 +355,44 @@ export default function UserManagementPage() {
         )}
       </div>
 
+      {/* Danger Zone: Pre-Launch System Reset (Owner only) */}
+      {user?.role === 'owner' && (
+        <div className="card glass-panel" style={{ marginTop: '2rem', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h3 style={{ color: '#ef4444', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                ⚠️ Danger Zone: Pre-Launch System Reset
+              </h3>
+              <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-muted)', fontSize: 'var(--font-sm)', maxWidth: '650px' }}>
+                Purge all test cases, chat messages, internal reports, and non-owner accounts. <strong>Your Owner account is strictly preserved.</strong> Database case auto-increment IDs will reset to start cleanly at <strong>#1</strong> for public launch.
+              </p>
+            </div>
+            <button
+              className="button"
+              style={{
+                background: 'rgba(239, 68, 68, 0.2)',
+                color: '#ef4444',
+                border: '1px solid rgba(239, 68, 68, 0.5)',
+                fontWeight: 'bold',
+                padding: '0.6rem 1.2rem',
+              }}
+              onClick={() => {
+                setPurgeError('');
+                setPurgeConfirmText('');
+                setIsPurgeModalOpen(true);
+              }}
+            >
+              🗑️ Reset System for Launch
+            </button>
+          </div>
+          {purgeSuccess && (
+            <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981', borderRadius: '6px', color: '#10b981' }}>
+              ✅ {purgeSuccess}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Add User Modal */}
       {isAddModalOpen && (
         <div className="modal-overlay" onClick={() => !isAdding && setIsAddModalOpen(false)}>
@@ -400,6 +464,61 @@ export default function UserManagementPage() {
                 </LoadingButton>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset System Modal */}
+      {isPurgeModalOpen && (
+        <div className="modal-overlay" onClick={() => !isPurging && setIsPurgeModalOpen(false)}>
+          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <h2 style={{ color: '#ef4444', marginBottom: '1rem' }}>⚠️ Confirm Pre-Launch Reset</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--font-sm)', lineHeight: '1.5' }}>
+              This action will permanently delete all test cases, messages, chat records, and non-owner accounts.
+              <br /><br />
+              <strong>Your Owner account will NOT be deleted.</strong>
+              <br />
+              The next case created will be assigned Case ID <strong>#1</strong>.
+            </p>
+            {purgeError && <div className="form-error" style={{ marginBottom: '1rem' }}>{purgeError}</div>}
+            <div className="form-group" style={{ marginTop: '1rem' }}>
+              <label>Type <strong>RESET</strong> below to confirm:</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="RESET"
+                value={purgeConfirmText}
+                onChange={(e) => setPurgeConfirmText(e.target.value)}
+                disabled={isPurging}
+                style={{ marginTop: '0.5rem', borderColor: purgeConfirmText === 'RESET' ? '#ef4444' : undefined }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setIsPurgeModalOpen(false)}
+                disabled={isPurging}
+                style={{ flex: 1 }}
+              >
+                CANCEL
+              </button>
+              <LoadingButton
+                className="button"
+                style={{
+                  background: purgeConfirmText === 'RESET' ? '#ef4444' : 'rgba(239, 68, 68, 0.4)',
+                  color: '#fff',
+                  flex: 1,
+                  cursor: purgeConfirmText === 'RESET' ? 'pointer' : 'not-allowed',
+                }}
+                onClick={handlePurgeTestData}
+                loading={isPurging}
+                loadingText="Purging..."
+                disabled={purgeConfirmText !== 'RESET'}
+              >
+                CONFIRM RESET
+              </LoadingButton>
+            </div>
           </div>
         </div>
       )}
