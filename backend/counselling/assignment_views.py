@@ -174,15 +174,16 @@ class CaseAssignmentRequestViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check for existing pending request for this case
+        # Check for existing pending request from THIS admin for this case
         existing = CaseAssignmentRequest.objects.filter(
             case=case,
+            requesting_admin=request.user,  # Same admin
             status=CaseAssignmentRequest.STATUS_PENDING
         ).first()
         
         if existing:
             return Response(
-                {'error': f'A pending request already exists from {existing.requesting_admin.username}'},
+                {'error': 'You already have a pending request for this case'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -233,6 +234,21 @@ class CaseAssignmentRequestViewSet(viewsets.ModelViewSet):
         case.save()
         
         print(f"[APPROVED] Request={assignment_req.id}, Case={case.id} assigned to {assignment_req.requesting_admin.username}")
+        
+        # Reject all other pending requests for this case
+        other_pending = CaseAssignmentRequest.objects.filter(
+            case=case,
+            status=CaseAssignmentRequest.STATUS_PENDING
+        ).exclude(id=assignment_req.id)
+        
+        rejected_count = other_pending.update(
+            status=CaseAssignmentRequest.STATUS_REJECTED,
+            reviewed_at=timezone.now(),
+            reviewed_by=request.user
+        )
+        
+        if rejected_count > 0:
+            print(f"[APPROVED] Auto-rejected {rejected_count} other pending request(s) for case #{case.id}")
         
         # Create audit log
         AuditLog.objects.create(
