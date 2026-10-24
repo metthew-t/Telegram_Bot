@@ -44,19 +44,8 @@ export default function CaseDetailPage() {
       fetchMessages();
     }, POLL_INTERVAL);
 
-    // Mark messages as seen when admin returns to tab or window gains focus
-    const handleVisibilityOrFocus = () => {
-      if (!document.hidden) {
-        markMessagesAsSeen();
-      }
-    };
-    window.addEventListener('focus', handleVisibilityOrFocus);
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
-
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
-      window.removeEventListener('focus', handleVisibilityOrFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
   }, [id]);
 

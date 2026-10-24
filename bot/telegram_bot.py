@@ -5,7 +5,15 @@ from dotenv import load_dotenv
 
 # Load .env file
 load_dotenv()
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    BotCommand,
+    MenuButtonCommands,
+)
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -76,6 +84,21 @@ def login_or_register(telegram_id: str, username: str):
     )
 
 
+def mark_user_active_case_seen(token):
+    """Mark all unseen staff messages in user's active case(s) as seen by user"""
+    if not token:
+        return
+    try:
+        cases_resp = backend_request('/api/cases/', method='get', token=token)
+        if cases_resp.ok:
+            cases = cases_resp.json()
+            active_cases = [c for c in cases if c.get('status') in ['open', 'assigned']]
+            for case in active_cases:
+                backend_request(f'/api/cases/{case["id"]}/mark_messages_seen/', method='post', token=token)
+    except Exception as e:
+        print(f"DEBUG: Error marking messages seen: {e}")
+
+
 def get_access_token(update: Update):
     if update.effective_user is None:
         return None
@@ -87,7 +110,10 @@ def get_access_token(update: Update):
     response = login_or_register(update.effective_user.id, username)
     if not response.ok:
         return None
-    return response.json().get('access')
+    token = response.json().get('access')
+    if token:
+        mark_user_active_case_seen(token)
+    return token
 
 
 # ─── /start ───
@@ -173,7 +199,7 @@ async def newcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Send /cancel at any time to abort.\n\n'
         '*Step 1/2:* Please enter a short title for your case:',
         parse_mode='Markdown',
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=MAIN_MENU_KEYBOARD,
     )
     return TITLE
 
@@ -182,7 +208,7 @@ async def newcase_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
     title = update.message.text.strip()
     if len(title) < 5:
         await update.message.reply_text(
-            '⚠️ Title is too short. Please enter at least 3 characters:'
+            '⚠️ Title is too short. Please enter at least 5 characters:'
         )
         return TITLE
 
@@ -197,6 +223,7 @@ async def newcase_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f'✅ Title: *{title}*\n\n'
         '*Step 2/2:* Now please describe your issue in detail:',
         parse_mode='Markdown',
+        reply_markup=MAIN_MENU_KEYBOARD,
     )
     return DESCRIPTION
 
@@ -212,36 +239,28 @@ async def newcase_description(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data['case_description'] = description
     title = context.user_data['case_title']
 
-    keyboard = [['✅ Submit', '❌ Cancel']]
+    # Use InlineKeyboardMarkup so buttons are immediately visible on mobile & PC directly under message
+    inline_keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton('✅ Submit', callback_data='newcase_submit_btn'),
+            InlineKeyboardButton('❌ Cancel', callback_data='newcase_cancel_btn'),
+        ]
+    ])
     await update.message.reply_text(
         f'📋 *Review your case:*\n\n'
         f'*Title:* {title}\n'
         f'*Description:* {description}\n\n'
-        f'Please confirm:',
+        f'Please confirm below:',
         parse_mode='Markdown',
-        reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True),
+        reply_markup=inline_keyboard,
     )
     return CONFIRM
 
 
-async def newcase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    choice = update.message.text.strip()
-
-    if choice != '✅ Submit':
-        await update.message.reply_text(
-            '❌ Case creation cancelled.',
-            reply_markup=MAIN_MENU_KEYBOARD,
-        )
-        context.user_data.pop('case_title', None)
-        context.user_data.pop('case_description', None)
-        return ConversationHandler.END
-
-    title = context.user_data.pop('case_title', '')
-    description = context.user_data.pop('case_description', '')
-    token = get_access_token(update)
-
+async def _process_case_creation(reply_target, token, title, description):
+    """Common case creation logic used by both inline button and text confirmation"""
     if token is None:
-        await update.message.reply_text(
+        await reply_target.reply_text(
             '⚠️ Unable to authenticate. Please try /start first.',
             reply_markup=MAIN_MENU_KEYBOARD,
         )
@@ -260,7 +279,7 @@ async def newcase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if active_cases:
             active_case = active_cases[0]
             case_num = active_case.get('user_case_number', active_case.get('id'))
-            await update.message.reply_text(
+            await reply_target.reply_text(
                 f'⚠️ *You already have an active case!*\n\n'
                 f'📝 Case #{case_num}: {active_case.get("title")}\n'
                 f'📊 Status: {active_case.get("status")}\n\n'
@@ -280,7 +299,7 @@ async def newcase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if response.ok:
         data = response.json()
         case_num = data.get('user_case_number', data.get('id'))
-        await update.message.reply_text(
+        await reply_target.reply_text(
             f'✅ *Case created successfully!*\n\n'
             f'📝 Your Case *#{case_num}*\n'
             f'📌 Title: {data.get("title")}\n'
@@ -290,11 +309,63 @@ async def newcase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=MAIN_MENU_KEYBOARD,
         )
     else:
-        await update.message.reply_text(
+        await reply_target.reply_text(
             f'⚠️ Failed to create case: {response.text}',
             reply_markup=MAIN_MENU_KEYBOARD,
         )
     return ConversationHandler.END
+
+
+async def newcase_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline button click for Submit/Cancel on new case confirmation"""
+    query = update.callback_query
+    await query.answer()
+
+    action = query.data
+    if action == 'newcase_cancel_btn':
+        context.user_data.pop('case_title', None)
+        context.user_data.pop('case_description', None)
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        await query.message.reply_text(
+            '❌ Case creation cancelled.',
+            reply_markup=MAIN_MENU_KEYBOARD,
+        )
+        return ConversationHandler.END
+
+    # Action is newcase_submit_btn
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    title = context.user_data.pop('case_title', '')
+    description = context.user_data.pop('case_description', '')
+    token = get_access_token(update)
+
+    return await _process_case_creation(query.message, token, title, description)
+
+
+async def newcase_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle text input for Submit/Cancel on new case confirmation"""
+    choice = update.message.text.strip().lower()
+
+    if 'submit' not in choice and choice != '✅ submit' and choice != 'yes':
+        await update.message.reply_text(
+            '❌ Case creation cancelled.',
+            reply_markup=MAIN_MENU_KEYBOARD,
+        )
+        context.user_data.pop('case_title', None)
+        context.user_data.pop('case_description', None)
+        return ConversationHandler.END
+
+    title = context.user_data.pop('case_title', '')
+    description = context.user_data.pop('case_description', '')
+    token = get_access_token(update)
+
+    return await _process_case_creation(update.message, token, title, description)
 
 
 async def newcase_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -395,7 +466,7 @@ async def reply_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f'📝 {active_cases[0]["title"]}\n\n'
             f'Type your message:',
             parse_mode='Markdown',
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=MAIN_MENU_KEYBOARD,
         )
         return REPLY_CONTENT
     
@@ -408,7 +479,7 @@ async def reply_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         '\n'.join(lines),
         parse_mode='Markdown',
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=MAIN_MENU_KEYBOARD,
     )
     return REPLY_CASE_ID
 
@@ -474,7 +545,7 @@ async def reply_case_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f'📝 Replying to case *#{display_num}* ({matching_case["title"]}).\n\n'
         f'*Step 2/2:* Type your message:',
         parse_mode='Markdown',
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=MAIN_MENU_KEYBOARD,
     )
     return REPLY_CONTENT
 
@@ -585,7 +656,7 @@ async def viewcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         '\n'.join(lines),
         parse_mode='Markdown',
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=MAIN_MENU_KEYBOARD,
     )
     return VIEW_CASE_ID
 
@@ -803,7 +874,7 @@ async def reopen_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         '\n'.join(lines),
         parse_mode='Markdown',
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=MAIN_MENU_KEYBOARD,
     )
     return REOPEN_CASE_ID
 
@@ -931,7 +1002,7 @@ async def closecase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         '\n'.join(lines),
         parse_mode='Markdown',
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=MAIN_MENU_KEYBOARD
     )
     return CLOSE_CASE_ID
 
@@ -1504,10 +1575,28 @@ async def handle_read_receipt_callback(update: Update, context: ContextTypes.DEF
             await show_case_messages(update, context, case_id)
 
 
+async def post_init(application):
+    """Set persistent bot command menu visible at all times on both mobile and PC"""
+    try:
+        commands = [
+            BotCommand("newcase", "📝 Submit a new support case"),
+            BotCommand("viewcase", "👁️ View your case history & messages"),
+            BotCommand("reply", "💬 Reply to your active case"),
+            BotCommand("reopen", "🔄 Reopen a closed case"),
+            BotCommand("closecase", "❌ Close your active case"),
+            BotCommand("help", "❓ Help and instructions"),
+        ]
+        await application.bot.set_my_commands(commands)
+        await application.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+        print("DEBUG: Set Telegram bot commands & menu button successfully")
+    except Exception as e:
+        print(f"DEBUG: Exception in post_init setting commands: {e}")
+
+
 # ─── Main ───
 
 def main():
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
     # Multi-step conversation for /newcase
     newcase_handler = ConversationHandler(
@@ -1518,7 +1607,10 @@ def main():
         states={
             TITLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, newcase_title)],
             DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, newcase_description)],
-            CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, newcase_confirm)],
+            CONFIRM: [
+                CallbackQueryHandler(newcase_confirm_callback, pattern='^newcase_(submit|cancel)_btn$'),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, newcase_confirm),
+            ],
         },
         fallbacks=[CommandHandler('cancel', newcase_cancel)],
     )

@@ -1371,16 +1371,6 @@ class MessageViewSet(viewsets.ModelViewSet):
                     print(f"[TELEGRAM NOTIFICATION] Converted telegram_id to string: '{telegram_id_str}'")
                     print(f"[TELEGRAM NOTIFICATION] Preparing notification...")
                     
-                    # Create interactive read receipt keyboard
-                    inline_keyboard = {
-                        "inline_keyboard": [
-                            [
-                                {"text": "✓ Mark as Read", "callback_data": f"mark_read_{case.id}"},
-                                {"text": "👁️ View Case", "callback_data": f"view_case_{case.id}"}
-                            ]
-                        ]
-                    }
-
                     # Check if it's a voice message
                     if message.message_type == 'voice' and message.voice_data:
                         print(f"[TELEGRAM NOTIFICATION] Sending VOICE message to Telegram...")
@@ -1388,8 +1378,7 @@ class MessageViewSet(viewsets.ModelViewSet):
                             success = send_telegram_voice(
                                 telegram_id_str, 
                                 message.voice_data, 
-                                message.voice_duration,
-                                reply_markup=inline_keyboard
+                                message.voice_duration
                             )
                             
                             if success:
@@ -1399,7 +1388,7 @@ class MessageViewSet(viewsets.ModelViewSet):
                                 # Fallback: send text notification
                                 case_num = case.user_case_number if case.user_case_number else case.id
                                 fallback_text = f'Voice message on your case #{case_num}: {case.title}\n\nPlease check the website to listen.'
-                                send_telegram_notification(telegram_id_str, fallback_text, reply_markup=inline_keyboard)
+                                send_telegram_notification(telegram_id_str, fallback_text)
                         except Exception as voice_exc:
                             print(f"[TELEGRAM NOTIFICATION] EXCEPTION sending voice: {voice_exc}")
                             import traceback
@@ -1412,7 +1401,7 @@ class MessageViewSet(viewsets.ModelViewSet):
                         print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")
                         
                         try:
-                            success = send_telegram_notification(telegram_id_str, notification_text, reply_markup=inline_keyboard)
+                            success = send_telegram_notification(telegram_id_str, notification_text)
                             
                             if success:
                                 print(f"[TELEGRAM NOTIFICATION] SUCCESS: Notification sent successfully to case user")
