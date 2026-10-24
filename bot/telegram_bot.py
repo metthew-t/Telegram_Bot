@@ -356,9 +356,9 @@ async def reply_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if response.ok:
+        # Message sent - no confirmation needed, just return to menu
         await update.message.reply_text(
-            f'✅ Message sent to case *#{case_id}*.',
-            parse_mode='Markdown',
+            '✅ Message sent.',
             reply_markup=MAIN_MENU_KEYBOARD,
         )
     else:
@@ -912,7 +912,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             json={'case': case_id, 'content': message_text, 'message_type': 'text'},
         )
         if msg_resp.ok:
-            await update.message.reply_text(f'✅ Sent to your case *#{case_num}*.', parse_mode='Markdown')
+            # Message sent successfully - no confirmation needed, user just continues chatting
+            # Read receipt: ✓ (sent) will be shown when user views their messages via /viewcase
+            pass
         else:
             print(f"DEBUG: Failed to send message to backend: {msg_resp.text}")
             await update.message.reply_text(f'⚠️ Failed to send: {msg_resp.text}')
@@ -957,7 +959,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     json={'case': selected_case_id, 'content': message_text, 'message_type': 'text'},
                 )
                 if msg_resp.ok:
-                    await update.message.reply_text(f'✅ Sent to your case *#{case_num}*.', parse_mode='Markdown')
+                    # Message sent successfully - no confirmation
+                    pass
                 else:
                     print(f"DEBUG: Failed to send message to backend: {msg_resp.text}")
                     await update.message.reply_text(f'⚠️ Failed to send: {msg_resp.text}')
@@ -1100,10 +1103,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         if msg_resp.ok:
-            await update.message.reply_text(
-                f'✅ 🎤 Voice message sent to your case *#{case_num}*.',
-                parse_mode='Markdown'
-            )
+            # Voice message sent successfully - no confirmation needed
+            pass
         else:
             print(f"DEBUG: Failed to send voice to backend: {msg_resp.text}")
             await update.message.reply_text(f'⚠️ Failed to send voice: {msg_resp.text}')
@@ -1368,7 +1369,7 @@ async def legacy_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         json={'case': case_id, 'content': content},
     )
     if response.ok:
-        await update.message.reply_text(f'✅ Message sent to case #{case_id}.')
+        await update.message.reply_text(f'✅ Message sent.')
     else:
         await update.message.reply_text(f'⚠️ Failed: {response.text}')
 
