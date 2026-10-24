@@ -387,6 +387,9 @@ async def reply_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['reply_case_id'] = case_id
         context.user_data['selected_case_id'] = case_id
         
+        # Mark staff messages as seen since user is opening this case to reply
+        backend_request(f'/api/cases/{case_id}/mark_messages_seen/', method='post', token=token)
+        
         await update.message.reply_text(
             f'💬 *Replying to Case #{case_num}*\n\n'
             f'📝 {active_cases[0]["title"]}\n\n'
@@ -559,8 +562,17 @@ async def viewcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=MAIN_MENU_KEYBOARD
         )
         return ConversationHandler.END
-    
-    # Show case history
+
+    # If user has only one active case (or only one case total), directly show messages
+    active_cases = [c for c in all_cases if c.get('status') in ['open', 'assigned']]
+    if len(active_cases) == 1:
+        await show_case_messages(update, context, active_cases[0]['id'])
+        return ConversationHandler.END
+    elif len(all_cases) == 1:
+        await show_case_messages(update, context, all_cases[0]['id'])
+        return ConversationHandler.END
+
+    # Show case history if multiple cases
     lines = ['📋 *Your Case History:*\n']
     for case in all_cases:
         case_num = case.get('user_case_number', case['id'])
@@ -1465,6 +1477,33 @@ async def handle_feedback_button(update: Update, context: ContextTypes.DEFAULT_T
             await query.edit_message_text("❌ Error submitting feedback.")
 
 
+async def handle_read_receipt_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline button click for read receipts (Mark as Read / View Case)"""
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data
+    token = get_access_token(update)
+
+    if data.startswith('mark_read_'):
+        case_id = data.replace('mark_read_', '').strip()
+        if token and case_id:
+            backend_request(f'/api/cases/{case_id}/mark_messages_seen/', method='post', token=token)
+        try:
+            await query.edit_message_reply_markup(
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("✓ Seen", callback_data="already_read")]
+                ])
+            )
+        except Exception:
+            pass
+
+    elif data.startswith('view_case_'):
+        case_id = data.replace('view_case_', '').strip()
+        if token and case_id:
+            await show_case_messages(update, context, case_id)
+
+
 # ─── Main ───
 
 def main():
@@ -1537,6 +1576,9 @@ def main():
     # Feedback inline button handlers (must be before text handler)
     # Handle all feedback-related callbacks: feedback_, rating_, submit_rating_only_
     application.add_handler(CallbackQueryHandler(handle_feedback_button, pattern='^(feedback_|rating_|submit_rating_only_)'))
+    
+    # Read receipt callback handlers
+    application.add_handler(CallbackQueryHandler(handle_read_receipt_callback, pattern='^(mark_read_|view_case_|already_read)'))
     
     # Removed /mycases and /switchcase commands as per new workflow
     

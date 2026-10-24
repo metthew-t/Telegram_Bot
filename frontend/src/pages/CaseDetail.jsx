@@ -34,20 +34,29 @@ export default function CaseDetailPage() {
       fetchAdmins();
     }
 
-    // Mark messages as seen when opening the case (bidirectional read receipts)
-    markMessagesAsSeen();
+    // Mark messages as seen when opening the case if page is active/visible
+    if (!document.hidden) {
+      markMessagesAsSeen();
+    }
 
-    // Start polling - admin/owner continuously marks messages as seen since they're viewing
+    // Start polling - ONLY fetch messages, never auto-mark in background poll
     pollRef.current = setInterval(() => {
       fetchMessages();
-      // Admin/owner is actively viewing the page, so mark new user messages as seen
-      if (user?.role === 'admin' || user?.role === 'owner') {
+    }, POLL_INTERVAL);
+
+    // Mark messages as seen when admin returns to tab or window gains focus
+    const handleVisibilityOrFocus = () => {
+      if (!document.hidden) {
         markMessagesAsSeen();
       }
-    }, POLL_INTERVAL);
+    };
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
   }, [id]);
 
@@ -429,6 +438,7 @@ export default function CaseDetailPage() {
                           type="text"
                           value={messageContent}
                           onChange={(e) => setMessageContent(e.target.value)}
+                          onFocus={() => markMessagesAsSeen()}
                           placeholder="Type your message..."
                           required={!showVoiceRecorder}
                         />

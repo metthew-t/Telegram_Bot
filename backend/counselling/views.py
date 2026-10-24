@@ -96,7 +96,7 @@ def get_recommendations(owner_status, telegram_status):
 
 # ─── Telegram Notification Helpers ───────────────────────────────────────────
 
-def send_telegram_notification(telegram_id, text):
+def send_telegram_notification(telegram_id, text, reply_markup=None):
     """Send a Telegram notification to a specific user"""
     print(f"\n[send_telegram_notification] CALLED")
     print(f"[send_telegram_notification] telegram_id param: {telegram_id} (type: {type(telegram_id)})")
@@ -122,6 +122,8 @@ def send_telegram_notification(telegram_id, text):
         "chat_id": telegram_id,
         "text": text,
     }
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
 
     print(f"[send_telegram_notification] API URL: {url[:50]}...")
     print(f"[send_telegram_notification] Payload chat_id: {payload['chat_id']}")
@@ -169,7 +171,7 @@ def notify_case_user(case, text):
     send_telegram_notification(case.user.telegram_id, text)
 
 
-def send_telegram_voice(telegram_id, voice_data, duration=None):
+def send_telegram_voice(telegram_id, voice_data, duration=None, reply_markup=None):
     """Send a voice message to a Telegram user"""
     print(f"\n[send_telegram_voice] CALLED")
     print(f"[send_telegram_voice] telegram_id: {telegram_id}")
@@ -189,6 +191,7 @@ def send_telegram_voice(telegram_id, voice_data, duration=None):
     try:
         import base64
         import io
+        import json
         
         # Decode base64 voice data
         voice_bytes = base64.b64decode(voice_data)
@@ -206,6 +209,8 @@ def send_telegram_voice(telegram_id, voice_data, duration=None):
         }
         if duration:
             data['duration'] = duration
+        if reply_markup is not None:
+            data['reply_markup'] = json.dumps(reply_markup)
         
         print(f"[send_telegram_voice] Sending voice via Telegram API...")
         response = requests.post(url, data=data, files=files, timeout=30)
@@ -1210,7 +1215,7 @@ class CaseViewSet(viewsets.ModelViewSet):
                 'case_id': case.id
             })
             
-        elif request.user.role == 'user' and case.user == request.user:
+        elif request.user.role == 'user' and (case.user == request.user or case.user_id == request.user.id):
             # User viewing their case -> mark all staff messages in this case as seen by user
             unseen_messages = Message.objects.filter(
                 case=case,
@@ -1366,6 +1371,16 @@ class MessageViewSet(viewsets.ModelViewSet):
                     print(f"[TELEGRAM NOTIFICATION] Converted telegram_id to string: '{telegram_id_str}'")
                     print(f"[TELEGRAM NOTIFICATION] Preparing notification...")
                     
+                    # Create interactive read receipt keyboard
+                    inline_keyboard = {
+                        "inline_keyboard": [
+                            [
+                                {"text": "✓ Mark as Read", "callback_data": f"mark_read_{case.id}"},
+                                {"text": "👁️ View Case", "callback_data": f"view_case_{case.id}"}
+                            ]
+                        ]
+                    }
+
                     # Check if it's a voice message
                     if message.message_type == 'voice' and message.voice_data:
                         print(f"[TELEGRAM NOTIFICATION] Sending VOICE message to Telegram...")
@@ -1373,7 +1388,8 @@ class MessageViewSet(viewsets.ModelViewSet):
                             success = send_telegram_voice(
                                 telegram_id_str, 
                                 message.voice_data, 
-                                message.voice_duration
+                                message.voice_duration,
+                                reply_markup=inline_keyboard
                             )
                             
                             if success:
@@ -1383,7 +1399,7 @@ class MessageViewSet(viewsets.ModelViewSet):
                                 # Fallback: send text notification
                                 case_num = case.user_case_number if case.user_case_number else case.id
                                 fallback_text = f'Voice message on your case #{case_num}: {case.title}\n\nPlease check the website to listen.'
-                                send_telegram_notification(telegram_id_str, fallback_text)
+                                send_telegram_notification(telegram_id_str, fallback_text, reply_markup=inline_keyboard)
                         except Exception as voice_exc:
                             print(f"[TELEGRAM NOTIFICATION] EXCEPTION sending voice: {voice_exc}")
                             import traceback
@@ -1396,7 +1412,7 @@ class MessageViewSet(viewsets.ModelViewSet):
                         print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")
                         
                         try:
-                            success = send_telegram_notification(telegram_id_str, notification_text)
+                            success = send_telegram_notification(telegram_id_str, notification_text, reply_markup=inline_keyboard)
                             
                             if success:
                                 print(f"[TELEGRAM NOTIFICATION] SUCCESS: Notification sent successfully to case user")
