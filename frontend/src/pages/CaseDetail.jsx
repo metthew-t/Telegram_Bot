@@ -34,12 +34,16 @@ export default function CaseDetailPage() {
       fetchAdmins();
     }
 
-    // Mark messages as seen when anyone opens the case (bidirectional read receipts)
+    // Mark messages as seen when opening the case (bidirectional read receipts)
     markMessagesAsSeen();
 
-    // Start polling
+    // Start polling - admin/owner continuously marks messages as seen since they're viewing
     pollRef.current = setInterval(() => {
       fetchMessages();
+      // Admin/owner is actively viewing the page, so mark new user messages as seen
+      if (user?.role === 'admin' || user?.role === 'owner') {
+        markMessagesAsSeen();
+      }
     }, POLL_INTERVAL);
 
     return () => {

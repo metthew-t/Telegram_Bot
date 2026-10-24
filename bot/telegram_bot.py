@@ -120,6 +120,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown',
         reply_markup=MAIN_MENU_KEYBOARD,
     )
+    
+    # Mark admin messages as seen when user opens the bot (bidirectional read receipts)
+    token = get_access_token(update)
+    if token:
+        try:
+            cases_resp = backend_request('/api/cases/', method='get', token=token)
+            if cases_resp.ok:
+                active_cases = [c for c in cases_resp.json() if c.get('status') in ['open', 'assigned']]
+                for case in active_cases:
+                    backend_request(f'/api/cases/{case["id"]}/mark_messages_seen/', method='post', token=token)
+        except Exception:
+            pass  # Non-critical
 
 
 # ─── /newcase — Multi-step ConversationHandler ───
