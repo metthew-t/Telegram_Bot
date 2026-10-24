@@ -378,17 +378,55 @@ async def viewcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user is None or update.message is None:
         return ConversationHandler.END
 
-    # Check if case ID provided inline: /viewcase 5
+    token = get_access_token(update)
+    
+    # Check if case number provided inline: /viewcase 5
     if context.args:
-        case_id = context.args[0].strip()
-        if case_id.isdigit():
-            await show_case_messages(update, context, case_id)
-            return ConversationHandler.END
+        user_case_num = context.args[0].strip()
+        if user_case_num.isdigit():
+            # Fetch cases and find matching user_case_number
+            cases_resp = backend_request('/api/cases/', method='get', token=token)
+            if cases_resp.ok:
+                all_cases = cases_resp.json()
+                matching_case = next(
+                    (c for c in all_cases if c.get('user_case_number') == int(user_case_num)),
+                    None
+                )
+                if matching_case:
+                    await show_case_messages(update, context, matching_case['id'])
+                    return ConversationHandler.END
 
+    # Show user's case history
+    cases_resp = backend_request('/api/cases/', method='get', token=token)
+    
+    if not cases_resp.ok:
+        await update.message.reply_text(
+            '⚠️ Failed to fetch your cases.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    all_cases = cases_resp.json()
+    
+    if not all_cases:
+        await update.message.reply_text(
+            '📋 You have no cases yet.\n\nUse /newcase to create your first case.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    # Show case history
+    lines = ['📋 *Your Case History:*\n']
+    for case in all_cases:
+        case_num = case.get('user_case_number', case['id'])
+        status_icon = {'open': '🔵', 'assigned': '🟡', 'resolved': '🟢', 'closed': '⚪'}.get(case['status'], '⚪')
+        lines.append(f'{status_icon} *Case #{case_num}*: {case["title"]} (`{case["status"]}`)')
+    
+    lines.append(f'\n_Total: {len(all_cases)} case(s)_')
+    lines.append('\nEnter a case number to view its messages:')
+    
     await update.message.reply_text(
-        '👁️ *View Case Messages*\n\n'
-        'Send /cancel to abort.\n\n'
-        'Enter the case ID:',
+        '\n'.join(lines),
         parse_mode='Markdown',
         reply_markup=ReplyKeyboardRemove(),
     )
@@ -398,10 +436,30 @@ async def viewcase_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def viewcase_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if not text.isdigit():
-        await update.message.reply_text('⚠️ Please enter a valid numeric case ID:')
+        await update.message.reply_text('⚠️ Please enter a valid numeric case number:')
         return VIEW_CASE_ID
 
-    await show_case_messages(update, context, text)
+    user_case_num = int(text)
+    token = get_access_token(update)
+    
+    # Fetch all user's cases to find the one with matching user_case_number
+    cases_resp = backend_request('/api/cases/', method='get', token=token)
+    if not cases_resp.ok:
+        await update.message.reply_text('⚠️ Failed to fetch your cases.')
+        return ConversationHandler.END
+    
+    all_cases = cases_resp.json()
+    matching_case = next(
+        (c for c in all_cases if c.get('user_case_number') == user_case_num),
+        None
+    )
+    
+    if not matching_case:
+        await update.message.reply_text(f'⚠️ Case #{user_case_num} not found in your cases.')
+        return ConversationHandler.END
+    
+    # Use database ID for backend call
+    await show_case_messages(update, context, matching_case['id'])
     return ConversationHandler.END
 
 
@@ -444,16 +502,25 @@ async def show_case_messages(update, context, case_id):
             sender = msg.get('sender', {})
             label = sender.get('label', sender.get('username', 'Unknown'))
             role = msg.get('sender_role', '')
+            
+            # Determine read receipt status
+            read_status = ''
+            if role == 'user':  # Only show read receipts for user's own messages
+                if msg.get('seen_by_admin_at'):
+                    read_status = ' ✓✓'  # Seen by admin
+                else:
+                    read_status = ' ✓'   # Sent but not seen yet
+            
             role_tag = f' [{role}]' if role else ''
             lines.append(f'*{label}*{role_tag}:')
             
             # Check if voice message
             if msg.get('message_type') == 'voice' and msg.get('voice_data'):
                 duration = msg.get('voice_duration', 0)
-                lines.append(f'🎤 Voice message ({duration}s)')
+                lines.append(f'🎤 Voice message ({duration}s){read_status}')
                 lines.append('_[Voice messages can be played on the website]_')
             else:
-                lines.append(f'{msg["content"]}')
+                lines.append(f'{msg["content"]}{read_status}')
             
             lines.append(f'_{msg.get("timestamp", "")}_\n')
 
@@ -539,10 +606,10 @@ async def reopen_case_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Process the case ID and attempt to reopen"""
     text = update.message.text.strip()
     if not text.isdigit():
-        await update.message.reply_text('⚠️ Please enter a valid numeric case ID:')
+        await update.message.reply_text('⚠️ Please enter a valid numeric case number:')
         return REOPEN_CASE_ID
 
-    case_id = int(text)
+    user_case_num = int(text)
     token = get_access_token(update)
     if token is None:
         await update.message.reply_text(
@@ -551,13 +618,38 @@ async def reopen_case_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
-    # Call the reopen API endpoint
+    # Fetch all user's cases to find the one with matching user_case_number
+    cases_resp = backend_request('/api/cases/', method='get', token=token)
+    if not cases_resp.ok:
+        await update.message.reply_text(
+            '⚠️ Failed to fetch your cases.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    all_cases = cases_resp.json()
+    matching_case = next(
+        (c for c in all_cases if c.get('user_case_number') == user_case_num),
+        None
+    )
+    
+    if not matching_case:
+        await update.message.reply_text(
+            f'⚠️ Case #{user_case_num} not found in your cases.\n\n'
+            f'Use /viewcase to see your case history.',
+            reply_markup=MAIN_MENU_KEYBOARD
+        )
+        return ConversationHandler.END
+    
+    case_id = matching_case['id']
+    
+    # Call the reopen API endpoint using database ID
     response = backend_request(f'/api/cases/{case_id}/reopen/', method='post', token=token)
     
     if response.ok:
         data = response.json()
         await update.message.reply_text(
-            f'✅ *Case #{case_id} Reopened Successfully!*\n\n'
+            f'✅ *Case #{user_case_num} Reopened Successfully!*\n\n'
             f'📊 Status: {data.get("status", "assigned")}\n'
             f'👤 Assigned to: {data.get("assigned_admin", "Previous admin")}\n\n'
             f'You can now continue the conversation on this case.',
