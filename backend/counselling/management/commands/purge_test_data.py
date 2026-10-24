@@ -72,6 +72,17 @@ class Command(BaseCommand):
 
         # 2. Delete test data inside transaction
         with transaction.atomic():
+            with connection.cursor() as cursor:
+                # Drop legacy assignment request table from earlier migration if it still exists
+                try:
+                    if connection.vendor == 'postgresql':
+                        cursor.execute("DROP TABLE IF EXISTS counselling_assignmentrequest CASCADE;")
+                    else:
+                        cursor.execute("DROP TABLE IF EXISTS counselling_assignmentrequest;")
+                    self.stdout.write("  * Dropped legacy table counselling_assignmentrequest")
+                except Exception as e:
+                    self.stdout.write(f"  * Note on legacy table: {e}")
+
             # Views & tracking
             c_views, _ = CaseView.objects.all().delete()
             ic_views, _ = InternalChatView.objects.all().delete()
