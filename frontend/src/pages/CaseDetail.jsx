@@ -34,10 +34,8 @@ export default function CaseDetailPage() {
       fetchAdmins();
     }
 
-    // Mark messages as seen when admin/owner opens the case
-    if (user?.role === 'admin' || user?.role === 'owner') {
-      markMessagesAsSeen();
-    }
+    // Mark messages as seen when anyone opens the case (bidirectional read receipts)
+    markMessagesAsSeen();
 
     // Start polling
     pollRef.current = setInterval(() => {
@@ -356,13 +354,27 @@ export default function CaseDetailPage() {
                     <p>{msg.content}</p>
                   )}
                   
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
                     <small>{new Date(msg.timestamp).toLocaleString()}</small>
-                    {/* Read receipts for user messages (show to user only) */}
-                    {user?.role === 'user' && msg.sender?.label === 'You' && (
-                      <small style={{ color: msg.seen_by_admin_at ? '#10b981' : '#6b7280' }}>
-                        {msg.seen_by_admin_at ? '✓✓' : '✓'}
-                      </small>
+                    {/* Bidirectional read receipts - WhatsApp style */}
+                    {isOwnMessage(msg) && (
+                      <span style={{
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        letterSpacing: '-2px',
+                        color: (
+                          (user?.role === 'user' && msg.seen_by_admin_at) ||
+                          ((user?.role === 'admin' || user?.role === 'owner') && msg.seen_by_user_at)
+                        ) ? '#34b7f1' : '#8696a0',
+                        marginLeft: '2px',
+                        display: 'inline-flex',
+                        alignItems: 'center'
+                      }}>
+                        {(
+                          (user?.role === 'user' && msg.seen_by_admin_at) ||
+                          ((user?.role === 'admin' || user?.role === 'owner') && msg.seen_by_user_at)
+                        ) ? '✓✓' : '✓'}
+                      </span>
                     )}
                   </div>
                 </div>

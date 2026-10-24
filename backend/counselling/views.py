@@ -1183,39 +1183,50 @@ class CaseViewSet(viewsets.ModelViewSet):
             'viewed_at': view.viewed_at
         })
     
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrOwner])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def mark_messages_seen(self, request, pk=None):
-        """Mark all unseen user messages in this case as seen by admin - for read receipts"""
+        """
+        Bidirectional read receipts:
+        - When admin/owner views case: marks unseen user messages with seen_by_admin_at
+        - When user views case: marks unseen staff messages with seen_by_user_at
+        """
         from django.utils import timezone
         
         case = self.get_object()
         
-        # Only admins/owners can mark messages as seen
-        if request.user.role not in ['admin', 'owner']:
-            return Response(
-                {'error': 'Only admins and owners can mark messages as seen'},
-                status=status.HTTP_403_FORBIDDEN
+        if request.user.role in ['admin', 'owner']:
+            # Admin/owner viewing -> mark all user messages in this case as seen by admin
+            unseen_messages = Message.objects.filter(
+                case=case,
+                sender__role='user',
+                seen_by_admin_at__isnull=True
             )
-        
-        # Find all unseen messages from users in this case
-        unseen_messages = Message.objects.filter(
-            case=case,
-            sender__role='user',  # Only user messages
-            seen_by_admin_at__isnull=True  # Not yet seen
-        )
-        
-        count = unseen_messages.count()
-        
-        # Mark them all as seen
-        unseen_messages.update(seen_by_admin_at=timezone.now())
-        
-        print(f"[ReadReceipt] Admin {request.user.username} marked {count} messages as seen in case #{case.id}")
-        
-        return Response({
-            'status': 'success',
-            'marked_seen': count,
-            'case_id': case.id
-        })
+            count = unseen_messages.update(seen_by_admin_at=timezone.now())
+            print(f"[ReadReceipt] Staff {request.user.username} marked {count} user messages as seen in case #{case.id}")
+            return Response({
+                'status': 'success',
+                'marked_seen': count,
+                'role': 'staff',
+                'case_id': case.id
+            })
+            
+        elif request.user.role == 'user' and case.user == request.user:
+            # User viewing their case -> mark all staff messages in this case as seen by user
+            unseen_messages = Message.objects.filter(
+                case=case,
+                sender__role__in=['admin', 'owner'],
+                seen_by_user_at__isnull=True
+            )
+            count = unseen_messages.update(seen_by_user_at=timezone.now())
+            print(f"[ReadReceipt] User {request.user.username} marked {count} staff messages as seen in case #{case.id}")
+            return Response({
+                'status': 'success',
+                'marked_seen': count,
+                'role': 'user',
+                'case_id': case.id
+            })
+            
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
     
     @action(detail=True, methods=['get'], permission_classes=[IsAdminOrOwner])
     def viewers(self, request, pk=None):

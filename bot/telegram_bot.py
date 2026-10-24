@@ -491,11 +491,9 @@ async def reply_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if response.ok:
-        # Message sent - return to menu
-        await update.message.reply_text(
-            '✅ Message sent.',
-            reply_markup=MAIN_MENU_KEYBOARD,
-        )
+        # Message sent - no confirmation needed, real chat style
+        # Read receipt: ✓ (sent) shown via /viewcase
+        pass
     else:
         await update.message.reply_text(f'⚠️ Failed to send message: {response.text}', reply_markup=MAIN_MENU_KEYBOARD)
     return ConversationHandler.END
@@ -614,6 +612,9 @@ async def show_case_messages(update, context, case_id):
 
     # Mark case as viewed (for "seen" status tracking)
     backend_request(f'/api/cases/{case_id}/mark_viewed/', method='post', token=token)
+    
+    # Mark staff messages as seen by user (bidirectional read receipts)
+    backend_request(f'/api/cases/{case_id}/mark_messages_seen/', method='post', token=token)
 
     # Fetch messages
     msg_resp = backend_request(f'/api/messages/?case={case_id}', method='get', token=token)
@@ -1110,6 +1111,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Mark case as viewed (user is viewing/replying to their case)
         backend_request(f'/api/cases/{case_id}/mark_viewed/', method='post', token=token)
+        # Mark admin messages as seen (bidirectional read receipts)
+        backend_request(f'/api/cases/{case_id}/mark_messages_seen/', method='post', token=token)
         
         msg_resp = backend_request(
             '/api/messages/',
@@ -1157,6 +1160,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 # Mark case as viewed (user is viewing/replying to their case)
                 backend_request(f'/api/cases/{selected_case_id}/mark_viewed/', method='post', token=token)
+                # Mark admin messages as seen (bidirectional read receipts)
+                backend_request(f'/api/cases/{selected_case_id}/mark_messages_seen/', method='post', token=token)
                 
                 msg_resp = backend_request(
                     '/api/messages/',
@@ -1584,7 +1589,8 @@ async def legacy_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         json={'case': target_case_id, 'content': content},
     )
     if response.ok:
-        await update.message.reply_text(f'✅ Message sent.')
+        # Admin message sent - no confirmation needed, real chat style
+        pass
     else:
         await update.message.reply_text(f'⚠️ Failed: {response.text}')
 
