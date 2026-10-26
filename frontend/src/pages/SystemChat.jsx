@@ -5,6 +5,7 @@ import LoadingButton from '../components/LoadingButton.jsx';
 import VoiceRecorder from '../components/VoiceRecorder.jsx';
 import AudioPlayer from '../components/AudioPlayer.jsx';
 import EmojiPickerComponent from '../components/EmojiPickerComponent.jsx';
+import AutoExpandTextarea from '../components/AutoExpandTextarea.jsx';
 
 const POLL_INTERVAL = 10000; // 10 seconds
 
@@ -338,7 +339,7 @@ export default function SystemChatPage() {
                                                     <AudioPlayer voiceData={msg.voice_data} duration={msg.voice_duration} />
                                                 </div>
                                             ) : (
-                                                <p style={{ margin: 0 }}>{msg.content}</p>
+                                                <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</p>
                                             )}
                                             
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
@@ -402,20 +403,31 @@ export default function SystemChatPage() {
                         ) : (
                             <form className="form-inline" onSubmit={handleSendMessage}>
                                 <div className="input-with-emoji">
-                                    <input
+                                    <AutoExpandTextarea
                                         ref={chatInputRef}
-                                        type="text"
                                         value={messageContent}
                                         onChange={(e) => setMessageContent(e.target.value)}
-                                        placeholder="Post an internal coordinate update..."
+                                        onEnterSubmit={handleSendMessage}
+                                        placeholder="Post an internal coordinate update... (Enter to send, Shift+Enter for new line)"
                                         required={!showVoiceRecorder}
-                                        disabled={loading}
+                                        disabled={loading || isSending}
+                                        minHeight={42}
+                                        maxHeight={160}
                                     />
                                     <EmojiPickerComponent
                                         onEmojiClick={(emoji) => {
-                                            setMessageContent(prev => prev + emoji);
-                                            if (chatInputRef.current) {
-                                                chatInputRef.current.focus();
+                                            const input = chatInputRef.current;
+                                            if (input) {
+                                                const start = input.selectionStart ?? messageContent.length;
+                                                const end = input.selectionEnd ?? messageContent.length;
+                                                const updated = messageContent.substring(0, start) + emoji + messageContent.substring(end);
+                                                setMessageContent(updated);
+                                                setTimeout(() => {
+                                                    input.focus();
+                                                    input.setSelectionRange(start + emoji.length, start + emoji.length);
+                                                }, 0);
+                                            } else {
+                                                setMessageContent(prev => prev + emoji);
                                             }
                                         }}
                                         inputRef={chatInputRef}
@@ -507,7 +519,7 @@ export default function SystemChatPage() {
                                                         {new Date(msg.timestamp).toLocaleString()}
                                                     </span>
                                                 </div>
-                                                <p style={{ margin: 'var(--space-xs) 0 var(--space-sm) 0', color: 'var(--text-primary)', fontSize: 'var(--font-base)', lineHeight: 1.6 }}>
+                                                <p style={{ margin: 'var(--space-xs) 0 var(--space-sm) 0', color: 'var(--text-primary)', fontSize: 'var(--font-base)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                                                     {msg.content}
                                                 </p>
                                                 {msg.file_name && (
@@ -590,13 +602,15 @@ export default function SystemChatPage() {
                         )}
 
                         <form className="form-inline" onSubmit={handleSendMessage} style={{ marginTop: 'var(--space-md)', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-sm)' }}>
-                            <div style={{ display: 'flex', gap: 'var(--space-sm)', width: '100%' }}>
-                                <input
-                                    type="text"
+                            <div style={{ display: 'flex', gap: 'var(--space-sm)', width: '100%', alignItems: 'flex-end' }}>
+                                <AutoExpandTextarea
                                     value={messageContent}
                                     onChange={(e) => setMessageContent(e.target.value)}
-                                    placeholder={selectedFile ? "Add some custom notes for the file report (optional)..." : "Log a formal system report or incident status update..."}
-                                    disabled={loading || isUploading}
+                                    onEnterSubmit={handleSendMessage}
+                                    placeholder={selectedFile ? "Add some custom notes for the file report (optional)..." : "Log a formal system report or incident status update... (Enter to submit, Shift+Enter for new line)"}
+                                    disabled={loading || isUploading || isSending}
+                                    minHeight={42}
+                                    maxHeight={180}
                                     style={{ flex: 1 }}
                                 />
                                 <input

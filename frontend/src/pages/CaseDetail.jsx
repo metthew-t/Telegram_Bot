@@ -6,6 +6,7 @@ import LoadingButton from '../components/LoadingButton.jsx';
 import VoiceRecorder from '../components/VoiceRecorder.jsx';
 import AudioPlayer from '../components/AudioPlayer.jsx';
 import EmojiPickerComponent from '../components/EmojiPickerComponent.jsx';
+import AutoExpandTextarea from '../components/AutoExpandTextarea.jsx';
 
 const POLL_INTERVAL = 10000; // 10 seconds
 
@@ -353,7 +354,7 @@ export default function CaseDetailPage() {
                       <AudioPlayer voiceData={msg.voice_data} duration={msg.voice_duration} />
                     </div>
                   ) : (
-                    <p>{msg.content}</p>
+                    <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '4px 0' }}>{msg.content}</p>
                   )}
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
@@ -422,20 +423,32 @@ export default function CaseDetailPage() {
                   ) : (
                     <form className="form-inline" onSubmit={handleSendMessage}>
                       <div className="input-with-emoji">
-                        <input
+                        <AutoExpandTextarea
                           ref={messageInputRef}
-                          type="text"
                           value={messageContent}
                           onChange={(e) => setMessageContent(e.target.value)}
+                          onEnterSubmit={handleSendMessage}
                           onFocus={() => markMessagesAsSeen()}
-                          placeholder="Type your message..."
+                          placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
                           required={!showVoiceRecorder}
+                          disabled={isSending}
+                          minHeight={42}
+                          maxHeight={160}
                         />
                         <EmojiPickerComponent
                           onEmojiClick={(emoji) => {
-                            setMessageContent(prev => prev + emoji);
-                            if (messageInputRef.current) {
-                              messageInputRef.current.focus();
+                            const input = messageInputRef.current;
+                            if (input) {
+                              const start = input.selectionStart ?? messageContent.length;
+                              const end = input.selectionEnd ?? messageContent.length;
+                              const updated = messageContent.substring(0, start) + emoji + messageContent.substring(end);
+                              setMessageContent(updated);
+                              setTimeout(() => {
+                                input.focus();
+                                input.setSelectionRange(start + emoji.length, start + emoji.length);
+                              }, 0);
+                            } else {
+                              setMessageContent(prev => prev + emoji);
                             }
                           }}
                           inputRef={messageInputRef}

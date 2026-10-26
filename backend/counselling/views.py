@@ -96,11 +96,35 @@ def get_recommendations(owner_status, telegram_status):
 
 # ─── Telegram Notification Helpers ───────────────────────────────────────────
 
+def split_telegram_text(text, max_len=4000):
+    """Split long text into safe chunks under Telegram's 4096 character limit."""
+    if not text:
+        return [""]
+    if len(text) <= max_len:
+        return [text]
+    chunks = []
+    remaining = str(text)
+    while len(remaining) > max_len:
+        split_point = remaining.rfind('\n\n', 0, max_len)
+        if split_point == -1 or split_point < max_len // 2:
+            split_point = remaining.rfind('\n', 0, max_len)
+        if split_point == -1 or split_point < max_len // 2:
+            split_point = remaining.rfind(' ', 0, max_len)
+        if split_point == -1 or split_point < max_len // 2:
+            split_point = max_len
+        chunk = remaining[:split_point].strip()
+        if chunk:
+            chunks.append(chunk)
+        remaining = remaining[split_point:].strip()
+    if remaining:
+        chunks.append(remaining)
+    return chunks
+
 def send_telegram_notification(telegram_id, text, reply_markup=None):
-    """Send a Telegram notification to a specific user"""
+    """Send a Telegram notification to a specific user (handles long texts safely)"""
     print(f"\n[send_telegram_notification] CALLED")
     print(f"[send_telegram_notification] telegram_id param: {telegram_id} (type: {type(telegram_id)})")
-    print(f"[send_telegram_notification] text length: {len(text)}")
+    print(f"[send_telegram_notification] text length: {len(text) if text else 0}")
     
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
@@ -118,50 +142,52 @@ def send_telegram_notification(telegram_id, text, reply_markup=None):
     print(f"[send_telegram_notification] Final telegram_id: '{telegram_id}'")
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": telegram_id,
-        "text": text,
-    }
-    if reply_markup is not None:
-        payload["reply_markup"] = reply_markup
+    chunks = split_telegram_text(text, max_len=4000)
+    all_success = True
 
-    print(f"[send_telegram_notification] API URL: {url[:50]}...")
-    print(f"[send_telegram_notification] Payload chat_id: {payload['chat_id']}")
-    print(f"[send_telegram_notification] Sending HTTP POST request...")
+    for idx, chunk in enumerate(chunks):
+        payload = {
+            "chat_id": telegram_id,
+            "text": chunk,
+        }
+        # Only attach reply_markup to the final chunk
+        if reply_markup is not None and idx == len(chunks) - 1:
+            payload["reply_markup"] = reply_markup
 
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        print(f"[send_telegram_notification] HTTP Response status: {response.status_code}")
-        
-        if response.status_code != 200:
-            print(f"ERROR: [send_telegram_notification] API Error: {response.status_code}")
-            print(f"ERROR: [send_telegram_notification] Response body: {response.text}")
+        print(f"[send_telegram_notification] Sending chunk {idx+1}/{len(chunks)} ({len(chunk)} chars)...")
+
+        try:
+            response = requests.post(url, json=payload, timeout=10)
+            print(f"[send_telegram_notification] HTTP Response status: {response.status_code}")
             
-            # Parse common errors
-            try:
-                error_data = response.json()
-                error_desc = error_data.get('description', '')
-                print(f"ERROR: [send_telegram_notification] Error description: {error_desc}")
+            if response.status_code != 200:
+                print(f"ERROR: [send_telegram_notification] API Error: {response.status_code}")
+                print(f"ERROR: [send_telegram_notification] Response body: {response.text}")
                 
-                if 'chat not found' in error_desc.lower():
-                    print(f"ERROR: [send_telegram_notification] USER HASN'T STARTED BOT YET!")
-                elif 'bot was blocked' in error_desc.lower():
-                    print(f"ERROR: [send_telegram_notification] USER BLOCKED THE BOT!")
-            except:
-                pass
+                # Parse common errors
+                try:
+                    error_data = response.json()
+                    error_desc = error_data.get('description', '')
+                    print(f"ERROR: [send_telegram_notification] Error description: {error_desc}")
+                    
+                    if 'chat not found' in error_desc.lower():
+                        print(f"ERROR: [send_telegram_notification] USER HASN'T STARTED BOT YET!")
+                    elif 'bot was blocked' in error_desc.lower():
+                        print(f"ERROR: [send_telegram_notification] USER BLOCKED THE BOT!")
+                except:
+                    pass
+                
+                all_success = False
+            else:
+                print(f"SUCCESS: [send_telegram_notification] Chunk {idx+1} sent successfully!")
             
-            return False
-        
-        print(f"SUCCESS: [send_telegram_notification] Message sent successfully!")
-        response_data = response.json()
-        print(f"SUCCESS: [send_telegram_notification] Message ID: {response_data.get('result', {}).get('message_id')}")
-        return True
-        
-    except Exception as e:
-        print(f"ERROR: [send_telegram_notification] Exception occurred: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
+        except Exception as e:
+            print(f"ERROR: [send_telegram_notification] Exception occurred: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            all_success = False
+
+    return all_success
 
 
 def notify_case_user(case, text):
