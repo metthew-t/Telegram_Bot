@@ -69,6 +69,8 @@ class Message(models.Model):
     timestamp = models.DateTimeField(default=timezone.now)
     seen_by_admin_at = models.DateTimeField(null=True, blank=True)  # Read receipt: when admin viewed the user's message
     seen_by_user_at = models.DateTimeField(null=True, blank=True)   # Read receipt: when user viewed the admin's message
+    is_edited = models.BooleanField(default=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Message from {self.sender} in {self.case}"
@@ -109,6 +111,8 @@ class InternalMessage(models.Model):
     timestamp = models.DateTimeField(default=timezone.now)
     file_name = models.CharField(max_length=255, null=True, blank=True)
     file_content = models.TextField(null=True, blank=True)
+    is_edited = models.BooleanField(default=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Internal {self.message_type} from {self.sender} at {self.timestamp}"

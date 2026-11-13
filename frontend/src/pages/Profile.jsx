@@ -23,6 +23,12 @@ export default function ProfilePage() {
     const [emailMessage, setEmailMessage] = useState('');
     const [emailError, setEmailError] = useState('');
 
+    // Username change states
+    const [newUsername, setNewUsername] = useState('');
+    const [usernameLoading, setUsernameLoading] = useState(false);
+    const [usernameMessage, setUsernameMessage] = useState('');
+    const [usernameError, setUsernameError] = useState('');
+
     // Notification Toggles saved in localStorage
     const [notifs, setNotifs] = useState(() => {
         const saved = localStorage.getItem('telegram_counselling_notifs');
@@ -327,6 +333,76 @@ export default function ProfilePage() {
             setEmailError(err.message || 'Failed to update email.');
         } finally {
             setEmailLoading(false);
+        }
+    };
+
+    const handleUsernameChange = async (e) => {
+        e.preventDefault();
+        setUsernameMessage('');
+        setUsernameError('');
+
+        const trimmed = newUsername.trim();
+        if (!trimmed) {
+            setUsernameError('Username is required');
+            return;
+        }
+
+        if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
+            setUsernameError('Username can only contain letters, numbers and underscores');
+            return;
+        }
+
+        if (trimmed.length < 3) {
+            setUsernameError('Username must be at least 3 characters');
+            return;
+        }
+
+        if (trimmed.length > 150) {
+            setUsernameError('Username cannot be more than 150 characters');
+            return;
+        }
+
+        setUsernameLoading(true);
+        try {
+            const response = await fetch(`https://telegram-bot-backend-bwu4.onrender.com/api/users/${user.id}/change-username/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('telegram_counselling_auth') ? JSON.parse(localStorage.getItem('telegram_counselling_auth')).access : ''}`
+                },
+                body: JSON.stringify({
+                    username: trimmed
+                })
+            });
+
+            const contentType = response.headers.get('content-type');
+            if (!response.ok) {
+                if (contentType && contentType.includes('text/html')) {
+                    throw new Error('Failed to update username. Please try again.');
+                }
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to update username');
+            }
+
+            const data = await response.json();
+            setUsernameMessage(data.message || 'Username updated successfully!');
+            setNewUsername('');
+
+            // Update user in localStorage
+            const authData = JSON.parse(localStorage.getItem('telegram_counselling_auth') || '{}');
+            if (authData.user) {
+                authData.user.username = data.username;
+                localStorage.setItem('telegram_counselling_auth', JSON.stringify(authData));
+            }
+
+            // Refresh page after 1.5 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } catch (err) {
+            setUsernameError(err.message || 'Failed to update username.');
+        } finally {
+            setUsernameLoading(false);
         }
     };
 
@@ -650,6 +726,105 @@ export default function ProfilePage() {
                     {/* ──── TAB CONTENT: SECURITY ──── */}
                     {activeSubTab === 'security' && (
                         <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                            
+                            {/* ── USERNAME CHANGE SECTION ── */}
+                            {(user?.role === 'admin' || user?.role === 'owner') && (
+                                <div style={{ marginBottom: 'var(--space-xl)' }}>
+                                    <h3 style={{ fontSize: 'var(--font-lg)', marginBottom: 'var(--space-sm)', color: 'var(--text-primary)' }}>
+                                        Change Username
+                                    </h3>
+                                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', marginBottom: 'var(--space-md)' }}>
+                                        Update your account username for signing in and displaying on the system.
+                                    </p>
+
+                                    <div style={{ 
+                                        background: 'rgba(99, 102, 241, 0.1)', 
+                                        border: '1px solid rgba(99, 102, 241, 0.3)',
+                                        borderRadius: 'var(--radius-md)',
+                                        padding: 'var(--space-md)',
+                                        marginBottom: 'var(--space-lg)',
+                                        marginLeft: '0',
+                                        marginRight: '0'
+                                    }}>
+                                        <div style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-sm)' }}>
+                                            <strong>Current Username:</strong> {user?.username}
+                                        </div>
+
+                                        <form onSubmit={handleUsernameChange} style={{ marginTop: 'var(--space-md)', padding: '0 10px' }}>
+                                            <label style={{ display: 'block', marginBottom: 'var(--space-sm)' }}>
+                                                <span style={{ display: 'block', fontSize: 'var(--font-sm)', fontWeight: 500, marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                                                    New Username
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    value={newUsername}
+                                                    onChange={(e) => setNewUsername(e.target.value)}
+                                                    placeholder="Enter new username"
+                                                    disabled={usernameLoading}
+                                                    style={{ 
+                                                        width: 'calc(100% - 20px)',
+                                                        padding: '12px 16px', 
+                                                        background: 'rgba(255, 255, 255, 0.03)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        color: '#ffffff',
+                                                        fontSize: '14px',
+                                                        marginLeft: '0',
+                                                        marginRight: '0'
+                                                    }}
+                                                />
+                                            </label>
+
+                                            {usernameMessage && (
+                                                <div style={{ 
+                                                    background: 'rgba(34, 197, 94, 0.1)', 
+                                                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    padding: 'var(--space-sm)',
+                                                    marginTop: 'var(--space-sm)',
+                                                    color: 'var(--success)',
+                                                    fontSize: 'var(--font-sm)'
+                                                }}>
+                                                    {usernameMessage}
+                                                </div>
+                                            )}
+
+                                            {usernameError && (
+                                                <div style={{ 
+                                                    background: 'rgba(239, 68, 68, 0.1)', 
+                                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    padding: 'var(--space-sm)',
+                                                    marginTop: 'var(--space-sm)',
+                                                    color: 'var(--danger)',
+                                                    fontSize: 'var(--font-sm)'
+                                                }}>
+                                                    {usernameError}
+                                                </div>
+                                            )}
+
+                                            <LoadingButton
+                                                type="submit"
+                                                loading={usernameLoading}
+                                                style={{
+                                                    marginTop: 'var(--space-md)',
+                                                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                                    color: '#ffffff',
+                                                    padding: '12px 24px',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: 'var(--font-sm)',
+                                                    fontWeight: 600,
+                                                    border: 'none',
+                                                    cursor: usernameLoading ? 'not-allowed' : 'pointer',
+                                                    opacity: usernameLoading ? 0.6 : 1
+                                                }}
+                                            >
+                                                {usernameLoading ? 'Updating...' : 'Update Username'}
+                                            </LoadingButton>
+                                        </form>
+                                    </div>
+                                </div>
+                            )}
                             
                             {/* ── EMAIL CHANGE SECTION ── */}
                             <h3 style={{ fontSize: 'var(--font-lg)', marginBottom: 'var(--space-sm)', color: 'var(--text-primary)' }}>

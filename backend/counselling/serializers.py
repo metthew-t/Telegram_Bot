@@ -141,8 +141,8 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['id', 'case', 'sender', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'voice_data', 'voice_duration', 'timestamp', 'seen_by_admin_at', 'seen_by_user_at']
-        read_only_fields = ['id', 'timestamp', 'seen_by_admin_at', 'seen_by_user_at']
+        fields = ['id', 'case', 'sender', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'voice_data', 'voice_duration', 'timestamp', 'seen_by_admin_at', 'seen_by_user_at', 'is_edited', 'edited_at']
+        read_only_fields = ['id', 'timestamp', 'seen_by_admin_at', 'seen_by_user_at', 'is_edited', 'edited_at']
 
     def get_sender(self, obj):
         request = self.context.get('request')
@@ -186,8 +186,8 @@ class InternalMessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InternalMessage
-        fields = ['id', 'sender', 'sender_name', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'message_format', 'voice_data', 'voice_duration', 'timestamp', 'file_name', 'file_content']
-        read_only_fields = ['id', 'timestamp', 'sender']
+        fields = ['id', 'sender', 'sender_name', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'message_format', 'voice_data', 'voice_duration', 'timestamp', 'file_name', 'file_content', 'is_edited', 'edited_at']
+        read_only_fields = ['id', 'timestamp', 'sender', 'is_edited', 'edited_at']
 
 
 class CaseAssignmentRequestSerializer(serializers.ModelSerializer):

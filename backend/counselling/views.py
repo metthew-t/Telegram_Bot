@@ -738,6 +738,76 @@ class UserViewSet(viewsets.ModelViewSet):
             'message': 'Email is already set to this address'
         })
 
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def change_username(self, request, pk=None):
+        """Allow admin or owner to change their own username"""
+        user = self.get_object()
+        
+        # Only admins and owners can change username
+        if user.role not in ['admin', 'owner']:
+            return Response(
+                {'error': 'Only admins and owners can change their username'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Users can only change their own username (unless owner)
+        if request.user.id != user.id and request.user.role != 'owner':
+            return Response(
+                {'error': 'You can only change your own username'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        new_username = request.data.get('username', '').strip()
+        
+        if not new_username:
+            return Response(
+                {'error': 'Username is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        import re
+        if not re.match(r'^[a-zA-Z0-9_]+$', new_username):
+            return Response(
+                {'error': 'Username can only contain letters, numbers and underscores'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(new_username) < 3:
+            return Response(
+                {'error': 'Username must be at least 3 characters'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(new_username) > 150:
+            return Response(
+                {'error': 'Username cannot be more than 150 characters'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check duplicate
+        if User.objects.filter(username=new_username).exclude(id=user.id).exists():
+            return Response(
+                {'error': 'This username is already taken. Please choose another one.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if user.username != new_username:
+            old_name = user.username
+            user.username = new_username
+            user.save(update_fields=['username'])
+            print(f"[UsernameChange] ✅ Username changed from {old_name} to {new_username} for ID {user.id}")
+            return Response({
+                'status': 'success',
+                'message': 'Username updated successfully.',
+                'username': new_username
+            })
+        
+        return Response({
+            'status': 'no_change',
+            'message': 'Username is already set to this value',
+            'username': user.username
+        })
+
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny], url_path='resend-verification')
     def resend_verification(self, request):
         """Resend verification email. Accepts {'email': '...'} or {'username': '...'}."""
@@ -1335,6 +1405,55 @@ class MessageViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+    def partial_update(self, request, *args, **kwargs):
+        """Allow admins and owners to edit their own sent text messages within 1 hour"""
+        instance = self.get_object()
+        user = request.user
+
+        if user.role not in ['admin', 'owner']:
+            return Response(
+                {'error': 'Only admins and owners can edit messages'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if instance.sender.id != user.id:
+            return Response(
+                {'error': 'You can only edit your own messages'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if instance.message_type != 'text':
+            return Response(
+                {'error': 'Only text messages can be edited'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        time_diff = timezone.now() - instance.timestamp
+        if time_diff.total_seconds() > 3600:
+            return Response(
+                {'error': 'Messages can only be edited within 1 hour of sending'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        new_content = request.data.get('content', '').strip()
+        if not new_content:
+            return Response(
+                {'error': 'Message content cannot be empty'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        instance.content = new_content
+        instance.is_edited = True
+        instance.edited_at = timezone.now()
+        instance.save(update_fields=['content', 'is_edited', 'edited_at'])
+
+        print(f"[MessageEdit] ✅ Message #{instance.id} edited by {user.username}")
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         case = serializer.validated_data['case']
         user = self.request.user
@@ -1855,6 +1974,55 @@ class InternalMessageViewSet(viewsets.ModelViewSet):
             send_internal_message_notification(internal_message, self.request.user)
         except Exception as e:
             print(f"[EMAIL NOTIFICATION] Error sending internal message notification: {e}")
+
+    def partial_update(self, request, *args, **kwargs):
+        """Allow admins and owners to edit their own sent internal text messages/reports within 1 hour"""
+        instance = self.get_object()
+        user = request.user
+
+        if user.role not in ['admin', 'owner']:
+            return Response(
+                {'error': 'Only admins and owners can edit messages'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if instance.sender.id != user.id:
+            return Response(
+                {'error': 'You can only edit your own messages'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if instance.message_format != 'text':
+            return Response(
+                {'error': 'Only text messages can be edited'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        time_diff = timezone.now() - instance.timestamp
+        if time_diff.total_seconds() > 3600:
+            return Response(
+                {'error': 'Messages can only be edited within 1 hour of sending'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        new_content = request.data.get('content', '').strip()
+        if not new_content:
+            return Response(
+                {'error': 'Message content cannot be empty'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        instance.content = new_content
+        instance.is_edited = True
+        instance.edited_at = timezone.now()
+        instance.save(update_fields=['content', 'is_edited', 'edited_at'])
+
+        print(f"[InternalMessageEdit] ✅ Internal message #{instance.id} edited by {user.username}")
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
     
     def destroy(self, request, *args, **kwargs):
         """Allow owner to delete internal messages"""

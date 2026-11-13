@@ -45,4 +45,5 @@ urlpatterns = [
     path('api/purge-test-data/', PurgeTestDataView.as_view(), name='purge_test_data'),
     # Explicit route for change_email action (workaround for @action not registering)
     path('api/users/<int:pk>/change-email/', UserViewSet.as_view({'post': 'change_email'}), name='user-change-email'),
+    path('api/users/<int:pk>/change-username/', UserViewSet.as_view({'post': 'change_username'}), name='user-change-username'),
 ]

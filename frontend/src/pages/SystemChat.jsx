@@ -21,9 +21,15 @@ export default function SystemChatPage() {
     const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
     const [viewers, setViewers] = useState([]);
     const [showViewersModal, setShowViewersModal] = useState(false);
+    const [editingMessageId, setEditingMessageId] = useState(null);
+    const [editingContent, setEditingContent] = useState('');
+    const [editingSaving, setEditingSaving] = useState(false);
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
     const chatInputRef = useRef(null);
+    const messagesContainerRef = useRef(null);
+    const isNearBottomRef = useRef(true);
+    const justSentRef = useRef(false);
     const user = getUser();
 
     // Reset selected file when tab changes
@@ -60,11 +66,51 @@ export default function SystemChatPage() {
 
     // Scroll to the bottom when messages update
     useEffect(() => {
-        scrollToBottom();
+        if (justSentRef.current) {
+            justSentRef.current = false;
+            scrollToBottom(true);
+        } else {
+            scrollToBottom(false);
+        }
     }, [messages]);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const scrollToBottom = (force = false) => {
+        if (force || isNearBottomRef.current) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
+
+    const handleContainerScroll = () => {
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        isNearBottomRef.current = distanceFromBottom <= 80;
+    };
+
+    const handleEditMessage = (msg) => {
+        setEditingMessageId(msg.id);
+        setEditingContent(msg.content);
+    };
+
+    const handleSaveEdit = async (msgId) => {
+        if (!editingContent.trim()) return;
+        setEditingSaving(true);
+        try {
+            await apiCall(`/api/internal-messages/${msgId}/`, 'PATCH', { content: editingContent.trim() });
+            setEditingMessageId(null);
+            setEditingContent('');
+            await fetchMessages(false);
+        } catch (err) {
+            const errMsg = err?.response?.data?.error || err?.message || 'Failed to edit message';
+            alert(errMsg);
+        } finally {
+            setEditingSaving(false);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingMessageId(null);
+        setEditingContent('');
     };
 
     const fetchMessages = async (isInitial = false) => {
@@ -73,6 +119,9 @@ export default function SystemChatPage() {
             const data = await fetchInternalMessages({ message_type: activeTab });
             setMessages(data || []);
             setError('');
+            if (isInitial) {
+                setTimeout(() => scrollToBottom(true), 50);
+            }
         } catch (err) {
             if (isInitial) setError(`Failed to load system ${activeTab === 'chat' ? 'chat' : 'reports'}`);
         } finally {
@@ -140,6 +189,7 @@ export default function SystemChatPage() {
                 });
                 setShowVoiceRecorder(false);
                 setError('');
+                justSentRef.current = true;
                 await fetchMessages(false);
             } catch (err) {
                 setError('Failed to send voice message');
@@ -164,6 +214,7 @@ export default function SystemChatPage() {
                 setMessageContent('');
                 setSelectedFile(null);
                 setError('');
+                justSentRef.current = true;
                 await fetchMessages(false);
             } catch (err) {
                 setError('Failed to send message');
@@ -258,7 +309,7 @@ export default function SystemChatPage() {
                                 <div className="loading-spinner" />
                             </div>
                         ) : (
-                            <div className="messages-list" style={{ height: '400px', overflowY: 'auto' }}>
+                            <div className="messages-list" ref={messagesContainerRef} onScroll={handleContainerScroll} style={{ height: '400px', overflowY: 'auto' }}>
                                 {messages.length === 0 ? (
                                     <p className="empty-state">No staff messages yet. Start the conversation below.</p>
                                 ) : (
@@ -333,13 +384,79 @@ export default function SystemChatPage() {
                                                 )}
                                             </div>
                                             
-                                            {/* Voice Message */}
+                                            {/* Message Content - with inline edit support */}
                                             {msg.message_format === 'voice' && msg.voice_data ? (
                                                 <div style={{ margin: '8px 0' }}>
                                                     <AudioPlayer voiceData={msg.voice_data} duration={msg.voice_duration} />
                                                 </div>
+                                            ) : editingMessageId === msg.id ? (
+                                                <div style={{ marginTop: '6px' }}>
+                                                    <textarea
+                                                        value={editingContent}
+                                                        onChange={(e) => setEditingContent(e.target.value)}
+                                                        style={{
+                                                            width: '100%',
+                                                            minHeight: '60px',
+                                                            background: 'rgba(255,255,255,0.08)',
+                                                            border: '1px solid rgba(99,102,241,0.4)',
+                                                            borderRadius: '6px',
+                                                            color: '#fff',
+                                                            padding: '8px',
+                                                            fontSize: '14px',
+                                                            resize: 'vertical',
+                                                            boxSizing: 'border-box'
+                                                        }}
+                                                        autoFocus
+                                                    />
+                                                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                                        <button
+                                                            onClick={() => handleSaveEdit(msg.id)}
+                                                            disabled={editingSaving || !editingContent.trim()}
+                                                            className="button button-primary"
+                                                            style={{ fontSize: '12px', padding: '4px 12px' }}
+                                                        >
+                                                            {editingSaving ? 'Saving...' : '✓ Save'}
+                                                        </button>
+                                                        <button
+                                                            onClick={handleCancelEdit}
+                                                            className="button"
+                                                            style={{ fontSize: '12px', padding: '4px 12px' }}
+                                                        >
+                                                            ✕ Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             ) : (
-                                                <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</p>
+                                                <>
+                                                    <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</p>
+                                                    {isOwnMessage(msg) && (user?.role === 'admin' || user?.role === 'owner') && msg.message_format !== 'voice' &&
+                                                     (Date.now() - new Date(msg.timestamp).getTime() <= 3600000) && (
+                                                        <button
+                                                            onClick={() => handleEditMessage(msg)}
+                                                            style={{
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                color: 'rgba(255,255,255,0.4)',
+                                                                cursor: 'pointer',
+                                                                fontSize: '11px',
+                                                                padding: '2px 4px',
+                                                                marginTop: '2px',
+                                                                borderRadius: '4px',
+                                                                transition: 'color 0.2s'
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.8)'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                                                            title="Edit message"
+                                                        >
+                                                            ✏️ Edit
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
+                                            {msg.is_edited && (
+                                                <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                                                    (edited)
+                                                </span>
                                             )}
                                             
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
@@ -478,7 +595,7 @@ export default function SystemChatPage() {
                                 <div className="loading-spinner" />
                             </div>
                         ) : (
-                            <div className="messages-list" style={{ height: '400px', overflowY: 'auto', background: 'transparent', border: 'none', padding: 0 }}>
+                            <div className="messages-list" ref={messagesContainerRef} onScroll={handleContainerScroll} style={{ height: '400px', overflowY: 'auto', background: 'transparent', border: 'none', padding: 0 }}>
                                 {messages.length === 0 ? (
                                     <p className="empty-state">No system reports filed yet. Log the first report below.</p>
                                 ) : (
@@ -519,9 +636,75 @@ export default function SystemChatPage() {
                                                         {new Date(msg.timestamp).toLocaleString()}
                                                     </span>
                                                 </div>
-                                                <p style={{ margin: 'var(--space-xs) 0 var(--space-sm) 0', color: 'var(--text-primary)', fontSize: 'var(--font-base)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                                    {msg.content}
-                                                </p>
+                                                {editingMessageId === msg.id ? (
+                                                    <div style={{ marginTop: '6px', marginBottom: '8px' }}>
+                                                        <textarea
+                                                            value={editingContent}
+                                                            onChange={(e) => setEditingContent(e.target.value)}
+                                                            style={{
+                                                                width: '100%',
+                                                                minHeight: '60px',
+                                                                background: 'rgba(255,255,255,0.08)',
+                                                                border: '1px solid rgba(245,158,11,0.4)',
+                                                                borderRadius: '6px',
+                                                                color: '#fff',
+                                                                padding: '8px',
+                                                                fontSize: '14px',
+                                                                resize: 'vertical',
+                                                                boxSizing: 'border-box'
+                                                            }}
+                                                            autoFocus
+                                                        />
+                                                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                                            <button
+                                                                onClick={() => handleSaveEdit(msg.id)}
+                                                                disabled={editingSaving || !editingContent.trim()}
+                                                                className="button button-primary"
+                                                                style={{ fontSize: '12px', padding: '4px 12px' }}
+                                                            >
+                                                                {editingSaving ? 'Saving...' : '✓ Save'}
+                                                            </button>
+                                                            <button
+                                                                onClick={handleCancelEdit}
+                                                                className="button"
+                                                                style={{ fontSize: '12px', padding: '4px 12px' }}
+                                                            >
+                                                                ✕ Cancel
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <p style={{ margin: 'var(--space-xs) 0 var(--space-sm) 0', color: 'var(--text-primary)', fontSize: 'var(--font-base)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                                            {msg.content}
+                                                        </p>
+                                                        {isOwnMessage(msg) && (user?.role === 'admin' || user?.role === 'owner') &&
+                                                         (Date.now() - new Date(msg.timestamp).getTime() <= 3600000) && (
+                                                            <button
+                                                                onClick={() => handleEditMessage(msg)}
+                                                                style={{
+                                                                    background: 'none',
+                                                                    border: 'none',
+                                                                    color: 'rgba(245, 158, 11, 0.7)',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '11px',
+                                                                    padding: '2px 4px',
+                                                                    marginBottom: '6px',
+                                                                    borderRadius: '4px',
+                                                                    transition: 'color 0.2s'
+                                                                }}
+                                                                title="Edit report content"
+                                                            >
+                                                                ✏️ Edit
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                )}
+                                                {msg.is_edited && (
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>
+                                                        (edited)
+                                                    </span>
+                                                )}
                                                 {msg.file_name && (
                                                     <div style={{
                                                         marginTop: 'var(--space-sm)',

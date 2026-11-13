@@ -23,9 +23,15 @@ export default function CaseDetailPage() {
   const [isSending, setIsSending] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingContent, setEditingContent] = useState('');
+  const [editingSaving, setEditingSaving] = useState(false);
   const messagesEndRef = useRef(null);
   const pollRef = useRef(null);
   const messageInputRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const isNearBottomRef = useRef(true);
+  const justSentRef = useRef(false);
   const user = getUser();
   const navigate = useNavigate();
 
@@ -51,11 +57,25 @@ export default function CaseDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (justSentRef.current) {
+      justSentRef.current = false;
+      scrollToBottom(true);
+    } else {
+      scrollToBottom(false);
+    }
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (force = false) => {
+    if (force || isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleContainerScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    isNearBottomRef.current = distanceFromBottom <= 80;
   };
 
   const fetchCaseDetail = async () => {
@@ -64,6 +84,7 @@ export default function CaseDetailPage() {
       const data = await apiCall(`/api/cases/${id}/`, 'GET');
       setCaseData(data);
       await fetchMessages();
+      scrollToBottom(true);
     } catch (err) {
       setError('Failed to load case details');
     } finally {
@@ -101,6 +122,32 @@ export default function CaseDetailPage() {
     }
   };
 
+  const handleEditMessage = (msg) => {
+    setEditingMessageId(msg.id);
+    setEditingContent(msg.content);
+  };
+
+  const handleSaveEdit = async (msgId) => {
+    if (!editingContent.trim()) return;
+    setEditingSaving(true);
+    try {
+      await apiCall(`/api/messages/${msgId}/`, 'PATCH', { content: editingContent.trim() });
+      setEditingMessageId(null);
+      setEditingContent('');
+      await fetchMessages();
+    } catch (err) {
+      const errMsg = err?.response?.data?.error || err?.message || 'Failed to edit message';
+      alert(errMsg);
+    } finally {
+      setEditingSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
   const handleSendMessage = async (e, voiceData = null) => {
     e?.preventDefault();
     
@@ -117,6 +164,7 @@ export default function CaseDetailPage() {
         });
         setShowVoiceRecorder(false);
         setError('');
+        justSentRef.current = true;
         await fetchMessages();
       } catch (err) {
         setError('Failed to send voice message');
@@ -135,6 +183,7 @@ export default function CaseDetailPage() {
         });
         setMessageContent('');
         setError('');
+        justSentRef.current = true;
         await fetchMessages();
       } catch (err) {
         setError('Failed to send message');
@@ -313,7 +362,7 @@ export default function CaseDetailPage() {
               Auto-refreshes every 10s
             </span>
           </h3>
-          <div className="messages-list">
+          <div className="messages-list" ref={messagesContainerRef} onScroll={handleContainerScroll}>
             {messages.length === 0 ? (
               <p className="empty-state">No messages yet. Start the conversation below.</p>
             ) : (
@@ -348,13 +397,81 @@ export default function CaseDetailPage() {
                     )}
                   </div>
                   
-                  {/* Voice Message */}
+                  {/* Message content - with inline edit support */}
                   {msg.message_type === 'voice' && msg.voice_data ? (
                     <div style={{ marginTop: '8px' }}>
                       <AudioPlayer voiceData={msg.voice_data} duration={msg.voice_duration} />
                     </div>
+                  ) : editingMessageId === msg.id ? (
+                    <div style={{ marginTop: '6px' }}>
+                      <textarea
+                        value={editingContent}
+                        onChange={(e) => setEditingContent(e.target.value)}
+                        style={{
+                          width: '100%',
+                          minHeight: '60px',
+                          background: 'rgba(255,255,255,0.08)',
+                          border: '1px solid rgba(99,102,241,0.4)',
+                          borderRadius: '6px',
+                          color: '#fff',
+                          padding: '8px',
+                          fontSize: '14px',
+                          resize: 'vertical',
+                          boxSizing: 'border-box'
+                        }}
+                        autoFocus
+                      />
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                        <button
+                          onClick={() => handleSaveEdit(msg.id)}
+                          disabled={editingSaving || !editingContent.trim()}
+                          className="button button-primary"
+                          style={{ fontSize: '12px', padding: '4px 12px' }}
+                        >
+                          {editingSaving ? 'Saving...' : '✓ Save'}
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="button"
+                          style={{ fontSize: '12px', padding: '4px 12px' }}
+                        >
+                          ✕ Cancel
+                        </button>
+                      </div>
+                    </div>
                   ) : (
-                    <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '4px 0' }}>{msg.content}</p>
+                    <>
+                      <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '4px 0' }}>{msg.content}</p>
+                      {/* Edit button for own text messages within 1 hour */}
+                      {isOwnMessage(msg) && (user?.role === 'admin' || user?.role === 'owner') &&
+                       (Date.now() - new Date(msg.timestamp).getTime() <= 3600000) && (
+                        <button
+                          onClick={() => handleEditMessage(msg)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'rgba(255,255,255,0.4)',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            padding: '2px 4px',
+                            marginTop: '2px',
+                            borderRadius: '4px',
+                            transition: 'color 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.8)'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                          title="Edit message"
+                        >
+                          ✏️ Edit
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {/* (edited) label */}
+                  {msg.is_edited && (
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                      (edited)
+                    </span>
                   )}
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>

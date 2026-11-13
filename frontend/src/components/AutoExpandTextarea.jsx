@@ -47,9 +47,16 @@ const AutoExpandTextarea = forwardRef(function AutoExpandTextarea(
   }, [value]);
 
   const handleKeyDown = (e) => {
-    // Social media standard: Enter to send, Shift+Enter for newline
-    if (e.key === 'Enter' && !e.shiftKey) {
-      if (onEnterSubmit) {
+    if (e.key === 'Enter') {
+      // Detect touch/mobile device
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      if (isTouchDevice) {
+        // On mobile: Enter always inserts newline, never sends
+        // Don't prevent default — let the browser/keyboard handle the newline naturally
+        return;
+      }
+      // On desktop: Enter sends, Shift+Enter for newline
+      if (!e.shiftKey && onEnterSubmit) {
         e.preventDefault();
         onEnterSubmit(e);
       }
