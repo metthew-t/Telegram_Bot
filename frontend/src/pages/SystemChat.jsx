@@ -64,19 +64,17 @@ export default function SystemChatPage() {
         };
     }, [activeTab]);
 
-    // Scroll to the bottom when messages update
+    // Scroll to the bottom ONLY when the user explicitly just sent a message
     useEffect(() => {
         if (justSentRef.current) {
             justSentRef.current = false;
             scrollToBottom(true);
-        } else {
-            scrollToBottom(false);
         }
     }, [messages]);
 
     const scrollToBottom = (force = false) => {
-        if (force || isNearBottomRef.current) {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (force && messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
         }
     };
 
@@ -120,7 +118,11 @@ export default function SystemChatPage() {
             setMessages(data || []);
             setError('');
             if (isInitial) {
-                setTimeout(() => scrollToBottom(true), 50);
+                setTimeout(() => {
+                    if (messagesContainerRef.current) {
+                        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+                    }
+                }, 50);
             }
         } catch (err) {
             if (isInitial) setError(`Failed to load system ${activeTab === 'chat' ? 'chat' : 'reports'}`);

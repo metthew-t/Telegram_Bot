@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { getUser } from '../auth.js';
 import { apiCall } from '../api.js';
@@ -23,6 +24,17 @@ export default function AdminDashboardPage() {
     fetchFeedbacks();
     fetchMyAssignmentRequests();
   }, []);
+
+  useEffect(() => {
+    if (selectedFeedback) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [selectedFeedback]);
 
   useEffect(() => {
     applyFilters();
@@ -301,8 +313,6 @@ export default function AdminDashboardPage() {
                       onClick={(e) => {
                         e.stopPropagation(); // Prevent navigation to case detail
                         setSelectedFeedback(caseFeedback);
-                        // Scroll page to top when modal opens
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       style={{ 
                         marginTop: '8px', 
@@ -410,23 +420,19 @@ export default function AdminDashboardPage() {
       {error && <div className="form-error" style={{ marginTop: '16px' }}>{error}</div>}
 
       {/* Feedback Modal */}
-      {selectedFeedback && (
+      {selectedFeedback && createPortal(
         <div 
           style={{
             position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
+            inset: 0,
             background: 'rgba(0, 0, 0, 0.85)',
             backdropFilter: 'blur(4px)',
             display: 'flex',
-            alignItems: 'flex-start',  /* Changed from 'center' to 'flex-start' */
+            alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000,
+            zIndex: 99999,
             padding: '20px',
-            paddingTop: '50px',  /* Added padding from top so modal appears at top of viewport */
-            overflowY: 'auto',  /* Allow scrolling if content is too tall */
+            boxSizing: 'border-box',
             animation: 'fadeIn 0.2s ease'
           }}
           onClick={() => setSelectedFeedback(null)}
@@ -442,7 +448,8 @@ export default function AdminDashboardPage() {
               overflow: 'auto',
               boxShadow: '0 24px 80px rgba(0, 0, 0, 0.4), 0 0 1px rgba(99, 102, 241, 0.5)',
               border: '1px solid rgba(99, 102, 241, 0.1)',
-              animation: 'slideUp 0.3s ease'
+              animation: 'slideUp 0.3s ease',
+              margin: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -558,7 +565,8 @@ export default function AdminDashboardPage() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

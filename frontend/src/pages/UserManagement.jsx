@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getUser } from '../auth.js';
 import { apiCall } from '../api.js';
 import LoadingButton from '../components/LoadingButton.jsx';
@@ -27,6 +28,17 @@ export default function UserManagementPage() {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    if (isAddModalOpen || isPurgeModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isAddModalOpen, isPurgeModalOpen]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -394,9 +406,35 @@ export default function UserManagementPage() {
       )}
 
       {/* Add User Modal */}
-      {isAddModalOpen && (
-        <div className="modal-overlay" onClick={() => !isAdding && setIsAddModalOpen(false)}>
-          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+      {isAddModalOpen && createPortal(
+        <div 
+          className="modal-overlay" 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            padding: '20px',
+            boxSizing: 'border-box'
+          }}
+          onClick={() => !isAdding && setIsAddModalOpen(false)}
+        >
+          <div 
+            className="modal-content glass-panel" 
+            style={{
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              width: '100%',
+              maxWidth: '520px',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.9), 0 0 50px rgba(255, 215, 0, 0.25)',
+              margin: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 style={{ marginBottom: '1rem' }}>Add New User</h2>
             {addError && <div className="form-error">{addError}</div>}
             <form onSubmit={handleAddSubmit}>
@@ -406,6 +444,8 @@ export default function UserManagementPage() {
                   type="text"
                   className="input"
                   required
+                  autoFocus
+                  placeholder="Enter username"
                   value={addFormData.username}
                   onChange={(e) => setAddFormData({ ...addFormData, username: e.target.value })}
                 />
@@ -416,6 +456,7 @@ export default function UserManagementPage() {
                   type="email"
                   className="input"
                   required
+                  placeholder="Enter email address"
                   value={addFormData.email}
                   onChange={(e) => setAddFormData({ ...addFormData, email: e.target.value })}
                 />
@@ -427,6 +468,7 @@ export default function UserManagementPage() {
                   className="input"
                   required
                   minLength={8}
+                  placeholder="Minimum 8 characters"
                   value={addFormData.password}
                   onChange={(e) => setAddFormData({ ...addFormData, password: e.target.value })}
                 />
@@ -465,13 +507,39 @@ export default function UserManagementPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Reset System Modal */}
-      {isPurgeModalOpen && (
-        <div className="modal-overlay" onClick={() => !isPurging && setIsPurgeModalOpen(false)}>
-          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+      {isPurgeModalOpen && createPortal(
+        <div 
+          className="modal-overlay" 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            padding: '20px',
+            boxSizing: 'border-box'
+          }}
+          onClick={() => !isPurging && setIsPurgeModalOpen(false)}
+        >
+          <div 
+            className="modal-content glass-panel" 
+            style={{
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              width: '100%',
+              maxWidth: '480px',
+              margin: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 style={{ color: '#ef4444', marginBottom: '1rem' }}>⚠️ Confirm Pre-Launch Reset</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 'var(--font-sm)', lineHeight: '1.5' }}>
               This action will permanently delete all test cases, messages, chat records, and non-owner accounts.
@@ -520,7 +588,8 @@ export default function UserManagementPage() {
               </LoadingButton>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

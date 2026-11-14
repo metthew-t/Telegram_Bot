@@ -57,17 +57,16 @@ export default function CaseDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    // Only scroll to bottom when the user explicitly just sent a message
     if (justSentRef.current) {
       justSentRef.current = false;
       scrollToBottom(true);
-    } else {
-      scrollToBottom(false);
     }
   }, [messages]);
 
   const scrollToBottom = (force = false) => {
-    if (force || isNearBottomRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (force && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   };
 
@@ -84,7 +83,12 @@ export default function CaseDetailPage() {
       const data = await apiCall(`/api/cases/${id}/`, 'GET');
       setCaseData(data);
       await fetchMessages();
-      scrollToBottom(true);
+      // Scroll to bottom once on initial load
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 100);
     } catch (err) {
       setError('Failed to load case details');
     } finally {
