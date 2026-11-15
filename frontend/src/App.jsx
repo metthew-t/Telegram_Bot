@@ -14,6 +14,7 @@ import EmailVerifiedPage from './pages/EmailVerified.jsx';
 import ForgotPasswordPage from './pages/ForgotPassword.jsx';
 import ResetPasswordPage from './pages/ResetPassword.jsx';
 import AnalyticsPage from './pages/Analytics.jsx';
+import SettingsPage from './pages/Settings.jsx';
 import { getUser, isAuthenticated, logoutUser } from './auth.js';
 
 function ProtectedRoute({ children, requiredRole }) {
@@ -67,6 +68,9 @@ function Header({ user, onLogout, selectedRole }) {
             </Link>
             <Link className={location.pathname === '/audit-logs' ? 'active' : ''} to="/audit-logs">
               Audit Logs
+            </Link>
+            <Link className={location.pathname === '/settings' ? 'active' : ''} to="/settings">
+              Settings
             </Link>
           </>
         )}
@@ -198,6 +202,14 @@ export default function App() {
               element={
                 <ProtectedRoute requiredRole="owner">
                   <AuditLogsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute requiredRole="owner">
+                  <SettingsPage />
                 </ProtectedRoute>
               }
             />

@@ -2394,3 +2394,188 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 'rating_distribution': rating_distribution,
             }
         })
+
+
+# ─── System & Technical Settings ──────────────────────────────────────────────
+
+class SystemSettingsView(APIView):
+    """
+    GET /api/system/settings/
+    Owner-only endpoint returning live health metrics, connection statuses,
+    database counts, and configuration states.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'owner':
+            return Response({'error': 'Owner privileges required'}, status=status.HTTP_403_FORBIDDEN)
+
+        import time
+        from django.db import connection
+
+        # Database latency & stats
+        db_start = time.time()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+            db_latency_ms = round((time.time() - db_start) * 1000, 2)
+            db_status = 'connected'
+        except Exception as e:
+            db_latency_ms = None
+            db_status = f'error: {str(e)[:50]}'
+
+        cutoff_24h = timezone.now() - timezone.timedelta(hours=24)
+
+        user_counts = {
+            'total': User.objects.count(),
+            'owners': User.objects.filter(role='owner').count(),
+            'admins': User.objects.filter(role='admin').count(),
+            'users': User.objects.filter(role='user').count(),
+            'verified_emails': User.objects.filter(email_verified=True).count(),
+        }
+
+        case_counts = {
+            'total': Case.objects.count(),
+            'open': Case.objects.filter(status='open').count(),
+            'assigned': Case.objects.filter(status='assigned').count(),
+            'closed': Case.objects.filter(status='closed').count(),
+            'resolved': Case.objects.filter(status='resolved').count(),
+            'unassigned_over_24h': Case.objects.filter(
+                status='open',
+                assigned_admin__isnull=True,
+                created_at__lte=cutoff_24h
+            ).count(),
+            'busy_notices_sent': Case.objects.filter(busy_notice_sent=True).count(),
+        }
+
+        message_counts = {
+            'case_messages': Message.objects.count(),
+            'internal_messages': InternalMessage.objects.count(),
+            'audit_logs': AuditLog.objects.count(),
+        }
+
+        # Telegram Bot Status
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        bot_info = None
+        bot_status = 'offline'
+        if bot_token:
+            try:
+                res = requests.get(f"https://api.telegram.org/bot{bot_token}/getMe", timeout=6)
+                if res.status_code == 200 and res.json().get('ok'):
+                    bot_data = res.json().get('result', {})
+                    bot_status = 'online'
+                    bot_info = {
+                        'id': bot_data.get('id'),
+                        'first_name': bot_data.get('first_name'),
+                        'username': bot_data.get('username'),
+                        'can_join_groups': bot_data.get('can_join_groups'),
+                    }
+                else:
+                    bot_status = 'invalid_token'
+            except Exception as e:
+                bot_status = f'unreachable: {str(e)[:40]}'
+
+        # Brevo Email Status
+        brevo_key = os.getenv('BREVO_API_KEY')
+        brevo_sender = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@astucounselbot.com')
+        email_status = {
+            'configured': bool(brevo_key),
+            'sender': brevo_sender,
+            'api_key_masked': f"{brevo_key[:6]}...{brevo_key[-4:]}" if brevo_key and len(brevo_key) > 10 else None
+        }
+
+        return Response({
+            'database': {
+                'vendor': connection.vendor,
+                'status': db_status,
+                'latency_ms': db_latency_ms,
+                'name': connection.settings_dict.get('NAME', 'unknown'),
+            },
+            'counts': {
+                'users': user_counts,
+                'cases': case_counts,
+                'messages': message_counts,
+            },
+            'telegram': {
+                'status': bot_status,
+                'bot_info': bot_info,
+                'busy_notice_engine': 'Active (10m periodic cycle + API triggers)',
+            },
+            'email': email_status,
+            'environment': {
+                'debug': settings.DEBUG,
+                'frontend_url': os.getenv('FRONTEND_URL', 'https://astucounselbot.vercel.app'),
+            }
+        })
+
+
+class SystemActionView(APIView):
+    """
+    POST /api/system/action/
+    Owner-only triggers for technical testing and operational controls.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role != 'owner':
+            return Response({'error': 'Owner privileges required'}, status=status.HTTP_403_FORBIDDEN)
+
+        action = request.data.get('action')
+
+        if action == 'run_busy_check':
+            sent_count = check_and_send_busy_notices()
+            return Response({
+                'status': 'success',
+                'message': f'24-Hour Busy Notice check completed. {sent_count} notice(s) sent to unassigned case users.',
+                'notices_sent': sent_count
+            })
+
+        elif action == 'test_bot':
+            bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+            if not bot_token:
+                return Response({'error': 'TELEGRAM_BOT_TOKEN is not set in environment.'}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                res = requests.get(f"https://api.telegram.org/bot{bot_token}/getMe", timeout=8)
+                data = res.json()
+                if res.status_code == 200 and data.get('ok'):
+                    return Response({
+                        'status': 'success',
+                        'message': f"Telegram Bot connection verified! Connected as @{data['result'].get('username')}.",
+                        'bot_info': data['result']
+                    })
+                return Response({'error': f"Telegram API error: {data.get('description')}"}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                return Response({'error': f"Failed to contact Telegram API: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        elif action == 'test_email':
+            target_email = request.data.get('email') or request.user.email
+            if not target_email:
+                return Response({'error': 'No destination email provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            from .assignment_views import _send_email
+            subject = "🔧 System Diagnostic Email - Counselling Platform"
+            html_body = f"""
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; background: #0b0f19; color: #f8fafc; border-radius: 12px; border: 1px solid #d4af37;">
+                <h2 style="color: #d4af37; margin-top: 0;">Diagnostic Email Verification</h2>
+                <p>This automated message confirms that Brevo email delivery, DKIM signatures, and notifications are operating correctly on your platform.</p>
+                <div style="background: rgba(255,255,255,0.05); padding: 12px 16px; border-radius: 8px; margin: 16px 0;">
+                    <p style="margin: 4px 0;"><strong>Recipient:</strong> {target_email}</p>
+                    <p style="margin: 4px 0;"><strong>Timestamp:</strong> {timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
+                    <p style="margin: 4px 0;"><strong>Status:</strong> Healthy</p>
+                </div>
+                <p style="color: #94a3b8; font-size: 13px;">Sent by Owner Technical Management Console.</p>
+            </div>
+            """
+            text_body = f"System Diagnostic Email\nRecipient: {target_email}\nTimestamp: {timezone.now()}\nStatus: Healthy"
+            try:
+                _send_email(subject, html_body, text_body, [target_email])
+                return Response({
+                    'status': 'success',
+                    'message': f"Diagnostic email dispatched to {target_email}. Check your inbox/spam folder."
+                })
+            except Exception as e:
+                return Response({'error': f"Failed to send email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({'error': f"Unknown action: '{action}'"}, status=status.HTTP_400_BAD_REQUEST)
+
