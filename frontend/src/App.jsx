@@ -15,6 +15,7 @@ import ForgotPasswordPage from './pages/ForgotPassword.jsx';
 import ResetPasswordPage from './pages/ResetPassword.jsx';
 import AnalyticsPage from './pages/Analytics.jsx';
 import SettingsPage from './pages/Settings.jsx';
+import Sidebar from './components/Sidebar.jsx';
 import { getUser, isAuthenticated, logoutUser } from './auth.js';
 
 function ProtectedRoute({ children, requiredRole }) {
@@ -28,68 +29,47 @@ function ProtectedRoute({ children, requiredRole }) {
   return children;
 }
 
-function Header({ user, onLogout, selectedRole }) {
+function Header({ user, onLogout, selectedRole, onToggleSidebar }) {
   const location = useLocation();
-  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner';
-  const isOwner = user?.role === 'owner';
   const isLoginPage = location.pathname === '/login';
 
   return (
-    <header className="topbar glass-panel">
-      <div className="brand">
-        <span className="brand-badge">Counsel</span>
-        <span>Telegram Support</span>
-      </div>
-      <nav>
+    <header className={`topbar glass-panel ${user ? 'topbar-logged-in' : ''}`}>
+      <div className="topbar-left">
         {user && (
-          <Link className={location.pathname === '/' ? 'active' : ''} to="/">
-            Dashboard
-          </Link>
-        )}
-        {user && (
-          <Link className={location.pathname === '/profile' ? 'active' : ''} to="/profile">
-            Profile
-          </Link>
-        )}
-        {user?.role === 'admin' && (
-          <Link className={location.pathname === '/admin' ? 'active' : ''} to="/admin">
-            Admin Panel
-          </Link>
-        )}
-        {user?.role === 'owner' && (
-          <Link className={location.pathname === '/owner' ? 'active' : ''} to="/owner">
-            Owner Tower
-          </Link>
-        )}
-        {isOwner && (
-          <>
-            <Link className={location.pathname === '/users' ? 'active' : ''} to="/users">
-              Users
-            </Link>
-            <Link className={location.pathname === '/audit-logs' ? 'active' : ''} to="/audit-logs">
-              Audit Logs
-            </Link>
-            <Link className={location.pathname === '/settings' ? 'active' : ''} to="/settings">
-              Settings
-            </Link>
-          </>
-        )}
-        {isAdminOrOwner && (
-          <Link className={location.pathname === '/system-chat' ? 'active' : ''} to="/system-chat">
-            System Chat
-          </Link>
-        )}
-        {isAdminOrOwner && (
-          <Link className={location.pathname === '/analytics' ? 'active' : ''} to="/analytics">
-            📊 Analytics
-          </Link>
-        )}
-        {user ? (
-          <button className="button button-danger logout-btn" onClick={onLogout}>
-            LOGOUT
+          <button
+            type="button"
+            className="sidebar-toggle-btn"
+            onClick={onToggleSidebar}
+            aria-label="Toggle navigation menu"
+          >
+            <span className="hamburger-line" />
+            <span className="hamburger-line" />
+            <span className="hamburger-line" />
           </button>
+        )}
+        <Link to={user?.role === 'owner' ? '/owner' : user?.role === 'admin' ? '/admin' : '/'} className="brand" style={{ textDecoration: 'none' }}>
+          <span className="brand-badge">Counsel</span>
+          <span style={{ color: '#ffffff', fontWeight: 700 }}>Telegram Support</span>
+        </Link>
+      </div>
+
+      <nav className="topbar-nav">
+        {user ? (
+          <div className="topbar-user-section">
+            <Link to="/profile" className="topbar-user-badge" title="Go to profile">
+              <span className="topbar-avatar">{user.username ? user.username.charAt(0).toUpperCase() : 'U'}</span>
+              <span className="topbar-username">{user.username}</span>
+              <span className={`topbar-role-pill role-${user.role}`}>
+                {user.role === 'owner' ? '👑 Owner' : user.role === 'admin' ? '🛡️ Admin' : '👤 User'}
+              </span>
+            </Link>
+            <button className="button button-danger logout-btn" onClick={onLogout}>
+              LOGOUT
+            </button>
+          </div>
         ) : (
-          <>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <Link 
               className="button" 
               style={{ 
@@ -120,7 +100,7 @@ function Header({ user, onLogout, selectedRole }) {
                 REGISTER
               </Link>
             )}
-          </>
+          </div>
         )}
       </nav>
     </header>
@@ -130,6 +110,7 @@ function Header({ user, onLogout, selectedRole }) {
 export default function App() {
   const [user, setUser] = useState(getUser());
   const [selectedRole, setSelectedRole] = useState('admin');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const listener = () => setUser(getUser());
@@ -140,13 +121,25 @@ export default function App() {
   const handleLogout = () => {
     logoutUser();
     setUser(null);
+    setIsSidebarOpen(false);
   };
 
   return (
     <BrowserRouter>
       <div className="app-shell">
-        <Header user={user} onLogout={handleLogout} selectedRole={selectedRole} />
-        <main className="page-content">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          user={user}
+          onLogout={handleLogout}
+        />
+        <Header
+          user={user}
+          onLogout={handleLogout}
+          selectedRole={selectedRole}
+          onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+        />
+        <main className={`page-content ${user ? 'with-sidebar' : ''}`}>
           <Routes>
             <Route
               path="/"
