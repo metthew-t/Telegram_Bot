@@ -119,3 +119,4 @@ export default function Sidebar({ isOpen, onClose, user, onLogout }) {
     </>
   );
 }
+
