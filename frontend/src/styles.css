@@ -977,14 +977,14 @@ textarea {
 
 /* === Responsive === */
 @media (max-width: 768px) {
-  .topbar {
+  .topbar:not(.topbar-logged-in) {
     padding: 0 16px;
     height: auto;
     min-height: 60px;
     flex-wrap: wrap;
   }
   
-  .topbar nav {
+  .topbar:not(.topbar-logged-in) nav {
     width: 100%;
     justify-content: flex-start;
     order: 3;
@@ -2269,19 +2269,101 @@ p.pending-verification-text {
   }
 
   .topbar.topbar-logged-in {
-    margin-left: 0;
-    width: 100%;
-    padding: 0.6rem 1rem;
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding: 0 1rem !important;
+    height: 60px !important;
+    min-height: 60px !important;
+    flex-wrap: nowrap !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .topbar.topbar-logged-in .topbar-nav {
+    width: auto !important;
+    order: initial !important;
+    padding: 0 !important;
+    flex-shrink: 0;
   }
 
   .topbar-username {
-    display: none;
+    display: none !important;
   }
 
   .page-content.with-sidebar {
     margin-left: 0;
     width: 100%;
     padding: 1rem;
+  }
+}
+
+/* Mobile Devices (<= 640px) - Zero Overlap & Full Polish */
+@media (max-width: 640px) {
+  .brand-subtitle {
+    display: none !important;
+  }
+
+  .brand {
+    gap: 0 !important;
+  }
+
+  .topbar-left {
+    gap: 8px !important;
+    flex-shrink: 0;
+  }
+
+  .sidebar-toggle-btn {
+    width: 34px !important;
+    height: 34px !important;
+    padding: 6px !important;
+    flex-shrink: 0;
+  }
+
+  .topbar-nav {
+    gap: 8px !important;
+    flex-shrink: 0;
+  }
+
+  .topbar-user-section {
+    gap: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-shrink: 0;
+  }
+
+  .topbar-role-pill {
+    display: none !important;
+  }
+
+  .topbar-user-badge {
+    padding: 2px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    gap: 0 !important;
+    margin: 0 !important;
+  }
+
+  .topbar-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    font-size: 13px !important;
+  }
+
+  .logout-btn {
+    padding: 6px 12px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px !important;
+    height: 32px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    border-radius: 6px !important;
   }
 }
 

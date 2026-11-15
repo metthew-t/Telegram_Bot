@@ -50,7 +50,7 @@ function Header({ user, onLogout, selectedRole, onToggleSidebar }) {
         )}
         <Link to={user?.role === 'owner' ? '/owner' : user?.role === 'admin' ? '/admin' : '/'} className="brand" style={{ textDecoration: 'none' }}>
           <span className="brand-badge">Counsel</span>
-          <span style={{ color: '#ffffff', fontWeight: 700 }}>Telegram Support</span>
+          <span className="brand-subtitle" style={{ color: '#ffffff', fontWeight: 700 }}>Telegram Support</span>
         </Link>
       </div>
 
