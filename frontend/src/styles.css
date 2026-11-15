@@ -2249,7 +2249,12 @@ p.pending-verification-text {
   }
 }
 
-/* Tablet & Mobile Layout (<= 992px) */
+/* ==========================================================================
+   FULLY RESPONSIVE LAYOUT ACROSS ALL SCREEN SIZES (DESKTOP, LAPTOP, TABLET, MOBILE)
+   All buttons, badges, user info & navigation remain 100% visible, smoothly scaled.
+   ========================================================================== */
+
+/* Tablet & Medium Screens (<= 992px) */
 @media (max-width: 992px) {
   .sidebar-toggle-btn {
     display: flex;
@@ -2271,9 +2276,9 @@ p.pending-verification-text {
   .topbar.topbar-logged-in {
     margin-left: 0 !important;
     width: 100% !important;
-    padding: 0 1rem !important;
-    height: 60px !important;
-    min-height: 60px !important;
+    padding: 0 14px !important;
+    height: 56px !important;
+    min-height: 56px !important;
     flex-wrap: nowrap !important;
     display: flex !important;
     align-items: center !important;
@@ -2287,83 +2292,219 @@ p.pending-verification-text {
     flex-shrink: 0;
   }
 
+  .topbar-user-section {
+    gap: 10px !important;
+    flex-shrink: 0;
+  }
+
   .topbar-username {
-    display: none !important;
+    display: inline-block !important;
+    font-size: 12px !important;
+    max-width: 110px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .topbar-role-pill {
+    display: inline-flex !important;
+    font-size: 10px !important;
+    padding: 2px 6px !important;
   }
 
   .page-content.with-sidebar {
     margin-left: 0;
     width: 100%;
-    padding: 1rem;
+    padding: 1.25rem 1rem;
   }
 }
 
-/* Mobile Devices (<= 640px) - Zero Overlap & Full Polish */
+/* Standard Mobile Devices (<= 640px) */
 @media (max-width: 640px) {
-  .brand-subtitle {
-    display: none !important;
-  }
-
-  .brand {
-    gap: 0 !important;
+  .topbar.topbar-logged-in {
+    padding: 0 8px !important;
+    height: 50px !important;
+    min-height: 50px !important;
+    flex-wrap: nowrap !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
   }
 
   .topbar-left {
-    gap: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
     flex-shrink: 0;
   }
 
   .sidebar-toggle-btn {
-    width: 34px !important;
-    height: 34px !important;
-    padding: 6px !important;
+    width: 30px !important;
+    height: 30px !important;
+    padding: 5px !important;
     flex-shrink: 0;
   }
 
+  .brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+
+  .brand-badge {
+    padding: 2px 6px !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    border-radius: 4px !important;
+    letter-spacing: 0.3px !important;
+  }
+
+  .brand-subtitle {
+    display: inline-block !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+  }
+
   .topbar-nav {
-    gap: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: auto !important;
+    order: initial !important;
+    padding: 0 !important;
     flex-shrink: 0;
   }
 
   .topbar-user-section {
-    gap: 8px !important;
     display: flex !important;
     align-items: center !important;
+    gap: 6px !important;
     flex-shrink: 0;
   }
 
-  .topbar-role-pill {
-    display: none !important;
-  }
-
   .topbar-user-badge {
-    padding: 2px !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    gap: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 2px 6px !important;
+    border-radius: 9999px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(212, 175, 55, 0.25) !important;
     margin: 0 !important;
+    text-decoration: none !important;
   }
 
   .topbar-avatar {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    font-size: 13px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+  }
+
+  .topbar-username {
+    display: inline-block !important;
+    color: #f8fafc !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    max-width: 60px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .topbar-role-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    padding: 2px 4px !important;
+    border-radius: 4px !important;
+    line-height: 1 !important;
+    letter-spacing: 0.2px !important;
   }
 
   .logout-btn {
-    padding: 6px 12px !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.5px !important;
-    height: 32px !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.3px !important;
+    height: 28px !important;
+    min-width: auto !important;
+    border-radius: 4px !important;
     white-space: nowrap !important;
     flex-shrink: 0 !important;
-    border-radius: 6px !important;
+  }
+}
+
+/* Compact Mobile Devices (<= 380px) */
+@media (max-width: 380px) {
+  .topbar.topbar-logged-in {
+    padding: 0 4px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+  }
+
+  .topbar-left {
+    gap: 3px !important;
+  }
+
+  .sidebar-toggle-btn {
+    width: 26px !important;
+    height: 26px !important;
+    padding: 4px !important;
+  }
+
+  .brand {
+    gap: 3px !important;
+  }
+
+  .brand-badge {
+    padding: 2px 4px !important;
+    font-size: 9px !important;
+  }
+
+  .brand-subtitle {
+    font-size: 10px !important;
+  }
+
+  .topbar-user-section {
+    gap: 4px !important;
+  }
+
+  .topbar-user-badge {
+    padding: 2px 4px !important;
+    gap: 3px !important;
+  }
+
+  .topbar-avatar {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    font-size: 9px !important;
+  }
+
+  .topbar-username {
+    font-size: 9px !important;
+    max-width: 42px !important;
+  }
+
+  .topbar-role-pill {
+    font-size: 8px !important;
+    padding: 1px 3px !important;
+  }
+
+  .logout-btn {
+    padding: 3px 6px !important;
+    font-size: 9px !important;
+    height: 24px !important;
   }
 }
 
