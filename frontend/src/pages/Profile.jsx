@@ -607,7 +607,7 @@ export default function ProfilePage() {
                                     onChange={handlePhotoUpload}
                                     style={{ display: 'none' }}
                                 />
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', width: '100%', maxWidth: '280px', margin: '0 auto' }}>
                                     <button
                                         type="button"
                                         onClick={() => document.getElementById('profile-photo-upload').click()}
@@ -615,9 +615,16 @@ export default function ProfilePage() {
                                         className="button button-secondary button-sm"
                                         style={{
                                             fontSize: '12px',
-                                            padding: '7px 14px',
+                                            padding: '8px 14px',
                                             borderRadius: '8px',
-                                            flex: 1
+                                            flex: '1 1 auto',
+                                            minWidth: 0,
+                                            whiteSpace: 'nowrap',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            height: '36px',
+                                            width: 'auto'
                                         }}
                                     >
                                         {uploadingPhoto ? '⏳ Uploading...' : profilePhoto ? '📷 Change Avatar' : '📷 Add Avatar'}
@@ -627,14 +634,22 @@ export default function ProfilePage() {
                                             type="button"
                                             onClick={handleRemovePhoto}
                                             disabled={uploadingPhoto}
-                                            className="button button-sm"
                                             style={{
-                                                fontSize: '12px',
-                                                padding: '7px 12px',
+                                                fontSize: '14px',
+                                                width: '38px',
+                                                minWidth: '38px',
+                                                maxWidth: '38px',
+                                                height: '36px',
+                                                padding: 0,
                                                 borderRadius: '8px',
-                                                background: 'rgba(239, 68, 68, 0.12)',
+                                                background: 'rgba(239, 68, 68, 0.15)',
                                                 color: '#ef4444',
-                                                border: '1px solid rgba(239, 68, 68, 0.3)'
+                                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                flex: '0 0 38px',
+                                                cursor: 'pointer'
                                             }}
                                             title="Delete photo"
                                         >

@@ -56,15 +56,15 @@ function Header({ user, onLogout, selectedRole, onToggleSidebar }) {
 
       <nav className="topbar-nav">
         {user ? (
-          <div className="topbar-user-section">
-            <Link to="/profile" className="topbar-user-badge" title="Go to profile">
+          <div className="topbar-user-section" style={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: '6px' }}>
+            <Link to="/profile" className="topbar-user-badge" title="Go to profile" style={{ display: 'flex', alignItems: 'center', flexShrink: 0, textDecoration: 'none' }}>
               <span className="topbar-avatar">{user.username ? user.username.charAt(0).toUpperCase() : 'U'}</span>
               <span className="topbar-username">{user.username}</span>
               <span className={`topbar-role-pill role-${user.role}`}>
                 {user.role === 'owner' ? '👑 Owner' : user.role === 'admin' ? '🛡️ Admin' : '👤 User'}
               </span>
             </Link>
-            <button className="button button-danger logout-btn" onClick={onLogout}>
+            <button className="button button-danger logout-btn" onClick={onLogout} style={{ flexShrink: 0, width: 'auto' }}>
               LOGOUT
             </button>
           </div>
