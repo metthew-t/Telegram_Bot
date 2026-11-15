@@ -1357,6 +1357,11 @@ input[type="password"]::placeholder {
   border-color: #f59e0b;
 }
 
+.audit-icon.busy_notice {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.2) 0%, rgba(202, 138, 4, 0.1) 100%);
+  border-color: #eab308;
+}
+
 .audit-body {
   flex: 1;
   display: flex;

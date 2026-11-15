@@ -197,6 +197,56 @@ def notify_case_user(case, text):
     send_telegram_notification(case.user.telegram_id, text)
 
 
+BUSY_COUNSELORS_NOTICE = (
+    "Dear user,\n\n"
+    "Thank you for reaching out to us. We want to assure you that your counseling request has been received and is very important to us.\n\n"
+    "Currently, all our counselors are actively assisting other individuals in counseling sessions. Please bear with us and kindly wait — as soon as the next counselor becomes available, they will be assigned to your case immediately.\n\n"
+    "Please do not give up or feel discouraged. We care about you and we will be with you shortly.\n\n"
+    "Thank you for your patience and understanding. 🙏"
+)
+
+_last_unassigned_check_time = 0
+
+def check_and_send_busy_notices():
+    """
+    Checks all open cases created >= 24 hours ago that have no assigned admin
+    and haven't received the busy notice yet.
+    Sends a polite Telegram message to the user, records an AuditLog entry,
+    and marks busy_notice_sent=True.
+    """
+    from datetime import timedelta
+    cutoff = timezone.now() - timedelta(hours=24)
+    unassigned_cases = Case.objects.filter(
+        status='open',
+        assigned_admin__isnull=True,
+        busy_notice_sent=False,
+        created_at__lte=cutoff
+    ).select_related('user')
+
+    sent_count = 0
+    for case in unassigned_cases:
+        try:
+            if case.user and case.user.telegram_id:
+                notify_case_user(case, BUSY_COUNSELORS_NOTICE)
+                print(f"[BusyNotice] ✅ Sent 24h busy notice to user {case.user.username} (Case #{case.user_case_number}, ID {case.id})")
+
+            # Create AuditLog so owners can see it in Audit Logs
+            AuditLog.objects.create(
+                case=case,
+                performer=None,  # Automated system action
+                action='busy_notice',
+                details=f"Automated 24h notice sent to user: all counselors busy, requested user to wait."
+            )
+
+            case.busy_notice_sent = True
+            case.save(update_fields=['busy_notice_sent'])
+            sent_count += 1
+        except Exception as e:
+            print(f"[BusyNotice] ❌ Error processing Case #{case.id}: {e}")
+
+    return sent_count
+
+
 def send_telegram_voice(telegram_id, voice_data, duration=None, reply_markup=None):
     """Send a voice message to a Telegram user"""
     print(f"\n[send_telegram_voice] CALLED")
@@ -854,6 +904,17 @@ class CaseViewSet(viewsets.ModelViewSet):
         # Optimize query with select_related (feedback is OneToOne, will be fetched automatically)
         queryset = Case.objects.select_related('user', 'assigned_admin')
         
+        # Throttled opportunistic check (runs at most once every 5 minutes)
+        import time
+        global _last_unassigned_check_time
+        now_ts = time.time()
+        if now_ts - _last_unassigned_check_time > 300:
+            _last_unassigned_check_time = now_ts
+            try:
+                check_and_send_busy_notices()
+            except Exception as e:
+                print(f"[CaseViewSet] Opportunistic unassigned check error: {e}")
+
         if user.role == 'owner':
             return queryset.all()
         if user.role == 'admin':
@@ -861,6 +922,16 @@ class CaseViewSet(viewsets.ModelViewSet):
             # But they can only interact with assigned cases or request open cases
             return queryset.all()
         return queryset.filter(user=user)
+
+    @action(detail=False, methods=['post', 'get'], permission_classes=[permissions.AllowAny], url_path='check_unassigned')
+    def check_unassigned(self, request):
+        """
+        Check for cases older than 24h that are still open and unassigned.
+        Sends polite busy notice to user via Telegram and logs to AuditLog.
+        Can be invoked via cron, bot worker, or manual trigger.
+        """
+        sent_count = check_and_send_busy_notices()
+        return Response({'status': 'ok', 'busy_notices_sent': sent_count})
 
     def get_object(self):
         try:

@@ -38,6 +38,7 @@ class Case(models.Model):
     assigned_at = models.DateTimeField(null=True, blank=True)  # Time when case was assigned
     resolved_at = models.DateTimeField(null=True, blank=True)  # Time when case was resolved
     closed_at = models.DateTimeField(null=True, blank=True)  # Time when case was closed
+    busy_notice_sent = models.BooleanField(default=False)  # 24h unassigned notification sent to user
 
     class Meta:
         ordering = ['-created_at']
@@ -83,6 +84,7 @@ class AuditLog(models.Model):
         ('closed', 'Closed'),
         ('reply', 'Reply'),
         ('submitted', 'Submitted'),
+        ('busy_notice', 'Counselors Busy Notice'),
     ]
     case = models.ForeignKey(Case, on_delete=models.CASCADE, null=True, blank=True, related_name='audit_logs')
     performer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='performed_actions')

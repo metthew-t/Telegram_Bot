@@ -1575,6 +1575,25 @@ async def handle_read_receipt_callback(update: Update, context: ContextTypes.DEF
             await show_case_messages(update, context, case_id)
 
 
+async def unassigned_cases_periodic_checker():
+    """Periodically triggers backend to check for unassigned cases >24h and notify users"""
+    import asyncio
+    # Wait 60 seconds after bot startup before first check
+    await asyncio.sleep(60)
+    while True:
+        try:
+            resp = backend_request('/api/cases/check_unassigned/', method='post')
+            if resp.ok:
+                data = resp.json()
+                sent = data.get('busy_notices_sent', 0)
+                if sent > 0:
+                    print(f"[PeriodicChecker] ✅ Sent {sent} busy notices to unassigned case users")
+        except Exception as e:
+            print(f"[PeriodicChecker] Error checking unassigned cases: {e}")
+        # Run every 10 minutes
+        await asyncio.sleep(600)
+
+
 async def post_init(application):
     """Set persistent bot command menu visible at all times on both mobile and PC"""
     try:
@@ -1591,6 +1610,10 @@ async def post_init(application):
         print("DEBUG: Set Telegram bot commands & menu button successfully")
     except Exception as e:
         print(f"DEBUG: Exception in post_init setting commands: {e}")
+
+    # Start automated 24-hour unassigned cases checker in background
+    import asyncio
+    asyncio.create_task(unassigned_cases_periodic_checker())
 
 
 # ─── Main ───

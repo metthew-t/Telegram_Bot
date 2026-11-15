@@ -8,6 +8,7 @@ const ACTION_ICONS = {
   closed: '✅',
   reply: '💬',
   submitted: '📝',
+  busy_notice: '⏳',
 };
 
 export default function AuditLogsPage() {
@@ -100,13 +101,17 @@ export default function AuditLogsPage() {
 
       {/* Filter Tabs */}
       <div className="filter-tabs glass-panel">
-        {['all', 'assigned', 'reassigned', 'closed', 'reply', 'submitted'].map((action) => (
+        {['all', 'assigned', 'reassigned', 'closed', 'reply', 'submitted', 'busy_notice'].map((action) => (
           <button
             key={action}
             className={`tab ${actionFilter === action ? 'active' : ''}`}
             onClick={() => setActionFilter(action)}
           >
-            {action === 'all' ? `All (${logs.length})` : `${action} (${actionCounts[action] || 0})`}
+            {action === 'all'
+              ? `All (${logs.length})`
+              : action === 'busy_notice'
+              ? `Busy Notice (${actionCounts[action] || 0})`
+              : `${action} (${actionCounts[action] || 0})`}
           </button>
         ))}
       </div>
@@ -163,11 +168,13 @@ export default function AuditLogsPage() {
                         </div>
                         <div className="audit-body">
                           <div className="audit-title">
-                            <span style={{ textTransform: 'capitalize' }}>{log.action}</span>
+                            <span style={{ textTransform: 'capitalize' }}>
+                              {log.action === 'busy_notice' ? 'Counselors Busy Notice' : log.action}
+                            </span>
                           </div>
                           <div className="audit-detail">{log.details}</div>
                           <div className="audit-time">
-                            {log.performer?.username || log.performer?.label || 'System'} ·{' '}
+                            {log.performer?.username || log.performer?.label || 'System (Automated)'} ·{' '}
                             {new Date(log.created_at).toLocaleString()}
                           </div>
                         </div>
@@ -187,11 +194,14 @@ export default function AuditLogsPage() {
                 </div>
                 <div className="audit-body">
                   <div className="audit-title">
-                    <span className="case-id-badge">Case #{log.case}</span> — <span style={{ textTransform: 'capitalize' }}>{log.action}</span>
+                    <span className="case-id-badge">Case #{log.case}</span> —{' '}
+                    <span style={{ textTransform: 'capitalize' }}>
+                      {log.action === 'busy_notice' ? 'Counselors Busy Notice' : log.action}
+                    </span>
                   </div>
                   <div className="audit-detail">{log.details}</div>
                   <div className="audit-time">
-                    {log.performer?.username || log.performer?.label || 'System'} ·{' '}
+                    {log.performer?.username || log.performer?.label || 'System (Automated)'} ·{' '}
                     {new Date(log.created_at).toLocaleString()}
                   </div>
                 </div>
