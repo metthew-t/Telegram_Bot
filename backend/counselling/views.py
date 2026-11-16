@@ -2604,7 +2604,7 @@ class SystemActionView(APIView):
             import time
 
             # Prepend clean official header so users clearly understand it is an official platform broadcast
-            formatted_text = f"📢 [ASTU Counseling Announcement]\n\n{message_text}"
+            formatted_text = f"📢 [Focus ASTU Counseling Announcement]\n\n{message_text}"
 
             for u in recipients:
                 try:
