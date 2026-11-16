@@ -2895,7 +2895,33 @@ class SystemBackupView(APIView):
             except Exception as e:
                 errors.append(f"AuditLog #{al_data.get('id', '?')}: {str(e)}")
 
-        # ── Step 6: Log this restore action ──────────────────────────────────
+        # ── Step 6: Adjust database auto-increment sequences (PostgreSQL/Neon) ────
+        from django.db import connection
+        try:
+            with connection.cursor() as cursor:
+                if connection.vendor == 'postgresql':
+                    tables = [
+                        'counselling_user',
+                        'counselling_case',
+                        'counselling_message',
+                        'counselling_internalmessage',
+                        'counselling_auditlog',
+                    ]
+                    for table in tables:
+                        try:
+                            cursor.execute(f"SELECT pg_get_serial_sequence('{table}', 'id');")
+                            row = cursor.fetchone()
+                            if row and row[0]:
+                                seq_name = row[0]
+                                cursor.execute(f"SELECT COALESCE(MAX(id), 1) FROM {table};")
+                                max_id = cursor.fetchone()[0] or 1
+                                cursor.execute(f"SELECT setval('{seq_name}', {max_id});")
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+        # ── Step 7: Log this restore action ──────────────────────────────────
         try:
             AuditLog.objects.create(
                 case=None,
