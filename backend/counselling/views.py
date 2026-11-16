@@ -1594,18 +1594,38 @@ class MessageViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         return self.partial_update(request, *args, **kwargs)
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
     def edit_from_telegram(self, request):
         """Allows Telegram bot to notify backend when a user edits their message on Telegram"""
         tg_msg_id = str(request.data.get('telegram_message_id') or '').strip()
         new_content = str(request.data.get('content') or '').strip()
+        tg_user_id = str(request.data.get('telegram_id') or '').strip()
+
         if not new_content:
             return Response({'error': 'Content cannot be empty'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = request.user
+        # Authenticate via request.user or via telegram_id
+        user = request.user if (request.user and request.user.is_authenticated) else None
+        if not user and tg_user_id:
+            user = User.objects.filter(telegram_id=tg_user_id).first()
+
+        if not user:
+            return Response({'error': 'User not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
+
         msg = None
+        # 1. Match by telegram_message_id and sender
         if tg_msg_id:
             msg = Message.objects.filter(telegram_message_id=tg_msg_id, sender=user).first()
+            if not msg:
+                # Also check matching by telegram_message_id across cases
+                msg = Message.objects.filter(telegram_message_id=tg_msg_id).first()
+
+        # 2. If message was sent before telegram_message_id was stored, match latest user message in active case
+        if not msg:
+            active_cases = Case.objects.filter(user=user, status__in=['open', 'assigned'])
+            msg = Message.objects.filter(case__in=active_cases, sender=user, message_type='text').order_by('-timestamp').first()
+
+        # 3. Ultimate fallback: user's latest text message
         if not msg:
             msg = Message.objects.filter(sender=user, message_type='text').order_by('-timestamp').first()
 
@@ -1613,9 +1633,14 @@ class MessageViewSet(viewsets.ModelViewSet):
             msg.content = new_content
             msg.is_edited = True
             msg.edited_at = timezone.now()
-            msg.save(update_fields=['content', 'is_edited', 'edited_at'])
-            print(f"[edit_from_telegram] ✅ Synchronized edited Telegram message #{msg.id} for user {user.username}")
-            return Response({'status': 'ok', 'message_id': msg.id})
+            if tg_msg_id and not msg.telegram_message_id:
+                msg.telegram_message_id = tg_msg_id
+                msg.save(update_fields=['content', 'is_edited', 'edited_at', 'telegram_message_id'])
+            else:
+                msg.save(update_fields=['content', 'is_edited', 'edited_at'])
+            print(f"[edit_from_telegram] ✅ Successfully synchronized edited Telegram message #{msg.id} for user {user.username}")
+            return Response({'status': 'ok', 'message_id': msg.id, 'content': msg.content})
+
         return Response({'error': 'Message not found to edit'}, status=status.HTTP_404_NOT_FOUND)
 
     def perform_create(self, serializer):

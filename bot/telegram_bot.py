@@ -1148,7 +1148,12 @@ async def check_for_feedback_request(update: Update, context: ContextTypes.DEFAU
 
 
 async def handle_message_with_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Enhanced message handler that checks for feedback requests first"""
+    """Enhanced message handler that checks for edited messages and feedback requests"""
+    # 1. Immediately check if this update is an edited message!
+    if update.edited_message is not None:
+        await handle_telegram_edited_message(update, context)
+        return
+
     # First check if this is feedback
     is_feedback = await check_for_feedback_request(update, context)
     if is_feedback:
@@ -1708,35 +1713,48 @@ def main():
     # Voice message handler
     application.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
+    # Handle user editing their message in Telegram (registered first)
+    application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.TEXT, handle_telegram_edited_message))
+
     # General text handler for seamless chat (with feedback support)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message_with_feedback))
-
-    # Handle user editing their message in Telegram
-    application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.TEXT, handle_telegram_edited_message))
 
     # Legacy single-line /message command (backward compat)
     application.add_handler(CommandHandler('message', legacy_message))
 
-    application.run_polling()
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 async def handle_telegram_edited_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Seamlessly handles when a user edits a previously sent message in Telegram"""
-    if not update.edited_message or not update.edited_message.text:
+    edited_msg = update.edited_message
+    if not edited_msg or not edited_msg.text:
         return
+
+    tg_user = update.effective_user
+    if not tg_user:
+        return
+
     token = get_access_token(update)
-    if not token:
-        return
-    tg_msg_id = str(update.edited_message.message_id)
-    new_text = update.edited_message.text.strip()
+    tg_msg_id = str(edited_msg.message_id)
+    new_text = edited_msg.text.strip()
+    tg_user_id = str(tg_user.id)
+
+    print(f"\n[handle_telegram_edited_message] ✏️ User {tg_user_id} edited Telegram message #{tg_msg_id}: '{new_text}'")
+
     try:
-        backend_request(
+        res = backend_request(
             '/api/messages/edit_from_telegram/',
             token=token,
-            json={'telegram_message_id': tg_msg_id, 'content': new_text}
+            json={
+                'telegram_id': tg_user_id,
+                'telegram_message_id': tg_msg_id,
+                'content': new_text
+            }
         )
+        print(f"[handle_telegram_edited_message] Backend response: {res.status_code} - {res.text}")
     except Exception as e:
-        print(f"[handle_telegram_edited_message] Error: {e}")
+        print(f"[handle_telegram_edited_message] ❌ Exception notifying backend: {e}")
 
 
 async def legacy_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
