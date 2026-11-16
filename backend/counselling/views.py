@@ -2813,19 +2813,27 @@ class SystemBackupView(APIView):
         restored = {'users': 0, 'cases': 0, 'messages': 0, 'audit_logs': 0, 'internal_messages': 0}
         errors = []
 
-        # Restore Users (non-destructive: skip existing by username)
+        # ── Step 1: Restore Users WITH their original IDs ─────────────────────
+        # This is critical: Cases/Messages reference user IDs, so users must keep
+        # their original primary keys for foreign-key relationships to hold on a
+        # full-wipe restore.
         for u_data in backup_data.get('users', []):
             try:
-                username = u_data.get('username')
-                if username and not User.objects.filter(username=username).exists():
-                    # Remove primary key to let DB auto-assign, preserve other fields
-                    create_data = {k: v for k, v in u_data.items() if k != 'id'}
-                    User.objects.create(**create_data)
-                    restored['users'] += 1
+                orig_id = u_data.get('id')
+                username = u_data.get('username', '')
+                # Skip if user already exists (by ID or username)
+                if orig_id and User.objects.filter(id=orig_id).exists():
+                    continue
+                if username and User.objects.filter(username=username).exists():
+                    continue
+                # Restore with original ID preserved
+                create_data = dict(u_data)
+                User.objects.create(**create_data)
+                restored['users'] += 1
             except Exception as e:
                 errors.append(f"User '{u_data.get('username', '?')}': {str(e)}")
 
-        # Restore Cases (get_or_create by original id)
+        # ── Step 2: Restore Cases (preserving original IDs) ──────────────────
         for c_data in backup_data.get('cases', []):
             try:
                 orig_id = c_data.get('id')
@@ -2837,7 +2845,7 @@ class SystemBackupView(APIView):
             except Exception as e:
                 errors.append(f"Case #{c_data.get('id', '?')}: {str(e)}")
 
-        # Restore Messages (get_or_create by original id)
+        # ── Step 3: Restore Messages (preserving original IDs) ───────────────
         for m_data in backup_data.get('messages', []):
             try:
                 orig_id = m_data.get('id')
@@ -2849,7 +2857,7 @@ class SystemBackupView(APIView):
             except Exception as e:
                 errors.append(f"Message #{m_data.get('id', '?')}: {str(e)}")
 
-        # Restore InternalMessages (get_or_create by original id)
+        # ── Step 4: Restore InternalMessages (preserving original IDs) ───────
         for im_data in backup_data.get('internal_messages', []):
             try:
                 orig_id = im_data.get('id')
@@ -2861,7 +2869,18 @@ class SystemBackupView(APIView):
             except Exception as e:
                 errors.append(f"InternalMessage #{im_data.get('id', '?')}: {str(e)}")
 
-        # Log restore action
+        # ── Step 5: Restore AuditLogs (preserving original IDs) ─────────────
+        for al_data in backup_data.get('audit_logs', []):
+            try:
+                orig_id = al_data.get('id')
+                if orig_id is not None:
+                    defaults = {k: v for k, v in al_data.items() if k != 'id'}
+                    AuditLog.objects.get_or_create(id=orig_id, defaults=defaults)
+                    restored['audit_logs'] += 1
+            except Exception as e:
+                errors.append(f"AuditLog #{al_data.get('id', '?')}: {str(e)}")
+
+        # ── Step 6: Log this restore action ──────────────────────────────────
         try:
             AuditLog.objects.create(
                 case=None,
@@ -2870,8 +2889,8 @@ class SystemBackupView(APIView):
                 details=(
                     f"Owner restored from backup. Restored: {restored['users']} users, "
                     f"{restored['cases']} cases, {restored['messages']} messages, "
-                    f"{restored['internal_messages']} internal messages. "
-                    f"Errors: {len(errors)}"
+                    f"{restored['internal_messages']} internal messages, "
+                    f"{restored['audit_logs']} audit logs. Errors: {len(errors)}"
                 )
             )
         except Exception:
@@ -2880,9 +2899,10 @@ class SystemBackupView(APIView):
         return Response({
             'status': 'success',
             'message': (
-                f"Restore completed! Restored {restored['users']} user(s), "
+                f"✅ Restore completed! Recovered {restored['users']} user(s), "
                 f"{restored['cases']} case(s), {restored['messages']} message(s), "
                 f"{restored['internal_messages']} internal message(s)."
+                + (f" ({len(errors)} item(s) skipped — already exist or had errors.)" if errors else "")
             ),
             'restored': restored,
             'errors': errors[:10],
