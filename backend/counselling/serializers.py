@@ -141,7 +141,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['id', 'case', 'sender', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'voice_data', 'voice_duration', 'timestamp', 'seen_by_admin_at', 'seen_by_user_at', 'is_edited', 'edited_at']
+        fields = ['id', 'case', 'sender', 'sender_role', 'sender_profile_photo', 'content', 'message_type', 'voice_data', 'voice_duration', 'timestamp', 'seen_by_admin_at', 'seen_by_user_at', 'is_edited', 'edited_at', 'telegram_message_id']
         read_only_fields = ['id', 'timestamp', 'seen_by_admin_at', 'seen_by_user_at', 'is_edited', 'edited_at']
 
     def get_sender(self, obj):

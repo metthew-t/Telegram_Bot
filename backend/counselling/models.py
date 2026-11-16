@@ -72,6 +72,7 @@ class Message(models.Model):
     seen_by_user_at = models.DateTimeField(null=True, blank=True)   # Read receipt: when user viewed the admin's message
     is_edited = models.BooleanField(default=False)
     edited_at = models.DateTimeField(null=True, blank=True)
+    telegram_message_id = models.CharField(max_length=100, null=True, blank=True)
 
     def __str__(self):
         return f"Message from {self.sender} in {self.case}"

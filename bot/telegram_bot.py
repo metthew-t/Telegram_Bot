@@ -573,7 +573,7 @@ async def reply_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = backend_request(
         '/api/messages/',
         token=token,
-        json={'case': case_id, 'content': content},
+        json={'case': case_id, 'content': content, 'telegram_message_id': str(update.message.message_id)},
     )
 
     if response.ok:
@@ -1212,7 +1212,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg_resp = backend_request(
             '/api/messages/',
             token=token,
-            json={'case': case_id, 'content': message_text, 'message_type': 'text'},
+            json={'case': case_id, 'content': message_text, 'message_type': 'text', 'telegram_message_id': str(update.message.message_id)},
         )
         if msg_resp.ok:
             # Message sent successfully - no confirmation needed, user just continues chatting
@@ -1261,7 +1261,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 msg_resp = backend_request(
                     '/api/messages/',
                     token=token,
-                    json={'case': selected_case_id, 'content': message_text, 'message_type': 'text'},
+                    json={'case': selected_case_id, 'content': message_text, 'message_type': 'text', 'telegram_message_id': str(update.message.message_id)},
                 )
                 if msg_resp.ok:
                     # Message sent successfully - no confirmation
@@ -1711,10 +1711,32 @@ def main():
     # General text handler for seamless chat (with feedback support)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message_with_feedback))
 
+    # Handle user editing their message in Telegram
+    application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.TEXT, handle_telegram_edited_message))
+
     # Legacy single-line /message command (backward compat)
     application.add_handler(CommandHandler('message', legacy_message))
 
     application.run_polling()
+
+
+async def handle_telegram_edited_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Seamlessly handles when a user edits a previously sent message in Telegram"""
+    if not update.edited_message or not update.edited_message.text:
+        return
+    token = get_access_token(update)
+    if not token:
+        return
+    tg_msg_id = str(update.edited_message.message_id)
+    new_text = update.edited_message.text.strip()
+    try:
+        backend_request(
+            '/api/messages/edit_from_telegram/',
+            token=token,
+            json={'telegram_message_id': tg_msg_id, 'content': new_text}
+        )
+    except Exception as e:
+        print(f"[handle_telegram_edited_message] Error: {e}")
 
 
 async def legacy_message(update: Update, context: ContextTypes.DEFAULT_TYPE):

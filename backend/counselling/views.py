@@ -144,6 +144,7 @@ def send_telegram_notification(telegram_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     chunks = split_telegram_text(text, max_len=4000)
     all_success = True
+    last_sent_tg_id = None
 
     for idx, chunk in enumerate(chunks):
         payload = {
@@ -186,6 +187,12 @@ def send_telegram_notification(telegram_id, text, reply_markup=None):
                 all_success = False
             else:
                 print(f"SUCCESS: [send_telegram_notification] Chunk {idx+1} sent successfully!")
+                try:
+                    res_json = response.json()
+                    if res_json.get('ok'):
+                        last_sent_tg_id = res_json.get('result', {}).get('message_id')
+                except Exception:
+                    pass
             
         except Exception as e:
             print(f"ERROR: [send_telegram_notification] Exception occurred: {str(e)}")
@@ -193,7 +200,39 @@ def send_telegram_notification(telegram_id, text, reply_markup=None):
             traceback.print_exc()
             all_success = False
 
-    return all_success
+    if all_success:
+        return last_sent_tg_id if last_sent_tg_id else True
+    return False
+
+
+def edit_telegram_message(telegram_id, telegram_message_id, new_text):
+    """
+    Edits a previously sent Telegram bot message in place using Telegram's editMessageText API.
+    Returns True if successfully updated on Telegram, False otherwise.
+    """
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if not token or not telegram_id or not telegram_message_id:
+        return False
+
+    url = f"https://api.telegram.org/bot{token}/editMessageText"
+    payload = {
+        "chat_id": str(telegram_id).strip(),
+        "message_id": int(telegram_message_id),
+        "text": str(new_text)[:4000]
+    }
+    try:
+        res = requests.post(url, json=payload, timeout=10)
+        data = res.json()
+        if res.status_code == 200 and data.get('ok'):
+            print(f"[edit_telegram_message] ✅ Telegram message #{telegram_message_id} successfully edited for chat {telegram_id}")
+            return True
+        else:
+            desc = data.get('description', '')
+            print(f"[edit_telegram_message] ⚠️ Telegram editMessageText returned {res.status_code}: {desc}")
+            return False
+    except Exception as e:
+        print(f"[edit_telegram_message] ❌ Exception editing Telegram message: {e}")
+        return False
 
 
 def notify_case_user(case, text):
@@ -1527,11 +1566,57 @@ class MessageViewSet(viewsets.ModelViewSet):
         instance.save(update_fields=['content', 'is_edited', 'edited_at'])
 
         print(f"[MessageEdit] ✅ Message #{instance.id} edited by {user.username}")
+
+        # Synchronize edited message with the student on Telegram!
+        try:
+            if instance.case and instance.case.user and instance.case.user.telegram_id:
+                tg_user_id = str(instance.case.user.telegram_id).strip()
+                telegram_edited = False
+
+                if instance.telegram_message_id:
+                    telegram_edited = edit_telegram_message(
+                        tg_user_id,
+                        instance.telegram_message_id,
+                        new_content
+                    )
+
+                # Fallback: if in-place edit failed or message_id was missing, send clear correction notice
+                if not telegram_edited:
+                    fallback_edit_text = f"✏️ [Edited by Counselor]:\n\n{new_content}"
+                    send_telegram_notification(tg_user_id, fallback_edit_text)
+                    print(f"[MessageEdit] 📢 Sent edited correction message to Telegram user {tg_user_id}")
+        except Exception as edit_tg_err:
+            print(f"[MessageEdit] ❌ Failed to dispatch edit to Telegram: {edit_tg_err}")
+
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
     def update(self, request, *args, **kwargs):
         return self.partial_update(request, *args, **kwargs)
+
+    @action(detail=False, methods=['post'])
+    def edit_from_telegram(self, request):
+        """Allows Telegram bot to notify backend when a user edits their message on Telegram"""
+        tg_msg_id = str(request.data.get('telegram_message_id') or '').strip()
+        new_content = str(request.data.get('content') or '').strip()
+        if not new_content:
+            return Response({'error': 'Content cannot be empty'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        msg = None
+        if tg_msg_id:
+            msg = Message.objects.filter(telegram_message_id=tg_msg_id, sender=user).first()
+        if not msg:
+            msg = Message.objects.filter(sender=user, message_type='text').order_by('-timestamp').first()
+
+        if msg:
+            msg.content = new_content
+            msg.is_edited = True
+            msg.edited_at = timezone.now()
+            msg.save(update_fields=['content', 'is_edited', 'edited_at'])
+            print(f"[edit_from_telegram] ✅ Synchronized edited Telegram message #{msg.id} for user {user.username}")
+            return Response({'status': 'ok', 'message_id': msg.id})
+        return Response({'error': 'Message not found to edit'}, status=status.HTTP_404_NOT_FOUND)
 
     def perform_create(self, serializer):
         case = serializer.validated_data['case']
@@ -1629,6 +1714,10 @@ class MessageViewSet(viewsets.ModelViewSet):
                             
                             if success:
                                 print(f"[TELEGRAM NOTIFICATION] SUCCESS: Notification sent successfully to case user")
+                                if str(success) != 'True':
+                                    message.telegram_message_id = str(success)
+                                    message.save(update_fields=['telegram_message_id'])
+                                    print(f"[TELEGRAM NOTIFICATION] Saved telegram_message_id={message.telegram_message_id} on message #{message.id}")
                             else:
                                 print(f"[TELEGRAM NOTIFICATION] ERROR: Failed to send notification to case user")
                         except Exception as notif_exc:
