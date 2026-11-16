@@ -163,7 +163,11 @@ export default function SettingsPage() {
     try {
       const auth = JSON.parse(localStorage.getItem('telegram_counselling_auth') || '{}');
       const token = auth?.access || '';
-      const apiBase = window.location.origin;
+      // Use the same backend base URL that api.js uses (Render in prod, localhost in dev)
+      const apiBase = import.meta.env.VITE_API_URL ||
+        (import.meta.env.PROD
+          ? 'https://telegram-bot-backend-bwu4.onrender.com'
+          : 'http://localhost:8000');
       const response = await fetch(`${apiBase}/api/system/backup/`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
