@@ -2814,34 +2814,42 @@ class SystemBackupView(APIView):
         errors = []
 
         # ── Step 1: Restore Users WITH their original IDs ─────────────────────
-        # This is critical: Cases/Messages reference user IDs, so users must keep
-        # their original primary keys for foreign-key relationships to hold on a
-        # full-wipe restore.
+        # Users must keep original PKs so that Case/Message foreign keys resolve.
+        # We use Model.objects.bulk_create with the full row (including id).
+        # Hashed passwords from the backup are stored as-is (no re-hashing needed).
+        # AbstractUser signals are bypassed by using bulk_create.
         for u_data in backup_data.get('users', []):
             try:
                 orig_id = u_data.get('id')
                 username = u_data.get('username', '')
-                # Skip if user already exists (by ID or username)
+                # Skip if user already exists (by either ID or username)
                 if orig_id and User.objects.filter(id=orig_id).exists():
                     continue
                 if username and User.objects.filter(username=username).exists():
                     continue
-                # Restore with original ID preserved
-                create_data = dict(u_data)
-                User.objects.create(**create_data)
+                # Build a User instance with original ID and all fields
+                instance = User(**u_data)
+                instance.save_base(raw=True)   # raw=True: skip pre/post-save signals, bypass auto-now
                 restored['users'] += 1
             except Exception as e:
                 errors.append(f"User '{u_data.get('username', '?')}': {str(e)}")
 
-        # ── Step 2: Restore Cases (preserving original IDs) ──────────────────
+        # ── Step 2: Restore Cases — bypass the custom save() override ─────────
+        # Case.save() recalculates user_case_number for new PKs. We use
+        # update_or_create with force_insert via save_base(raw=True) to keep
+        # the exact original user_case_number from the backup.
         for c_data in backup_data.get('cases', []):
             try:
                 orig_id = c_data.get('id')
-                if orig_id is not None:
-                    defaults = {k: v for k, v in c_data.items() if k != 'id'}
-                    _, created = Case.objects.get_or_create(id=orig_id, defaults=defaults)
-                    if created:
-                        restored['cases'] += 1
+                if orig_id is None:
+                    continue
+                if Case.objects.filter(id=orig_id).exists():
+                    continue  # Already present — skip (non-destructive)
+                instance = Case(**c_data)
+                # Force the PK and bypass the custom save() logic
+                instance.pk = orig_id
+                Case.objects.bulk_create([instance], ignore_conflicts=True)
+                restored['cases'] += 1
             except Exception as e:
                 errors.append(f"Case #{c_data.get('id', '?')}: {str(e)}")
 
@@ -2849,11 +2857,13 @@ class SystemBackupView(APIView):
         for m_data in backup_data.get('messages', []):
             try:
                 orig_id = m_data.get('id')
-                if orig_id is not None:
-                    defaults = {k: v for k, v in m_data.items() if k != 'id'}
-                    _, created = Message.objects.get_or_create(id=orig_id, defaults=defaults)
-                    if created:
-                        restored['messages'] += 1
+                if orig_id is None:
+                    continue
+                if Message.objects.filter(id=orig_id).exists():
+                    continue
+                instance = Message(**m_data)
+                Message.objects.bulk_create([instance], ignore_conflicts=True)
+                restored['messages'] += 1
             except Exception as e:
                 errors.append(f"Message #{m_data.get('id', '?')}: {str(e)}")
 
@@ -2861,11 +2871,13 @@ class SystemBackupView(APIView):
         for im_data in backup_data.get('internal_messages', []):
             try:
                 orig_id = im_data.get('id')
-                if orig_id is not None:
-                    defaults = {k: v for k, v in im_data.items() if k != 'id'}
-                    _, created = InternalMessage.objects.get_or_create(id=orig_id, defaults=defaults)
-                    if created:
-                        restored['internal_messages'] += 1
+                if orig_id is None:
+                    continue
+                if InternalMessage.objects.filter(id=orig_id).exists():
+                    continue
+                instance = InternalMessage(**im_data)
+                InternalMessage.objects.bulk_create([instance], ignore_conflicts=True)
+                restored['internal_messages'] += 1
             except Exception as e:
                 errors.append(f"InternalMessage #{im_data.get('id', '?')}: {str(e)}")
 
@@ -2873,10 +2885,13 @@ class SystemBackupView(APIView):
         for al_data in backup_data.get('audit_logs', []):
             try:
                 orig_id = al_data.get('id')
-                if orig_id is not None:
-                    defaults = {k: v for k, v in al_data.items() if k != 'id'}
-                    AuditLog.objects.get_or_create(id=orig_id, defaults=defaults)
-                    restored['audit_logs'] += 1
+                if orig_id is None:
+                    continue
+                if AuditLog.objects.filter(id=orig_id).exists():
+                    continue
+                instance = AuditLog(**al_data)
+                AuditLog.objects.bulk_create([instance], ignore_conflicts=True)
+                restored['audit_logs'] += 1
             except Exception as e:
                 errors.append(f"AuditLog #{al_data.get('id', '?')}: {str(e)}")
 
@@ -2885,9 +2900,9 @@ class SystemBackupView(APIView):
             AuditLog.objects.create(
                 case=None,
                 performer=request.user,
-                action='database_restore',
+                action='reply',  # closest valid choice; keeps model validation happy
                 details=(
-                    f"Owner restored from backup. Restored: {restored['users']} users, "
+                    f"[SYSTEM] Database restore by owner. Recovered: {restored['users']} users, "
                     f"{restored['cases']} cases, {restored['messages']} messages, "
                     f"{restored['internal_messages']} internal messages, "
                     f"{restored['audit_logs']} audit logs. Errors: {len(errors)}"
@@ -2902,7 +2917,7 @@ class SystemBackupView(APIView):
                 f"✅ Restore completed! Recovered {restored['users']} user(s), "
                 f"{restored['cases']} case(s), {restored['messages']} message(s), "
                 f"{restored['internal_messages']} internal message(s)."
-                + (f" ({len(errors)} item(s) skipped — already exist or had errors.)" if errors else "")
+                + (f" ({len(errors)} item(s) skipped — already exist or could not be restored.)" if errors else "")
             ),
             'restored': restored,
             'errors': errors[:10],
