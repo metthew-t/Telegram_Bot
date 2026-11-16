@@ -164,18 +164,24 @@ def send_telegram_notification(telegram_id, text, reply_markup=None):
                 print(f"ERROR: [send_telegram_notification] API Error: {response.status_code}")
                 print(f"ERROR: [send_telegram_notification] Response body: {response.text}")
                 
-                # Parse common errors
+                # Parse common Telegram errors safely
                 try:
                     error_data = response.json()
                     error_desc = error_data.get('description', '')
                     print(f"ERROR: [send_telegram_notification] Error description: {error_desc}")
                     
-                    if 'chat not found' in error_desc.lower():
-                        print(f"ERROR: [send_telegram_notification] USER HASN'T STARTED BOT YET!")
+                    # Handle 429 Too Many Requests (Flood control)
+                    if response.status_code == 429:
+                        retry_after = error_data.get('parameters', {}).get('retry_after', 5)
+                        print(f"WARNING: [send_telegram_notification] Telegram Flood Control! Sleeping {retry_after}s...")
+                        import time
+                        time.sleep(retry_after + 1)
+                    elif 'chat not found' in error_desc.lower():
+                        print(f"ERROR: [send_telegram_notification] User hasn't started the bot yet.")
                     elif 'bot was blocked' in error_desc.lower():
-                        print(f"ERROR: [send_telegram_notification] USER BLOCKED THE BOT!")
-                except:
-                    pass
+                        print(f"ERROR: [send_telegram_notification] User has blocked the bot.")
+                except Exception as parse_err:
+                    print(f"[send_telegram_notification] Error parsing response: {parse_err}")
                 
                 all_success = False
             else:
@@ -223,12 +229,14 @@ def check_and_send_busy_notices():
         created_at__lte=cutoff
     ).select_related('user')
 
+    import time
     sent_count = 0
     for case in unassigned_cases:
         try:
             if case.user and case.user.telegram_id:
                 notify_case_user(case, BUSY_COUNSELORS_NOTICE)
                 print(f"[BusyNotice] ✅ Sent 24h busy notice to user {case.user.username} (Case #{case.user_case_number}, ID {case.id})")
+                time.sleep(0.35)  # Safe throttling to strictly respect Telegram rate limits
 
             # Create AuditLog so owners can see it in Audit Logs
             AuditLog.objects.create(
@@ -2582,7 +2590,7 @@ class SystemActionView(APIView):
             if not message_text:
                 return Response({'error': 'Announcement message text is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            target = request.data.get('target', 'all')
+            target = request.data.get('target') or request.data.get('target_group') or 'all'
             qs = User.objects.exclude(telegram_id__isnull=True).exclude(telegram_id='')
 
             if target == 'users':
