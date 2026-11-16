@@ -382,13 +382,13 @@ export default function ProfilePage() {
     const roleIsOwner = user?.role === 'owner';
 
     return (
-        <section className="page-panel" style={{ padding: isMobile ? '16px' : '28px', maxWidth: '1300px', margin: '0 auto' }}>
+        <section className="page-panel" style={{ padding: isMobile ? '12px' : '28px', maxWidth: '1300px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
             
             {/* ─── PAGE HEADER ─── */}
-            <div className="panel-header" style={{ marginBottom: '28px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div className="panel-header" style={{ marginBottom: isMobile ? '18px' : '28px' }}>
+                <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
-                        <h1 style={{ fontSize: '26px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <h1 style={{ fontSize: isMobile ? '22px' : '26px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                             <span>Account Profile</span>
                             <span style={{
                                 fontSize: '11px',
@@ -404,7 +404,7 @@ export default function ProfilePage() {
                                 {user?.role || 'Staff'}
                             </span>
                         </h1>
-                        <p style={{ margin: '6px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>
+                        <p style={{ margin: '6px 0 0 0', color: 'var(--text-muted)', fontSize: isMobile ? '12px' : '14px' }}>
                             Manage your personal credentials, communication channels, and security settings
                         </p>
                     </div>
@@ -434,19 +434,22 @@ export default function ProfilePage() {
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : '360px 1fr',
                 gap: '24px',
-                alignItems: 'start'
+                alignItems: 'start',
+                width: '100%',
+                boxSizing: 'border-box'
             }}>
                 
                 {/* ═══════════════════════════════════════════════════
                     LEFT COLUMN: SOCIAL MEDIA HERO PROFILE CARD
                    ═══════════════════════════════════════════════════ */}
-                <div style={{
+                <div className="profile-hero-card" style={{
                     background: 'linear-gradient(135deg, rgba(20, 20, 24, 0.95) 0%, rgba(32, 32, 38, 0.9) 100%)',
                     border: '1px solid rgba(255, 215, 0, 0.25)',
                     borderRadius: '16px',
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 0 25px rgba(255, 215, 0, 0.08)',
                     overflow: 'hidden',
-                    position: 'relative'
+                    position: 'relative',
+                    boxSizing: 'border-box'
                 }}>
                     
                     {/* Social Banner / Cover Image */}
@@ -791,33 +794,36 @@ export default function ProfilePage() {
                 {/* ═══════════════════════════════════════════════════
                     RIGHT COLUMN: INTERACTIVE SETTINGS & TABS
                    ═══════════════════════════════════════════════════ */}
-                <div style={{
+                <div className="profile-settings-card" style={{
                     background: 'linear-gradient(135deg, rgba(20, 20, 24, 0.95) 0%, rgba(30, 30, 36, 0.9) 100%)',
                     border: '1px solid rgba(255, 215, 0, 0.25)',
                     borderRadius: '16px',
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 0 25px rgba(255, 215, 0, 0.08)',
-                    padding: isMobile ? '16px' : '28px'
+                    padding: isMobile ? '16px' : '28px',
+                    boxSizing: 'border-box'
                 }}>
                     
                     {/* Modern Navigation Tabs */}
                     <div style={{
                         display: 'flex',
-                        gap: '8px',
-                        padding: '6px',
+                        gap: isMobile ? '4px' : '8px',
+                        padding: '4px',
                         background: 'rgba(0, 0, 0, 0.4)',
                         border: '1px solid rgba(255, 215, 0, 0.15)',
                         borderRadius: '12px',
-                        marginBottom: '28px',
-                        overflowX: 'auto'
+                        marginBottom: isMobile ? '20px' : '28px',
+                        width: '100%',
+                        boxSizing: 'border-box'
                     }}>
                         <button
                             type="button"
+                            className="profile-tab-btn"
                             onClick={() => setActiveSubTab('security')}
                             style={{
                                 flex: 1,
-                                minWidth: '130px',
-                                padding: '10px 16px',
-                                fontSize: '13px',
+                                minWidth: isMobile ? 0 : '130px',
+                                padding: isMobile ? '8px 4px' : '10px 16px',
+                                fontSize: isMobile ? '11px' : '13px',
                                 fontWeight: 600,
                                 borderRadius: '8px',
                                 border: 'none',
@@ -825,7 +831,7 @@ export default function ProfilePage() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                gap: '8px',
+                                gap: isMobile ? '4px' : '8px',
                                 transition: 'all 0.2s ease',
                                 background: activeSubTab === 'security'
                                     ? 'linear-gradient(135deg, #FFD700 0%, #DAA520 100%)'
@@ -835,17 +841,18 @@ export default function ProfilePage() {
                             }}
                         >
                             <span>🔒</span>
-                            <span>Security & Auth</span>
+                            <span>{isMobile ? 'Security' : 'Security & Auth'}</span>
                         </button>
 
                         <button
                             type="button"
+                            className="profile-tab-btn"
                             onClick={() => setActiveSubTab('clearance')}
                             style={{
                                 flex: 1,
-                                minWidth: '130px',
-                                padding: '10px 16px',
-                                fontSize: '13px',
+                                minWidth: isMobile ? 0 : '130px',
+                                padding: isMobile ? '8px 4px' : '10px 16px',
+                                fontSize: isMobile ? '11px' : '13px',
                                 fontWeight: 600,
                                 borderRadius: '8px',
                                 border: 'none',
@@ -853,7 +860,7 @@ export default function ProfilePage() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                gap: '8px',
+                                gap: isMobile ? '4px' : '8px',
                                 transition: 'all 0.2s ease',
                                 background: activeSubTab === 'clearance'
                                     ? 'linear-gradient(135deg, #FFD700 0%, #DAA520 100%)'
@@ -868,12 +875,13 @@ export default function ProfilePage() {
 
                         <button
                             type="button"
+                            className="profile-tab-btn"
                             onClick={() => setActiveSubTab('notifications')}
                             style={{
                                 flex: 1,
-                                minWidth: '130px',
-                                padding: '10px 16px',
-                                fontSize: '13px',
+                                minWidth: isMobile ? 0 : '130px',
+                                padding: isMobile ? '8px 4px' : '10px 16px',
+                                fontSize: isMobile ? '11px' : '13px',
                                 fontWeight: 600,
                                 borderRadius: '8px',
                                 border: 'none',
@@ -881,7 +889,7 @@ export default function ProfilePage() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                gap: '8px',
+                                gap: isMobile ? '4px' : '8px',
                                 transition: 'all 0.2s ease',
                                 background: activeSubTab === 'notifications'
                                     ? 'linear-gradient(135deg, #FFD700 0%, #DAA520 100%)'
@@ -907,10 +915,11 @@ export default function ProfilePage() {
                                     background: 'rgba(0, 0, 0, 0.35)',
                                     border: '1px solid rgba(255, 215, 0, 0.2)',
                                     borderRadius: '12px',
-                                    padding: '20px',
-                                    position: 'relative'
+                                    padding: isMobile ? '16px' : '20px',
+                                    position: 'relative',
+                                    boxSizing: 'border-box'
                                 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                                         <div>
                                             <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <span>👤</span>
@@ -993,7 +1002,7 @@ export default function ProfilePage() {
                                             </div>
                                         )}
 
-                                        <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                                        <div className="profile-form-submit-row" style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', width: '100%' }}>
                                             <LoadingButton
                                                 type="submit"
                                                 loading={usernameLoading}
@@ -1003,7 +1012,9 @@ export default function ProfilePage() {
                                                     fontSize: '13px',
                                                     padding: '10px 22px',
                                                     borderRadius: '8px',
-                                                    fontWeight: 600
+                                                    fontWeight: 600,
+                                                    width: isMobile ? '100%' : 'auto',
+                                                    maxWidth: isMobile ? '280px' : 'none'
                                                 }}
                                             >
                                                 {usernameLoading ? 'Saving...' : 'Update Username'}
@@ -1104,7 +1115,7 @@ export default function ProfilePage() {
                                         </div>
                                     )}
 
-                                    <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                                    <div className="profile-form-submit-row" style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', width: '100%' }}>
                                         <LoadingButton
                                             type="submit"
                                             loading={emailLoading}
@@ -1114,7 +1125,9 @@ export default function ProfilePage() {
                                                 fontSize: '13px',
                                                 padding: '10px 22px',
                                                 borderRadius: '8px',
-                                                fontWeight: 600
+                                                fontWeight: 600,
+                                                width: isMobile ? '100%' : 'auto',
+                                                maxWidth: isMobile ? '280px' : 'none'
                                             }}
                                         >
                                             {emailLoading ? 'Updating...' : 'Update Email'}
@@ -1128,7 +1141,8 @@ export default function ProfilePage() {
                                 background: 'rgba(0, 0, 0, 0.35)',
                                 border: '1px solid rgba(255, 215, 0, 0.2)',
                                 borderRadius: '12px',
-                                padding: '20px'
+                                padding: isMobile ? '16px' : '20px',
+                                boxSizing: 'border-box'
                             }}>
                                 <div style={{ marginBottom: '16px' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1267,7 +1281,7 @@ export default function ProfilePage() {
                                         </div>
                                     )}
 
-                                    <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '6px' }}>
+                                    <div className="profile-form-submit-row" style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', width: '100%', marginTop: '6px' }}>
                                         <LoadingButton 
                                             className="button button-primary" 
                                             type="submit" 
@@ -1278,7 +1292,9 @@ export default function ProfilePage() {
                                                 fontSize: '13px',
                                                 padding: '10px 22px',
                                                 borderRadius: '8px',
-                                                fontWeight: 600
+                                                fontWeight: 600,
+                                                width: isMobile ? '100%' : 'auto',
+                                                maxWidth: isMobile ? '280px' : 'none'
                                             }}
                                         >
                                             Update Password

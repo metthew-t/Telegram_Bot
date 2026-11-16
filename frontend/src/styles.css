@@ -1622,6 +1622,180 @@ time {
   }
 }
 
+/* ==========================================================================
+   TELEGRAM-STANDARD CHAT BAR STYLING (MATCHES OFFICIAL MOBILE TELEGRAM)
+   - Emoji icon 🙂 integrated inside input capsule on the LEFT
+   - Expanding multi-line text input in center
+   - Dynamic round action button on the RIGHT:
+     * When text is empty: Microphone 🎙️ (Voice recorder)
+     * When user starts typing: Send ✈️ (Instant message submit)
+   ========================================================================== */
+.telegram-chat-bar {
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 10px !important;
+  width: 100% !important;
+  position: relative !important;
+  margin-top: var(--space-md) !important;
+  box-sizing: border-box !important;
+}
+
+.telegram-input-capsule {
+  position: relative !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1.5px solid rgba(255, 215, 0, 0.25) !important;
+  border-radius: 26px !important;
+  transition: border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease, background var(--transition-fast) ease !important;
+  box-sizing: border-box !important;
+}
+
+.telegram-input-capsule:focus-within {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 18px rgba(255, 215, 0, 0.35) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.telegram-input-capsule .auto-expand-textarea {
+  width: 100% !important;
+  padding: 10px 14px 10px 42px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--text-primary) !important;
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+  border-radius: 26px !important;
+  box-sizing: border-box !important;
+}
+
+.telegram-input-capsule .auto-expand-textarea:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.emoji-picker-btn-left {
+  position: absolute !important;
+  left: 8px !important;
+  right: auto !important;
+  bottom: 8px !important;
+  top: auto !important;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: 20px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  z-index: 10 !important;
+  opacity: 0.85 !important;
+  transition: opacity 0.2s, transform 0.2s !important;
+  box-shadow: none !important;
+  min-width: auto !important;
+}
+
+.emoji-picker-btn-left:hover {
+  opacity: 1 !important;
+  transform: scale(1.18) !important;
+  background: none !important;
+}
+
+.emoji-picker-btn-left:active {
+  transform: scale(0.95) !important;
+}
+
+.telegram-action-btn {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  cursor: pointer !important;
+  border: none !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.telegram-action-btn.voice-btn {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(218, 165, 32, 0.25) 100%) !important;
+  color: var(--gold) !important;
+  border: 1.5px solid rgba(255, 215, 0, 0.4) !important;
+  font-size: 20px !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+}
+
+.telegram-action-btn.voice-btn:hover {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.28) 0%, rgba(218, 165, 32, 0.45) 100%) !important;
+  transform: scale(1.06) !important;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.45) !important;
+}
+
+.telegram-action-btn.send-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  border: 1.5px solid #10b981 !important;
+  font-size: 18px !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45) !important;
+}
+
+.telegram-action-btn.send-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  transform: scale(1.06) !important;
+  box-shadow: 0 0 22px rgba(16, 185, 129, 0.65) !important;
+}
+
+.telegram-action-btn:active {
+  transform: scale(0.92) !important;
+}
+
+/* ==========================================================================
+   PROFILE PAGE MOBILE CENTERING & RESPONSIVENESS
+   Ensures cards, buttons, badges, and forms are balanced and centered on mobile
+   ========================================================================== */
+@media (max-width: 768px) {
+  .profile-hero-card {
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 480px !important;
+  }
+
+  .profile-settings-card {
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 480px !important;
+  }
+
+  .profile-tab-btn {
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+    padding: 8px 4px !important;
+    font-size: 11px !important;
+  }
+
+  .profile-form-submit-row {
+    display: flex !important;
+    justify-content: center !important;
+    width: 100% !important;
+  }
+
+  .profile-form-submit-row .button {
+    width: 100% !important;
+    max-width: 280px !important;
+  }
+}
+
 /* Voice Recording Animations */
 @keyframes blink {
   0%, 50%, 100% {

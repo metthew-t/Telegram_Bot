@@ -15,6 +15,13 @@ export default function SettingsPage() {
   const [actionFeedback, setActionFeedback] = useState({});
   const [testEmail, setTestEmail] = useState('');
 
+  // Telegram Broadcast Announcement states
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastTarget, setBroadcastTarget] = useState('all');
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
+  const [broadcastFeedback, setBroadcastFeedback] = useState(null);
+
   // Danger Zone / Purge Modal states
   const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
   const [purgeConfirmText, setPurgeConfirmText] = useState('');
@@ -27,7 +34,7 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (isPurgeModalOpen) {
+    if (isPurgeModalOpen || isBroadcastModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -35,7 +42,7 @@ export default function SettingsPage() {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isPurgeModalOpen]);
+  }, [isPurgeModalOpen, isBroadcastModalOpen]);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -71,6 +78,43 @@ export default function SettingsPage() {
       }));
     } finally {
       setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
+    }
+  };
+
+  const handleOpenBroadcastModal = (e) => {
+    if (e) e.preventDefault();
+    if (!broadcastMessage.trim()) {
+      setBroadcastFeedback({ type: 'error', message: 'Please enter a message before dispatching.' });
+      return;
+    }
+    setBroadcastFeedback(null);
+    setIsBroadcastModalOpen(true);
+  };
+
+  const handleSendBroadcast = async () => {
+    setBroadcastLoading(true);
+    setBroadcastFeedback(null);
+    try {
+      const res = await apiCall('/api/system/action/', 'POST', {
+        action: 'broadcast_telegram',
+        target_group: broadcastTarget,
+        message: broadcastMessage.trim()
+      });
+      setBroadcastFeedback({
+        type: res.status === 'ok' ? 'success' : 'error',
+        message: res.message || 'Broadcast completed successfully.'
+      });
+      if (res.status === 'ok') {
+        setBroadcastMessage('');
+        setIsBroadcastModalOpen(false);
+      }
+    } catch (err) {
+      setBroadcastFeedback({
+        type: 'error',
+        message: err.message || 'Failed to dispatch broadcast.'
+      });
+    } finally {
+      setBroadcastLoading(false);
     }
   };
 
@@ -340,6 +384,86 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* 📢 Owner Broadcast Announcement to Telegram Users */}
+      <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', border: '1px solid rgba(212, 175, 55, 0.35)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '18px', color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              📢 Official Broadcast to Telegram Users
+            </h2>
+            <p style={{ margin: '0.35rem 0 0 0', color: '#94a3b8', fontSize: '13px' }}>
+              Manually compose and send critical platform updates, rule changes, or urgent announcements to Telegram users.
+            </p>
+          </div>
+          <span style={{ fontSize: '11px', padding: '0.35rem 0.65rem', borderRadius: '12px', background: 'rgba(212, 175, 55, 0.1)', color: 'var(--gold)', border: '1px solid rgba(212, 175, 55, 0.25)', fontWeight: 600 }}>
+            🛡️ Safe Anti-Spam Throttled
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', fontWeight: 600, marginBottom: '0.35rem' }}>
+              Target Audience
+            </label>
+            <select
+              className="input"
+              value={broadcastTarget}
+              onChange={(e) => setBroadcastTarget(e.target.value)}
+              style={{ width: '100%', fontSize: '13px' }}
+            >
+              <option value="all">👥 All Telegram Users (Counselees + Staff)</option>
+              <option value="users">🎓 Counselees Only (Students)</option>
+              <option value="staff">👔 Staff & Counselors Only</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', lineHeight: '1.5' }}>
+              ℹ️ Messages are sent individually to each recipient's Telegram DM with safe interval pacing (0.35s delay) to strictly prevent bot rate limits or spam flags.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', fontWeight: 600, marginBottom: '0.35rem' }}>
+            Announcement Message (Supports Plain Text & Emojis)
+          </label>
+          <textarea
+            className="input"
+            rows={4}
+            placeholder="Write your announcement or rule update here... e.g. 📢 Notice: Our counseling team has updated our guidelines. In case of urgent assistance..."
+            value={broadcastMessage}
+            onChange={(e) => setBroadcastMessage(e.target.value)}
+            style={{ width: '100%', resize: 'vertical', fontSize: '13.5px', lineHeight: '1.5', fontFamily: 'inherit' }}
+          />
+        </div>
+
+        {broadcastFeedback && (
+          <div style={{
+            marginBottom: '1rem',
+            padding: '0.75rem 1rem',
+            borderRadius: '6px',
+            fontSize: '13px',
+            background: broadcastFeedback.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+            border: `1px solid ${broadcastFeedback.type === 'success' ? '#10b981' : '#ef4444'}`,
+            color: broadcastFeedback.type === 'success' ? '#10b981' : '#ef4444'
+          }}>
+            {broadcastFeedback.type === 'success' ? '✅ ' : '⚠️ '}{broadcastFeedback.message}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={handleOpenBroadcastModal}
+            disabled={broadcastLoading || !broadcastMessage.trim()}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
+          >
+            📢 Preview & Dispatch Broadcast
+          </button>
+        </div>
+      </div>
+
       {/* ⚠️ Danger Zone: Pre-Launch System Reset */}
       <div className="card glass-panel" style={{ marginTop: '2rem', border: '1px solid rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.04)', padding: '1.75rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
@@ -473,6 +597,84 @@ export default function SettingsPage() {
                 disabled={purgeConfirmText !== 'RESET'}
               >
                 CONFIRM RESET
+              </LoadingButton>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Portaled Telegram Broadcast Confirmation Modal */}
+      {isBroadcastModalOpen && createPortal(
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            padding: '1rem',
+            boxSizing: 'border-box'
+          }}
+          onClick={() => !broadcastLoading && setIsBroadcastModalOpen(false)}
+        >
+          <div
+            className="modal-content glass-panel"
+            style={{
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              border: '1px solid var(--gold)',
+              maxWidth: '560px',
+              width: '100%',
+              padding: '2rem',
+              background: '#0d1117',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.8), 0 0 30px rgba(212, 175, 55, 0.2)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ color: 'var(--gold)', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '20px' }}>
+              📢 Confirm Telegram Broadcast
+            </h2>
+            <p style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: '1.6' }}>
+              You are about to dispatch an official announcement to <strong>{broadcastTarget === 'all' ? 'All Registered Users & Staff' : broadcastTarget === 'users' ? 'All Counselees' : 'All Staff Members'}</strong>.
+            </p>
+
+            <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(212, 175, 55, 0.2)', borderRadius: '8px', padding: '1rem', margin: '1rem 0' }}>
+              <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem', fontWeight: 700 }}>
+                Message Preview
+              </div>
+              <div style={{ color: '#f8fafc', fontSize: '13.5px', whiteSpace: 'pre-wrap', lineHeight: '1.6', maxHeight: '180px', overflowY: 'auto' }}>
+                {broadcastMessage}
+              </div>
+            </div>
+
+            <p style={{ color: '#10b981', fontSize: '12.5px', background: 'rgba(16, 185, 129, 0.08)', padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              🛡️ <strong>Safety Guarantee:</strong> Throttled at 0.35s delay per message to fully comply with Telegram's strict anti-spam limits.
+            </p>
+
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setIsBroadcastModalOpen(false)}
+                disabled={broadcastLoading}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <LoadingButton
+                type="button"
+                className="button button-primary"
+                style={{ flex: 1, fontWeight: 700 }}
+                onClick={handleSendBroadcast}
+                loading={broadcastLoading}
+                loadingText="Broadcasting..."
+              >
+                Confirm & Dispatch
               </LoadingButton>
             </div>
           </div>

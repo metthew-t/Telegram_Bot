@@ -2577,5 +2577,65 @@ class SystemActionView(APIView):
             except Exception as e:
                 return Response({'error': f"Failed to send email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        elif action == 'broadcast_telegram':
+            message_text = str(request.data.get('message') or '').strip()
+            if not message_text:
+                return Response({'error': 'Announcement message text is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            target = request.data.get('target', 'all')
+            qs = User.objects.exclude(telegram_id__isnull=True).exclude(telegram_id='')
+
+            if target == 'users':
+                qs = qs.filter(role='user')
+            elif target == 'staff':
+                qs = qs.filter(role__in=['admin', 'owner'])
+            elif target == 'specific':
+                user_ids = request.data.get('user_ids', [])
+                if user_ids:
+                    qs = qs.filter(id__in=user_ids)
+
+            recipients = list(qs)
+            if not recipients:
+                return Response({'error': 'No users with active Telegram IDs match the chosen audience.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Send broadcast safely with throttling (0.35s delay per message to prevent Telegram rate limit / anti-spam flags)
+            sent_count = 0
+            failed_count = 0
+            import time
+
+            # Prepend clean official header so users clearly understand it is an official platform broadcast
+            formatted_text = f"📢 [ASTU Counseling Announcement]\n\n{message_text}"
+
+            for u in recipients:
+                try:
+                    success = send_telegram_notification(u.telegram_id, formatted_text)
+                    if success:
+                        sent_count += 1
+                    else:
+                        failed_count += 1
+                    time.sleep(0.35)  # Safe delay between each recipient
+                except Exception as exc:
+                    failed_count += 1
+                    print(f"[Broadcast Error] User {u.username}: {exc}")
+
+            # Record in AuditLog
+            try:
+                AuditLog.objects.create(
+                    case=None,
+                    performer=request.user,
+                    action='broadcast_message',
+                    details=f"Owner broadcast dispatched to {sent_count} user(s) ({failed_count} failed). Audience: {target}. Preview: {message_text[:80]}"
+                )
+            except Exception as log_err:
+                print(f"[Broadcast Log Error] {log_err}")
+
+            return Response({
+                'status': 'success',
+                'message': f"Broadcast successfully dispatched! Delivered to {sent_count} user(s) ({failed_count} failed or blocked).",
+                'sent_count': sent_count,
+                'failed_count': failed_count,
+                'total_targeted': len(recipients)
+            })
+
         return Response({'error': f"Unknown action: '{action}'"}, status=status.HTTP_400_BAD_REQUEST)
 

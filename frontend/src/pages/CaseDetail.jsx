@@ -527,36 +527,28 @@ export default function CaseDetailPage() {
                 </div>
               ) : (
                 <>
-                  {/* Voice Recorder (for admin/owner only) */}
+                  {/* Voice Recorder or Telegram Standard Chat Bar */}
                   {(user?.role === 'admin' || user?.role === 'owner') && showVoiceRecorder ? (
-                    <div style={{ marginBottom: '12px' }}>
+                    <div style={{ marginBottom: '12px', background: 'rgba(0, 0, 0, 0.4)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255, 215, 0, 0.25)' }}>
                       <VoiceRecorder 
                         onRecordingComplete={(voiceData) => handleSendMessage(null, voiceData)} 
                       />
-                      <button
-                        onClick={() => setShowVoiceRecorder(false)}
-                        className="button"
-                        style={{ marginTop: '8px', fontSize: '13px', padding: '6px 12px' }}
-                      >
-                        ← Back to Text
-                      </button>
+                      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowVoiceRecorder(false)}
+                          className="button button-secondary button-sm"
+                          style={{ fontSize: '12px', padding: '6px 16px', borderRadius: '20px' }}
+                        >
+                          ✕ Cancel / Back to Text
+                        </button>
+                      </div>
                     </div>
                   ) : (
-                    <form className="form-inline" onSubmit={handleSendMessage}>
-                      <div className="input-with-emoji">
-                        <AutoExpandTextarea
-                          ref={messageInputRef}
-                          value={messageContent}
-                          onChange={(e) => setMessageContent(e.target.value)}
-                          onEnterSubmit={handleSendMessage}
-                          onFocus={() => markMessagesAsSeen()}
-                          placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
-                          required={!showVoiceRecorder}
-                          disabled={isSending}
-                          minHeight={42}
-                          maxHeight={160}
-                        />
+                    <form className="telegram-chat-bar" onSubmit={handleSendMessage}>
+                      <div className="telegram-input-capsule">
                         <EmojiPickerComponent
+                          position="left"
                           onEmojiClick={(emoji) => {
                             const input = messageInputRef.current;
                             if (input) {
@@ -574,35 +566,61 @@ export default function CaseDetailPage() {
                           }}
                           inputRef={messageInputRef}
                         />
+                        <AutoExpandTextarea
+                          ref={messageInputRef}
+                          value={messageContent}
+                          onChange={(e) => setMessageContent(e.target.value)}
+                          onEnterSubmit={handleSendMessage}
+                          onFocus={() => markMessagesAsSeen()}
+                          placeholder="Message... (Enter to send, Shift+Enter for new line)"
+                          required={!showVoiceRecorder}
+                          disabled={isSending}
+                          minHeight={42}
+                          maxHeight={160}
+                        />
                       </div>
                       
-                      {/* Voice button for admin/owner */}
-                      {(user?.role === 'admin' || user?.role === 'owner') && (
+                      {/* Dynamic Telegram Action Button */}
+                      {messageContent.trim().length > 0 ? (
+                        <button
+                          type="submit"
+                          className="telegram-action-btn send-btn"
+                          disabled={isSending}
+                          title="Send message"
+                        >
+                          {isSending ? (
+                            <span style={{ fontSize: '14px' }}>⏳</span>
+                          ) : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: '2px' }}>
+                              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                            </svg>
+                          )}
+                        </button>
+                      ) : (user?.role === 'admin' || user?.role === 'owner') ? (
                         <button
                           type="button"
                           onClick={() => setShowVoiceRecorder(true)}
-                          className="button"
-                          style={{
-                            padding: '10px',
-                            fontSize: '18px',
-                            minWidth: 'auto',
-                            background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.1) 100%)',
-                            border: '1px solid rgba(255, 215, 0, 0.3)'
-                          }}
-                          title="Send voice message"
+                          className="telegram-action-btn voice-btn"
+                          title="Record voice message"
                         >
-                          🎤
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                          </svg>
+                        </button>
+                      ) : (
+                        <button
+                          type="submit"
+                          className="telegram-action-btn send-btn"
+                          disabled={!messageContent.trim()}
+                          style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                          title="Type a message to send"
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: '2px' }}>
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                          </svg>
                         </button>
                       )}
-                      
-                      <LoadingButton
-                        className="button button-primary"
-                        type="submit"
-                        loading={isSending}
-                        loadingText="Sending..."
-                      >
-                        Send
-                      </LoadingButton>
                     </form>
                   )}
                 </>
