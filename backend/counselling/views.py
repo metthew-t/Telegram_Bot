@@ -2590,21 +2590,13 @@ class SystemActionView(APIView):
             if not message_text:
                 return Response({'error': 'Announcement message text is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            target = request.data.get('target') or request.data.get('target_group') or 'all'
-            qs = User.objects.exclude(telegram_id__isnull=True).exclude(telegram_id='')
-
-            if target == 'users':
-                qs = qs.filter(role='user')
-            elif target == 'staff':
-                qs = qs.filter(role__in=['admin', 'owner'])
-            elif target == 'specific':
-                user_ids = request.data.get('user_ids', [])
-                if user_ids:
-                    qs = qs.filter(id__in=user_ids)
+            # Announcements on Telegram are strictly targeted to counselees / students.
+            # (Admins and counselors collaborate and receive staff notices via Internal System Chat)
+            qs = User.objects.filter(role='user').exclude(telegram_id__isnull=True).exclude(telegram_id='')
 
             recipients = list(qs)
             if not recipients:
-                return Response({'error': 'No users with active Telegram IDs match the chosen audience.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'No registered counselees with active Telegram IDs found.'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Send broadcast safely with throttling (0.35s delay per message to prevent Telegram rate limit / anti-spam flags)
             sent_count = 0
@@ -2632,14 +2624,14 @@ class SystemActionView(APIView):
                     case=None,
                     performer=request.user,
                     action='broadcast_message',
-                    details=f"Owner broadcast dispatched to {sent_count} user(s) ({failed_count} failed). Audience: {target}. Preview: {message_text[:80]}"
+                    details=f"Owner broadcast dispatched to {sent_count} counselee(s) ({failed_count} failed). Preview: {message_text[:80]}"
                 )
             except Exception as log_err:
                 print(f"[Broadcast Log Error] {log_err}")
 
             return Response({
                 'status': 'success',
-                'message': f"Broadcast successfully dispatched! Delivered to {sent_count} user(s) ({failed_count} failed or blocked).",
+                'message': f"Broadcast successfully dispatched to counselees! Delivered to {sent_count} user(s) ({failed_count} failed or blocked).",
                 'sent_count': sent_count,
                 'failed_count': failed_count,
                 'total_targeted': len(recipients)
