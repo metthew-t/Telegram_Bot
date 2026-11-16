@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiCall } from '../api.js';
 import { getUser } from '../auth.js';
@@ -28,6 +28,16 @@ export default function SettingsPage() {
   const [purgeError, setPurgeError] = useState('');
   const [purgeSuccess, setPurgeSuccess] = useState('');
 
+  // Backup & Restore states
+  const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
+  const [backupFeedback, setBackupFeedback] = useState(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreFeedback, setRestoreFeedback] = useState(null);
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [restoreFileInfo, setRestoreFileInfo] = useState(null);
+  const [restoreFileParsed, setRestoreFileParsed] = useState(null);
+  const restoreFileRef = useRef(null);
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -42,6 +52,15 @@ export default function SettingsPage() {
       document.body.style.overflow = '';
     };
   }, [isPurgeModalOpen, isBroadcastModalOpen]);
+
+  useEffect(() => {
+    if (isRestoreModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isRestoreModalOpen]);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -134,6 +153,85 @@ export default function SettingsPage() {
       setPurgeError(err.message || 'Failed to purge test data');
     } finally {
       setIsPurging(false);
+    }
+  };
+
+  // ── Backup Download ──────────────────────────────────────────────────────────
+  const handleDownloadBackup = async () => {
+    setIsDownloadingBackup(true);
+    setBackupFeedback(null);
+    try {
+      const auth = JSON.parse(localStorage.getItem('telegram_counselling_auth') || '{}');
+      const token = auth?.access || '';
+      const apiBase = window.location.origin;
+      const response = await fetch(`${apiBase}/api/system/backup/`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error: ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      a.download = `focus_astu_backup_${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setBackupFeedback({ type: 'success', message: 'Backup downloaded successfully to your device!' });
+    } catch (err) {
+      setBackupFeedback({ type: 'error', message: err.message || 'Failed to download backup.' });
+    } finally {
+      setIsDownloadingBackup(false);
+    }
+  };
+
+  // ── Restore: File picker handler ─────────────────────────────────────────────
+  const handleRestoreFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setRestoreFeedback(null);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const parsed = JSON.parse(evt.target.result);
+        if (!parsed.users || !parsed.backup_version) {
+          setRestoreFeedback({ type: 'error', message: 'Invalid backup file. This does not appear to be a Focus ASTU backup.' });
+          return;
+        }
+        setRestoreFileInfo({ name: file.name, size: (file.size / 1024).toFixed(1) + ' KB' });
+        setRestoreFileParsed(parsed);
+        setIsRestoreModalOpen(true);
+      } catch {
+        setRestoreFeedback({ type: 'error', message: 'Could not read file — it may be corrupt or not a valid JSON backup.' });
+      }
+    };
+    reader.readAsText(file);
+    // Reset input so same file can be re-selected
+    e.target.value = '';
+  };
+
+  // ── Restore: Send to backend ─────────────────────────────────────────────────
+  const handleRestoreBackup = async () => {
+    if (!restoreFileParsed) return;
+    setIsRestoring(true);
+    setRestoreFeedback(null);
+    try {
+      const res = await apiCall('/api/system/backup/', 'POST', restoreFileParsed);
+      setRestoreFeedback({ type: 'success', message: res.message });
+      setIsRestoreModalOpen(false);
+      setRestoreFileInfo(null);
+      setRestoreFileParsed(null);
+      fetchSettings();
+    } catch (err) {
+      setRestoreFeedback({ type: 'error', message: err.message || 'Restore failed. Please try again.' });
+      setIsRestoreModalOpen(false);
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -446,6 +544,57 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* 💾 Database Backup & Restore */}
+      <div className="glass-panel" style={{ marginTop: '2rem', padding: '1.75rem', border: '1px solid rgba(99,102,241,0.35)', background: 'rgba(99,102,241,0.04)' }}>
+        <h3 style={{ color: '#818cf8', margin: '0 0 0.5rem 0', fontSize: '19px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          💾 Database Backup &amp; Restore
+        </h3>
+        <p style={{ margin: '0 0 1.5rem 0', color: '#94a3b8', fontSize: '13.5px', lineHeight: '1.6' }}>
+          Download a complete backup of all platform data (users, cases, messages, audit logs, internal chat) or restore from a previous backup file.
+          Restore is <strong style={{ color: '#c4b5fd' }}>non-destructive</strong> — existing records are never overwritten.
+        </p>
+
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <LoadingButton
+            className="button button-primary"
+            onClick={handleDownloadBackup}
+            loading={isDownloadingBackup}
+            loadingText="Generating backup..."
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
+          >
+            📥 Download Full Backup
+          </LoadingButton>
+
+          <button
+            className="button button-secondary"
+            onClick={() => { setRestoreFeedback(null); restoreFileRef.current?.click(); }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
+          >
+            📤 Restore from Backup
+          </button>
+          {/* Hidden file input */}
+          <input
+            ref={restoreFileRef}
+            type="file"
+            accept=".json,application/json"
+            style={{ display: 'none' }}
+            onChange={handleRestoreFileSelect}
+          />
+        </div>
+
+        {backupFeedback && (
+          <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: '6px', fontSize: '13px', background: backupFeedback.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: backupFeedback.type === 'success' ? '#10b981' : '#ef4444', border: `1px solid ${backupFeedback.type === 'success' ? '#10b981' : '#ef4444'}` }}>
+            {backupFeedback.type === 'success' ? '✅ ' : '⚠️ '}{backupFeedback.message}
+          </div>
+        )}
+
+        {restoreFeedback && (
+          <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: '6px', fontSize: '13px', background: restoreFeedback.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: restoreFeedback.type === 'success' ? '#10b981' : '#ef4444', border: `1px solid ${restoreFeedback.type === 'success' ? '#10b981' : '#ef4444'}` }}>
+            {restoreFeedback.type === 'success' ? '✅ ' : '⚠️ '}{restoreFeedback.message}
+          </div>
+        )}
+      </div>
+
       {/* ⚠️ Danger Zone: Pre-Launch System Reset */}
       <div className="card glass-panel" style={{ marginTop: '2rem', border: '1px solid rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.04)', padding: '1.75rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
@@ -657,6 +806,102 @@ export default function SettingsPage() {
                 loadingText="Broadcasting..."
               >
                 Confirm & Dispatch
+              </LoadingButton>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Portaled Restore Confirmation Modal */}
+      {isRestoreModalOpen && createPortal(
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            padding: '1rem',
+            boxSizing: 'border-box'
+          }}
+          onClick={() => !isRestoring && setIsRestoreModalOpen(false)}
+        >
+          <div
+            className="modal-content glass-panel"
+            style={{
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              border: '1px solid rgba(99,102,241,0.6)',
+              maxWidth: '540px',
+              width: '100%',
+              padding: '2rem',
+              background: '#0d1117',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.8), 0 0 30px rgba(99,102,241,0.2)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ color: '#818cf8', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '20px' }}>
+              📤 Confirm Database Restore
+            </h2>
+            <p style={{ color: '#cbd5e1', fontSize: '14px', lineHeight: '1.6' }}>
+              You are about to restore platform data from the following backup file:
+            </p>
+
+            {restoreFileInfo && (
+              <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '8px', padding: '1rem', margin: '1rem 0' }}>
+                <div style={{ fontSize: '12px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700, marginBottom: '0.5rem' }}>Backup File</div>
+                <div style={{ color: '#f8fafc', fontSize: '13.5px', fontWeight: 600 }}>📄 {restoreFileInfo.name}</div>
+                <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '0.3rem' }}>Size: {restoreFileInfo.size}</div>
+              </div>
+            )}
+
+            {restoreFileParsed && (
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '1rem', margin: '0.5rem 0 1rem 0' }}>
+                <div style={{ fontSize: '12px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700, marginBottom: '0.75rem' }}>Backup Contents</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  {Object.entries(restoreFileParsed.counts || {}).map(([key, count]) => (
+                    <div key={key} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                      <span style={{ color: '#94a3b8', fontSize: '12px', textTransform: 'capitalize' }}>{key.replace(/_/g, ' ')}: </span>
+                      <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{count}</span>
+                    </div>
+                  ))}
+                </div>
+                {restoreFileParsed.created_at && (
+                  <div style={{ marginTop: '0.75rem', fontSize: '12px', color: '#64748b' }}>
+                    Created: {new Date(restoreFileParsed.created_at).toLocaleString()}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <p style={{ color: '#10b981', fontSize: '12.5px', background: 'rgba(16,185,129,0.08)', padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(16,185,129,0.3)', margin: '0 0 1.5rem 0' }}>
+              🛡️ <strong>Non-Destructive Restore:</strong> Existing records are never overwritten. Only missing data is re-imported from the backup.
+            </p>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => setIsRestoreModalOpen(false)}
+                disabled={isRestoring}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <LoadingButton
+                type="button"
+                className="button button-primary"
+                style={{ flex: 1, fontWeight: 700, background: 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)' }}
+                onClick={handleRestoreBackup}
+                loading={isRestoring}
+                loadingText="Restoring..."
+              >
+                ✅ Confirm Restore
               </LoadingButton>
             </div>
           </div>

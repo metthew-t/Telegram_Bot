@@ -2753,3 +2753,138 @@ class SystemActionView(APIView):
 
         return Response({'error': f"Unknown action: '{action}'"}, status=status.HTTP_400_BAD_REQUEST)
 
+
+# ─── System Backup & Restore ─────────────────────────────────────────────────
+
+class SystemBackupView(APIView):
+    """
+    GET  /api/system/backup/  → Owner-only: Download full platform JSON backup
+    POST /api/system/backup/  → Owner-only: Restore platform from JSON backup
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'owner':
+            return Response({'error': 'Owner access required'}, status=status.HTTP_403_FORBIDDEN)
+
+        import json
+        from django.http import HttpResponse
+
+        users = list(User.objects.all().values())
+        cases = list(Case.objects.all().values())
+        messages = list(Message.objects.all().values())
+        audit_logs = list(AuditLog.objects.all().values())
+        internal_messages = list(InternalMessage.objects.all().values())
+
+        backup_data = {
+            'backup_version': '1.0',
+            'created_at': timezone.now().isoformat(),
+            'platform': 'Focus ASTU Counseling Platform',
+            'counts': {
+                'users': len(users),
+                'cases': len(cases),
+                'messages': len(messages),
+                'audit_logs': len(audit_logs),
+                'internal_messages': len(internal_messages),
+            },
+            'users': users,
+            'cases': cases,
+            'messages': messages,
+            'audit_logs': audit_logs,
+            'internal_messages': internal_messages,
+        }
+
+        filename = f"focus_astu_backup_{timezone.now().strftime('%Y%m%d_%H%M%S')}.json"
+        response = HttpResponse(
+            json.dumps(backup_data, indent=2, default=str),
+            content_type='application/json'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    def post(self, request):
+        if request.user.role != 'owner':
+            return Response({'error': 'Owner access required'}, status=status.HTTP_403_FORBIDDEN)
+
+        backup_data = request.data
+        if not backup_data or 'users' not in backup_data:
+            return Response({'error': 'Invalid backup file. Missing required data sections.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        restored = {'users': 0, 'cases': 0, 'messages': 0, 'audit_logs': 0, 'internal_messages': 0}
+        errors = []
+
+        # Restore Users (non-destructive: skip existing by username)
+        for u_data in backup_data.get('users', []):
+            try:
+                username = u_data.get('username')
+                if username and not User.objects.filter(username=username).exists():
+                    # Remove primary key to let DB auto-assign, preserve other fields
+                    create_data = {k: v for k, v in u_data.items() if k != 'id'}
+                    User.objects.create(**create_data)
+                    restored['users'] += 1
+            except Exception as e:
+                errors.append(f"User '{u_data.get('username', '?')}': {str(e)}")
+
+        # Restore Cases (get_or_create by original id)
+        for c_data in backup_data.get('cases', []):
+            try:
+                orig_id = c_data.get('id')
+                if orig_id is not None:
+                    defaults = {k: v for k, v in c_data.items() if k != 'id'}
+                    _, created = Case.objects.get_or_create(id=orig_id, defaults=defaults)
+                    if created:
+                        restored['cases'] += 1
+            except Exception as e:
+                errors.append(f"Case #{c_data.get('id', '?')}: {str(e)}")
+
+        # Restore Messages (get_or_create by original id)
+        for m_data in backup_data.get('messages', []):
+            try:
+                orig_id = m_data.get('id')
+                if orig_id is not None:
+                    defaults = {k: v for k, v in m_data.items() if k != 'id'}
+                    _, created = Message.objects.get_or_create(id=orig_id, defaults=defaults)
+                    if created:
+                        restored['messages'] += 1
+            except Exception as e:
+                errors.append(f"Message #{m_data.get('id', '?')}: {str(e)}")
+
+        # Restore InternalMessages (get_or_create by original id)
+        for im_data in backup_data.get('internal_messages', []):
+            try:
+                orig_id = im_data.get('id')
+                if orig_id is not None:
+                    defaults = {k: v for k, v in im_data.items() if k != 'id'}
+                    _, created = InternalMessage.objects.get_or_create(id=orig_id, defaults=defaults)
+                    if created:
+                        restored['internal_messages'] += 1
+            except Exception as e:
+                errors.append(f"InternalMessage #{im_data.get('id', '?')}: {str(e)}")
+
+        # Log restore action
+        try:
+            AuditLog.objects.create(
+                case=None,
+                performer=request.user,
+                action='database_restore',
+                details=(
+                    f"Owner restored from backup. Restored: {restored['users']} users, "
+                    f"{restored['cases']} cases, {restored['messages']} messages, "
+                    f"{restored['internal_messages']} internal messages. "
+                    f"Errors: {len(errors)}"
+                )
+            )
+        except Exception:
+            pass
+
+        return Response({
+            'status': 'success',
+            'message': (
+                f"Restore completed! Restored {restored['users']} user(s), "
+                f"{restored['cases']} case(s), {restored['messages']} message(s), "
+                f"{restored['internal_messages']} internal message(s)."
+            ),
+            'restored': restored,
+            'errors': errors[:10],
+        })
+
