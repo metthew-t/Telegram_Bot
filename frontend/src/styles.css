@@ -1513,7 +1513,9 @@ time {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 215, 0, 0.2);
   border-radius: var(--radius);
-  color: var(--text-primary);
+  color: #ffffff !important;
+  caret-color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
   font-family: inherit;
   font-size: 14px;
   line-height: 1.5;
@@ -1527,6 +1529,9 @@ time {
   outline: none;
   border-color: var(--gold);
   box-shadow: 0 0 15px var(--gold-glow);
+  color: #ffffff !important;
+  caret-color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 /* Custom sleek scrollbar for auto-expanding textarea */
@@ -1665,7 +1670,9 @@ time {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  color: var(--text-primary) !important;
+  color: #ffffff !important;
+  caret-color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
   font-size: 14px !important;
   line-height: 1.45 !important;
   border-radius: 26px !important;
@@ -1676,6 +1683,16 @@ time {
   outline: none !important;
   border: none !important;
   box-shadow: none !important;
+  color: #ffffff !important;
+  caret-color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.telegram-input-capsule .auto-expand-textarea::placeholder,
+.auto-expand-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.5) !important;
+  opacity: 1 !important;
 }
 
 .emoji-picker-btn-left {

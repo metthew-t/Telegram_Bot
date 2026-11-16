@@ -554,6 +554,7 @@ export default function SystemChatPage() {
                                         disabled={loading || isSending}
                                         minHeight={42}
                                         maxHeight={160}
+                                        style={{ color: '#ffffff', caretColor: '#ffffff' }}
                                     />
                                 </div>
                                 
@@ -803,7 +804,7 @@ export default function SystemChatPage() {
                                     disabled={loading || isUploading || isSending}
                                     minHeight={42}
                                     maxHeight={180}
-                                    style={{ flex: 1 }}
+                                    style={{ flex: 1, color: '#ffffff', caretColor: '#ffffff' }}
                                 />
                                 <input
                                     type="file"

@@ -83,6 +83,8 @@ const AutoExpandTextarea = forwardRef(function AutoExpandTextarea(
         minHeight: `${minHeight}px`,
         maxHeight: `${maxHeight}px`,
         boxSizing: 'border-box',
+        color: '#ffffff',
+        caretColor: '#ffffff',
         ...style,
       }}
       {...rest}

@@ -577,6 +577,7 @@ export default function CaseDetailPage() {
                           disabled={isSending}
                           minHeight={42}
                           maxHeight={160}
+                          style={{ color: '#ffffff', caretColor: '#ffffff' }}
                         />
                       </div>
                       
