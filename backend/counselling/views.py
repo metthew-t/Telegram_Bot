@@ -144,9 +144,14 @@ def send_telegram_notification(telegram_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     chunks = split_telegram_text(text, max_len=4000)
     all_success = True
+    first_sent_tg_id = None
     last_sent_tg_id = None
 
     for idx, chunk in enumerate(chunks):
+        if idx > 0:
+            import time
+            time.sleep(0.3)  # Brief delay between consecutive chunks to avoid Telegram rate limits
+
         payload = {
             "chat_id": telegram_id,
             "text": chunk,
@@ -157,51 +162,63 @@ def send_telegram_notification(telegram_id, text, reply_markup=None):
 
         print(f"[send_telegram_notification] Sending chunk {idx+1}/{len(chunks)} ({len(chunk)} chars)...")
 
-        try:
-            response = requests.post(url, json=payload, timeout=10)
-            print(f"[send_telegram_notification] HTTP Response status: {response.status_code}")
-            
-            if response.status_code != 200:
-                print(f"ERROR: [send_telegram_notification] API Error: {response.status_code}")
-                print(f"ERROR: [send_telegram_notification] Response body: {response.text}")
+        chunk_sent = False
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                response = requests.post(url, json=payload, timeout=12)
+                print(f"[send_telegram_notification] HTTP Response status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    print(f"SUCCESS: [send_telegram_notification] Chunk {idx+1} sent successfully!")
+                    try:
+                        res_json = response.json()
+                        if res_json.get('ok'):
+                            msg_id = res_json.get('result', {}).get('message_id')
+                            if first_sent_tg_id is None:
+                                first_sent_tg_id = msg_id
+                            last_sent_tg_id = msg_id
+                    except Exception:
+                        pass
+                    chunk_sent = True
+                    break
                 
                 # Parse common Telegram errors safely
                 try:
                     error_data = response.json()
                     error_desc = error_data.get('description', '')
-                    print(f"ERROR: [send_telegram_notification] Error description: {error_desc}")
+                    print(f"ERROR: [send_telegram_notification] API Error: {response.status_code} - {error_desc}")
                     
                     # Handle 429 Too Many Requests (Flood control)
                     if response.status_code == 429:
-                        retry_after = error_data.get('parameters', {}).get('retry_after', 5)
-                        print(f"WARNING: [send_telegram_notification] Telegram Flood Control! Sleeping {retry_after}s...")
+                        retry_after = error_data.get('parameters', {}).get('retry_after', 3)
+                        print(f"WARNING: [send_telegram_notification] Telegram Flood Control! Sleeping {retry_after + 1}s (attempt {attempt+1}/{max_retries+1})...")
                         import time
                         time.sleep(retry_after + 1)
+                        continue
                     elif 'chat not found' in error_desc.lower():
                         print(f"ERROR: [send_telegram_notification] User hasn't started the bot yet.")
+                        break
                     elif 'bot was blocked' in error_desc.lower():
                         print(f"ERROR: [send_telegram_notification] User has blocked the bot.")
+                        break
                 except Exception as parse_err:
                     print(f"[send_telegram_notification] Error parsing response: {parse_err}")
                 
-                all_success = False
-            else:
-                print(f"SUCCESS: [send_telegram_notification] Chunk {idx+1} sent successfully!")
-                try:
-                    res_json = response.json()
-                    if res_json.get('ok'):
-                        last_sent_tg_id = res_json.get('result', {}).get('message_id')
-                except Exception:
-                    pass
-            
-        except Exception as e:
-            print(f"ERROR: [send_telegram_notification] Exception occurred: {str(e)}")
-            import traceback
-            traceback.print_exc()
+                # Non-429 error, exit retry loop
+                break
+
+            except Exception as e:
+                print(f"ERROR: [send_telegram_notification] Exception occurred on attempt {attempt+1}: {str(e)}")
+                if attempt < max_retries:
+                    import time
+                    time.sleep(1)
+
+        if not chunk_sent:
             all_success = False
 
     if all_success:
-        return last_sent_tg_id if last_sent_tg_id else True
+        return first_sent_tg_id if first_sent_tg_id else (last_sent_tg_id if last_sent_tg_id else True)
     return False
 
 
@@ -214,11 +231,18 @@ def edit_telegram_message(telegram_id, telegram_message_id, new_text):
     if not token or not telegram_id or not telegram_message_id:
         return False
 
+    # Telegram's editMessageText has a 4096 character limit on a single bubble.
+    # If edited text exceeds 4000 characters, in-place edit cannot fit the full text.
+    # Return False so caller falls back to sending the full multi-chunk edited message.
+    if len(str(new_text)) > 4000:
+        print(f"[edit_telegram_message] Text length ({len(str(new_text))}) exceeds 4000 chars; delegating to multi-chunk notification fallback.")
+        return False
+
     url = f"https://api.telegram.org/bot{token}/editMessageText"
     payload = {
         "chat_id": str(telegram_id).strip(),
         "message_id": int(telegram_message_id),
-        "text": str(new_text)[:4000]
+        "text": str(new_text)
     }
     try:
         res = requests.post(url, json=payload, timeout=10)
@@ -1728,10 +1752,10 @@ class MessageViewSet(viewsets.ModelViewSet):
                             import traceback
                             traceback.print_exc()
                     else:
-                        # Regular text message - simplified notification (user has only one case)
-                        notification_text = f'{message.content[:500]}'
+                        # Regular text message - full message content (split across Telegram chunks if long)
+                        notification_text = message.content
                         safe_print_text = notification_text.encode('ascii', 'ignore').decode('ascii')
-                        print(f"[TELEGRAM NOTIFICATION] Notification text preview: {safe_print_text[:100]}...")
+                        print(f"[TELEGRAM NOTIFICATION] Notification text preview: {safe_print_text[:100]}... (total length: {len(notification_text)} chars)")
                         print(f"[TELEGRAM NOTIFICATION] Calling send_telegram_notification()...")
                         
                         try:
